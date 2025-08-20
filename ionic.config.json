@@ -1,0 +1,7 @@
+{
+  "name": "field-maps",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "angular-standalone"
+}
