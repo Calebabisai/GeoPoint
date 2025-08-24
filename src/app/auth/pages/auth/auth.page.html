@@ -1,0 +1,66 @@
+<ion-content class="auth-page">
+  <div class="auth-container">
+    <!-- Hero Section -->
+    <div class="hero-section">
+      <div class="hero-background">
+        <div class="location-icon-bg">
+          <ion-icon name="location-outline" class="hero-icon"></ion-icon>
+        </div>
+      </div>
+
+      <div class="hero-content">
+        <h1 class="hero-title">GeoPoint</h1>
+        <p class="hero-subtitle">
+          Tu plataforma de mapeo inteligente.<br />
+          Explora, marca y conecta con el mundo que te rodea.
+        </p>
+
+        <div class="hero-features">
+          <div class="feature-item">
+            <ion-icon name="map-outline" class="feature-icon"></ion-icon>
+            <span class="feature-text">Mapeo preciso</span>
+          </div>
+          <div class="feature-item">
+            <ion-icon name="navigate-outline" class="feature-icon"></ion-icon>
+            <span class="feature-text">Navegación intuitiva</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Actions Section -->
+    <div class="actions-section">
+      <h2 class="actions-title">Comienza tu experiencia</h2>
+
+      <div class="auth-buttons">
+        <ion-button expand="block" class="primary-button" routerLink="/login">
+          <ion-icon name="log-in-outline" slot="start"></ion-icon>
+          Iniciar Sesión
+        </ion-button>
+
+        <div class="divider">
+          <span class="divider-text">o</span>
+        </div>
+
+        <ion-button
+          expand="block"
+          fill="outline"
+          class="secondary-button"
+          routerLink="/register"
+        >
+          <ion-icon name="person-add-outline" slot="start"></ion-icon>
+          Crear Cuenta Nueva
+        </ion-button>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="auth-footer">
+      <p class="footer-text">
+        Al continuar, aceptas nuestros
+        <a href="#" class="footer-link">Términos de Servicio</a> y
+        <a href="#" class="footer-link">Política de Privacidad</a>
+      </p>
+    </div>
+  </div>
+</ion-content>

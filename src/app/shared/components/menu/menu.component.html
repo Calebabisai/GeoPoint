@@ -1,0 +1,257 @@
+<ion-menu content-id="main-content" class="uber-menu">
+  <!-- User Profile Section -->
+  <div class="user-profile-section">
+    <div class="profile-background"></div>
+    <div class="profile-content" *ngIf="currentUser$ | async as user">
+      <div class="profile-avatar">
+        <ion-icon name="person-outline" class="avatar-icon"></ion-icon>
+      </div>
+      <div class="profile-info">
+        <h3 class="user-name">{{ user.email }}</h3>
+        <div class="user-role-badge" [class]="getRoleClass(user.role)">
+          <ion-icon
+            [name]="getRoleIcon(user.role)"
+            class="role-icon"
+          ></ion-icon>
+          <span class="role-text">{{ getRoleDisplayName(user.role) }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Content Section -->
+  <ion-content class="menu-content">
+    <div class="menu-sections" *ngIf="currentUser$ | async as user">
+      <!-- Organization Section -->
+      <div
+        class="menu-section"
+        *ngIf="currentOrganization$ | async as organization"
+      >
+        <div class="section-header">
+          <h4 class="section-title">
+            <ion-icon name="business-outline" class="section-icon"></ion-icon>
+            Mi Organización
+          </h4>
+        </div>
+
+        <div class="menu-items">
+          <div class="menu-item">
+            <div class="item-icon">
+              <ion-icon name="business-outline"></ion-icon>
+            </div>
+            <div class="item-content">
+              <div class="item-title">{{ organization.name }}</div>
+              <div class="item-subtitle">
+                {{
+                  getOrganizationRoleDisplayName(
+                    (organizationRole$ | async) || ""
+                  )
+                }}
+                • {{ organization.members.length }} miembros
+              </div>
+            </div>
+            <div class="item-actions">
+              <ion-badge color="primary">{{ organization.code }}</ion-badge>
+            </div>
+          </div>
+        </div>
+
+        <!-- Organization Management (Solo para Owner/Admin) -->
+        <ion-accordion-group
+          *ngIf="
+            (organizationRole$ | async) === 'owner' ||
+            (organizationRole$ | async) === 'admin'
+          "
+        >
+          <ion-accordion value="org-management">
+            <ion-item slot="header">
+              <ion-icon
+                name="settings-outline"
+                slot="start"
+                color="secondary"
+              ></ion-icon>
+              <ion-label>
+                <h3>Gestionar Organización</h3>
+                <p>Invitar usuarios y configuración</p>
+              </ion-label>
+            </ion-item>
+            <div class="org-management-content" slot="content">
+              <ion-list>
+                <ion-item button (click)="inviteUser()">
+                  <ion-icon
+                    name="person-add-outline"
+                    slot="start"
+                    color="primary"
+                  ></ion-icon>
+                  <ion-label>
+                    <h3>Invitar Usuario</h3>
+                    <p>Enviar invitación por email</p>
+                  </ion-label>
+                </ion-item>
+
+                <ion-item button (click)="copyInviteCode()">
+                  <ion-icon
+                    name="copy-outline"
+                    slot="start"
+                    color="tertiary"
+                  ></ion-icon>
+                  <ion-label>
+                    <h3>Copiar Código</h3>
+                    <p>Compartir código: {{ organization.code }}</p>
+                  </ion-label>
+                </ion-item>
+              </ion-list>
+            </div>
+          </ion-accordion>
+        </ion-accordion-group>
+      </div>
+
+      <!-- Account Section -->
+      <div class="menu-section">
+        <div class="section-header">
+          <h4 class="section-title">Mi Cuenta</h4>
+        </div>
+
+        <div class="menu-items">
+          <div class="menu-item">
+            <div class="item-icon">
+              <ion-icon name="mail-outline"></ion-icon>
+            </div>
+            <div class="item-content">
+              <div class="item-title">Correo Electrónico</div>
+              <div class="item-subtitle">{{ user.email }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Panel de Desarrollo (Solo para DEV) -->
+      <div class="menu-section" *ngIf="isDev$ | async">
+        <div class="section-header">
+          <h4 class="section-title">
+            <ion-icon name="settings-outline" class="section-icon"></ion-icon>
+            Panel de Desarrollo
+          </h4>
+        </div>
+
+        <ion-accordion-group>
+          <ion-accordion value="role-management">
+            <ion-item slot="header">
+              <ion-icon
+                name="swap-horizontal-outline"
+                slot="start"
+                color="primary"
+              ></ion-icon>
+              <ion-label>
+                <h3>Cambiar Rol</h3>
+                <p>Alternar entre roles para pruebas</p>
+              </ion-label>
+            </ion-item>
+            <div class="role-selector-content" slot="content">
+              <ion-list>
+                <ion-item
+                  button
+                  (click)="changeRole('dev')"
+                  [color]="user.role === 'dev' ? 'primary' : ''"
+                >
+                  <ion-icon
+                    name="code-slash-outline"
+                    slot="start"
+                    color="tertiary"
+                  ></ion-icon>
+                  <ion-label>
+                    <h3>Desarrollador</h3>
+                    <p>Acceso completo al sistema</p>
+                  </ion-label>
+                  <ion-badge *ngIf="user.role === 'dev'" color="tertiary"
+                    >Activo</ion-badge
+                  >
+                </ion-item>
+
+                <ion-item
+                  button
+                  (click)="changeRole('admin')"
+                  [color]="user.role === 'admin' ? 'primary' : ''"
+                >
+                  <ion-icon
+                    name="ribbon-outline"
+                    slot="start"
+                    color="warning"
+                  ></ion-icon>
+                  <ion-label>
+                    <h3>Administrador</h3>
+                    <p>Gestión de zonas y usuarios</p>
+                  </ion-label>
+                  <ion-badge *ngIf="user.role === 'admin'" color="warning"
+                    >Activo</ion-badge
+                  >
+                </ion-item>
+
+                <ion-item
+                  button
+                  (click)="changeRole('user')"
+                  [color]="user.role === 'user' ? 'primary' : ''"
+                >
+                  <ion-icon
+                    name="people-outline"
+                    slot="start"
+                    color="medium"
+                  ></ion-icon>
+                  <ion-label>
+                    <h3>Usuario</h3>
+                    <p>Permisos básicos</p>
+                  </ion-label>
+                  <ion-badge *ngIf="user.role === 'user'" color="medium"
+                    >Activo</ion-badge
+                  >
+                </ion-item>
+              </ion-list>
+            </div>
+          </ion-accordion>
+
+          <ion-accordion value="org-management">
+            <ion-item slot="header">
+              <ion-icon
+                name="business-outline"
+                slot="start"
+                color="secondary"
+              ></ion-icon>
+              <ion-label>
+                <h3>Gestión de Organizaciones</h3>
+                <p>Crear y administrar grupos</p>
+              </ion-label>
+            </ion-item>
+            <div class="org-dev-content" slot="content">
+              <ion-list>
+                <ion-item button (click)="createOrganization()">
+                  <ion-icon
+                    name="add-outline"
+                    slot="start"
+                    color="success"
+                  ></ion-icon>
+                  <ion-label>
+                    <h3>Nueva Organización</h3>
+                    <p>Crear un nuevo grupo de trabajo</p>
+                  </ion-label>
+                </ion-item>
+              </ion-list>
+            </div>
+          </ion-accordion>
+        </ion-accordion-group>
+      </div>
+    </div>
+  </ion-content>
+
+  <!-- Footer Section -->
+  <div class="menu-footer">
+    <ion-button
+      expand="block"
+      fill="clear"
+      class="logout-button"
+      (click)="onLogout()"
+    >
+      <ion-icon name="log-out-outline" slot="start"></ion-icon>
+      <span>Cerrar Sesión</span>
+    </ion-button>
+  </div>
+</ion-menu>

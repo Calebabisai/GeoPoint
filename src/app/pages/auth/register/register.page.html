@@ -1,0 +1,116 @@
+<ion-content class="register-page">
+  <div class="register-container">
+    <!-- Header Section -->
+    <div class="header-section">
+      <div class="back-button">
+        <ion-button fill="clear" routerLink="/auth" class="back-btn">
+          <ion-icon name="arrow-back-outline" slot="icon-only"></ion-icon>
+        </ion-button>
+      </div>
+
+      <div class="header-content">
+        <div class="brand-logo">
+          <ion-icon name="person-add-outline" class="logo-icon"></ion-icon>
+        </div>
+        <h1 class="header-title">Crear Cuenta</h1>
+        <p class="header-subtitle">
+          Únete a GeoPoint y comienza a explorar el mundo de manera inteligente
+        </p>
+      </div>
+    </div>
+
+    <!-- Form Section -->
+    <div class="form-section">
+      <form (ngSubmit)="register()" class="register-form">
+        <!-- Email Field -->
+        <div class="form-group">
+          <label class="form-label">Correo Electrónico</label>
+          <ion-input
+            [(ngModel)]="email"
+            name="email"
+            type="email"
+            class="uber-input"
+            placeholder="tu@ejemplo.com"
+            [class.error]="error && !email"
+          >
+          </ion-input>
+        </div>
+
+        <!-- Password Field -->
+        <div class="form-group">
+          <label class="form-label">Contraseña</label>
+          <ion-input
+            [(ngModel)]="password"
+            name="password"
+            type="password"
+            class="uber-input"
+            placeholder="Mínimo 6 caracteres"
+            [class.error]="error && !password"
+          >
+          </ion-input>
+        </div>
+
+        <!-- Confirm Password Field -->
+        <div class="form-group">
+          <label class="form-label">Confirmar Contraseña</label>
+          <ion-input
+            [(ngModel)]="confirmPassword"
+            name="confirmPassword"
+            type="password"
+            class="uber-input"
+            placeholder="Repite tu contraseña"
+            [class.error]="error && password !== confirmPassword"
+          >
+          </ion-input>
+        </div>
+
+        <!-- Error Message -->
+        <div *ngIf="error" class="error-message">
+          <ion-icon name="alert-circle-outline"></ion-icon>
+          <span>{{ error }}</span>
+        </div>
+
+        <!-- Terms and Conditions -->
+        <div class="terms-section">
+          <p class="terms-text">
+            Al crear una cuenta, aceptas nuestros
+            <a href="#" class="terms-link">Términos de Servicio</a> y
+            <a href="#" class="terms-link">Política de Privacidad</a>
+          </p>
+        </div>
+
+        <!-- Submit Button -->
+        <div class="form-actions">
+          <ion-button
+            type="submit"
+            expand="block"
+            class="register-button"
+            [disabled]="loading"
+          >
+            <ion-icon
+              name="person-add-outline"
+              slot="start"
+              *ngIf="!loading"
+            ></ion-icon>
+            <ion-spinner name="crescent" *ngIf="loading"></ion-spinner>
+            {{ loading ? 'Creando cuenta...' : 'Crear Cuenta' }}
+          </ion-button>
+
+          <div class="divider">
+            <span class="divider-text">¿Ya tienes cuenta?</span>
+          </div>
+
+          <ion-button
+            fill="outline"
+            expand="block"
+            class="login-button"
+            routerLink="/login"
+          >
+            <ion-icon name="log-in-outline" slot="start"></ion-icon>
+            Iniciar Sesión
+          </ion-button>
+        </div>
+      </form>
+    </div>
+  </div>
+</ion-content>

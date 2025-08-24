@@ -1,0 +1,77 @@
+<ion-content class="login-page">
+  <div class="login-container">
+    <!-- Logo y título -->
+    <div class="brand-section animate-fadeIn">
+      <div class="brand-logo">
+        <ion-icon name="location" class="logo-icon"></ion-icon>
+      </div>
+      <h1 class="brand-title">GeoPoint</h1>
+      <p class="brand-subtitle">Mapeo inteligente para tu negocio</p>
+    </div>
+
+    <!-- Formulario -->
+    <form (ngSubmit)="login()" class="login-form animate-slideInUp">
+      <div class="form-group">
+        <label class="form-label">Correo electrónico</label>
+        <ion-input
+          [(ngModel)]="email"
+          name="email"
+          type="email"
+          placeholder="tu@email.com"
+          fill="outline"
+          class="uber-input"
+          required
+        ></ion-input>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Contraseña</label>
+        <ion-input
+          [(ngModel)]="password"
+          name="password"
+          type="password"
+          placeholder="••••••••"
+          fill="outline"
+          class="uber-input"
+          required
+        ></ion-input>
+      </div>
+
+      <div class="form-actions">
+        <ion-button
+          expand="block"
+          size="large"
+          type="submit"
+          class="login-button"
+          [disabled]="!email || !password"
+        >
+          <span>Iniciar Sesión</span>
+        </ion-button>
+
+        <div class="divider">
+          <span class="divider-text">o</span>
+        </div>
+
+        <ion-button
+          expand="block"
+          fill="outline"
+          size="large"
+          routerLink="/register"
+          class="register-button"
+        >
+          <span>Crear nueva cuenta</span>
+        </ion-button>
+      </div>
+    </form>
+
+    <!-- Footer -->
+    <div class="login-footer">
+      <p class="footer-text">
+        Al continuar, aceptas nuestros
+        <a href="#" class="footer-link">Términos de Servicio</a>
+        y
+        <a href="#" class="footer-link">Política de Privacidad</a>
+      </p>
+    </div>
+  </div>
+</ion-content>

@@ -1,20 +1,202 @@
-<ion-header [translucent]="true">
-  <ion-toolbar>
-    <ion-title>
-      Blank
-    </ion-title>
-  </ion-toolbar>
-</ion-header>
-
-<ion-content [fullscreen]="true">
-  <ion-header collapse="condense">
-    <ion-toolbar>
-      <ion-title size="large">Blank</ion-title>
+<ion-menu
+  side="start"
+  menuId="main-menu"
+  contentId="main-content"
+  class="admin-menu"
+>
+  <ion-header>
+    <ion-toolbar color="dark">
+      <ion-title class="menu-title">
+        <ion-icon name="location-outline" class="menu-brand-icon"></ion-icon>
+        GeoPoint Admin
+      </ion-title>
     </ion-toolbar>
   </ion-header>
 
-  <div id="container">
-    <strong>Ready to create an app?</strong>
-    <p>Start with Ionic <a target="_blank" rel="noopener noreferrer" href="https://ionicframework.com/docs/components">UI Components</a></p>
+  <ion-content class="menu-content">
+    <ion-list class="menu-list">
+      <!-- User Management Section -->
+      <div class="menu-section" *ngIf="isAdmin">
+        <div class="section-header">
+          <ion-icon name="people-outline" color="primary"></ion-icon>
+          <span>Administración</span>
+        </div>
+
+        <ion-item
+          button
+          (click)="navigateToUserManagement()"
+          class="menu-item admin-item"
+        >
+          <ion-icon name="people" slot="start" color="warning"></ion-icon>
+          <ion-label>
+            <h3>Gestión de Usuarios</h3>
+            <p>Administrar roles y organizaciones</p>
+          </ion-label>
+          <ion-icon name="chevron-forward" slot="end" color="medium"></ion-icon>
+        </ion-item>
+
+        <ion-item
+          button
+          (click)="navigateToOrganizations()"
+          class="menu-item admin-item"
+        >
+          <ion-icon name="business" slot="start" color="tertiary"></ion-icon>
+          <ion-label>
+            <h3>Organizaciones</h3>
+            <p>Gestionar grupos y permisos</p>
+          </ion-label>
+          <ion-icon name="chevron-forward" slot="end" color="medium"></ion-icon>
+        </ion-item>
+
+        <ion-item button (click)="viewAnalytics()" class="menu-item admin-item">
+          <ion-icon name="analytics" slot="start" color="success"></ion-icon>
+          <ion-label>
+            <h3>Estadísticas</h3>
+            <p>Análisis y reportes del sistema</p>
+          </ion-label>
+          <ion-icon name="chevron-forward" slot="end" color="medium"></ion-icon>
+        </ion-item>
+      </div>
+
+      <!-- Map Management Section -->
+      <div class="menu-section">
+        <div class="section-header">
+          <ion-icon name="map-outline" color="primary"></ion-icon>
+          <span>Mapa</span>
+        </div>
+
+        <ion-item button (click)="recenterMap(); closeMenu()" class="menu-item">
+          <ion-icon
+            name="location-outline"
+            slot="start"
+            color="primary"
+          ></ion-icon>
+          <ion-label>
+            <h3>Mi Ubicación</h3>
+            <p>Centrar mapa en ubicación actual</p>
+          </ion-label>
+        </ion-item>
+
+        <ion-item button (click)="toggleMapLayers()" class="menu-item">
+          <ion-icon
+            name="layers-outline"
+            slot="start"
+            color="medium"
+          ></ion-icon>
+          <ion-label>
+            <h3>Capas del Mapa</h3>
+            <p>Configurar visualización</p>
+          </ion-label>
+        </ion-item>
+      </div>
+
+      <!-- Settings Section -->
+      <div class="menu-section">
+        <div class="section-header">
+          <ion-icon name="settings-outline" color="primary"></ion-icon>
+          <span>Configuración</span>
+        </div>
+
+        <ion-item button (click)="openSettings()" class="menu-item">
+          <ion-icon name="settings" slot="start" color="medium"></ion-icon>
+          <ion-label>
+            <h3>Configuración</h3>
+            <p>Preferencias y ajustes</p>
+          </ion-label>
+          <ion-icon name="chevron-forward" slot="end" color="medium"></ion-icon>
+        </ion-item>
+
+        <ion-item button (click)="showProfile()" class="menu-item">
+          <ion-icon name="person-circle" slot="start" color="medium"></ion-icon>
+          <ion-label>
+            <h3>Mi Perfil</h3>
+            <p>{{ currentUserEmail }}</p>
+          </ion-label>
+          <ion-icon name="chevron-forward" slot="end" color="medium"></ion-icon>
+        </ion-item>
+      </div>
+    </ion-list>
+
+    <!-- Role Indicator -->
+    <div class="role-indicator" *ngIf="userRole">
+      <div class="role-badge" [class]="'role-' + userRole">
+        <ion-icon
+          [name]="userRole === 'dev' ? 'code-slash' : (userRole === 'admin' ? 'shield-checkmark' : 'person')"
+          class="role-icon"
+        >
+        </ion-icon>
+        <span class="role-text">{{ getRoleDisplayName(userRole) }}</span>
+      </div>
+    </div>
+  </ion-content>
+
+  <ion-footer class="menu-footer">
+    <ion-toolbar color="dark">
+      <ion-button
+        (click)="logout()"
+        fill="clear"
+        color="danger"
+        class="logout-button"
+      >
+        <ion-icon name="log-out-outline" slot="start"></ion-icon>
+        Cerrar Sesión
+      </ion-button>
+    </ion-toolbar>
+  </ion-footer>
+</ion-menu>
+
+<ion-header [translucent]="true" class="uber-header">
+  <ion-toolbar class="uber-toolbar">
+    <ion-buttons slot="start">
+      <ion-button (click)="openMenu()" class="menu-button">
+        <ion-icon name="menu-outline"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+
+    <!-- Título centrado simple -->
+    <div slot="" class="toolbar-center">
+      <div class="brand-container">
+        <div class="brand-logo">
+          <ion-icon name="location-outline"></ion-icon>
+        </div>
+        <span class="brand-title">GeoPoint</span>
+      </div>
+    </div>
+
+    <ion-buttons slot="end" class="header-actions">
+      <!-- Role indicator badge -->
+      <div class="role-indicator-header" *ngIf="userRole">
+        <ion-chip
+          [color]="getRoleColor(userRole)"
+          class="role-chip-header"
+          size="small"
+        >
+          <ion-icon
+            [name]="userRole === 'dev' ? 'code-slash' : (userRole === 'admin' ? 'shield-checkmark' : 'person')"
+            size="small"
+          >
+          </ion-icon>
+          <ion-label>{{ getRoleDisplayName(userRole) }}</ion-label>
+        </ion-chip>
+      </div>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="map-content" id="main-content">
+  <!-- Map Container -->
+  <div class="map-container">
+    <app-map-view></app-map-view>
+  </div>
+
+  <!-- Floating Action Buttons -->
+  <div class="fab-container">
+    <!-- Location FAB -->
+    <div class="location-fab-wrapper">
+      <ion-fab-button class="uber-fab location-fab" (click)="recenterMap()">
+        <ion-icon name="location-outline"></ion-icon>
+      </ion-fab-button>
+      <div class="fab-label">Mi ubicación</div>
+    </div>
   </div>
 </ion-content>

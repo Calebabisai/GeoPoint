@@ -1,0 +1,390 @@
+<!-- Selector de roles para desarrollo -->
+<div class="role-selector-container">
+  <app-role-selector></app-role-selector>
+</div>
+
+<!-- Indicador de estado de autorización -->
+@if (currentUserRole$ | async; as role) {
+<div class="auth-indicator">
+  <ion-chip [color]="role === 'admin' ? 'success' : 'primary'" size="small">
+    <ion-icon
+      [name]="role === 'admin' ? 'shield-checkmark' : 'person'"
+      slot="start"
+    ></ion-icon>
+    <ion-label>{{ role | titlecase }}</ion-label>
+  </ion-chip>
+</div>
+}
+
+<!-- Indicador de modo editar -->
+@if (editMode) {
+<div class="edit-mode-indicator">
+  <ion-chip color="danger" size="small">
+    <ion-icon name="trash" slot="start"></ion-icon>
+    <ion-label>Modo Editar</ion-label>
+  </ion-chip>
+</div>
+}
+
+<!-- Botón flotante principal con opciones expandibles -->
+<ion-fab vertical="bottom" horizontal="center" slot="fixed">
+  <ion-fab-button
+    (click)="toggleFab()"
+    [color]="fabExpanded ? 'danger' : 'primary'"
+    size="small"
+  >
+    <ion-icon [name]="fabExpanded ? 'close' : 'add'" size="large"></ion-icon>
+  </ion-fab-button>
+
+  <ion-fab-list side="top" [activated]="fabExpanded">
+    <!-- Botón de marcador - solo si tiene permisos -->
+    @if (canCreateMarker$ | async) {
+    <ion-fab-button
+      (click)="isCreatingMarker ? openMarkerPanel() : startCreatingMarker()"
+      [color]="isCreatingMarker ? 'tertiary' : 'success'"
+      size="small"
+    >
+      <ion-icon
+        [name]="isCreatingMarker ? 'checkmark-circle' : 'location'"
+        size="small"
+      ></ion-icon>
+    </ion-fab-button>
+    }
+
+    <!-- Botón de zona - solo si tiene permisos -->
+    @if (canCreateZone$ | async) {
+    <ion-fab-button
+      (click)="openZonePanel()"
+      [color]="isCreatingZone ? 'tertiary' : 'secondary'"
+      size="small"
+    >
+      <ion-icon
+        [name]="isCreatingZone ? 'checkmark-circle' : 'color-palette'"
+        size="small"
+      ></ion-icon>
+    </ion-fab-button>
+    }
+
+    <!-- Botón de modo editar - solo para admins/dev -->
+    @if ((isAdmin$ | async) || ((currentUserRole$ | async) === 'dev')) {
+    <ion-fab-button
+      (click)="toggleEditMode()"
+      [color]="editMode ? 'danger' : 'medium'"
+      size="small"
+    >
+      <ion-icon [name]="editMode ? 'checkmark' : 'create'" size="small">
+      </ion-icon>
+    </ion-fab-button>
+    }
+  </ion-fab-list>
+</ion-fab>
+
+<!-- Panel deslizante para marcadores -->
+<div
+  class="slide-panel"
+  [class.panel-open]="panelOpen && panelType === 'marker'"
+  [class.panel-closed]="!panelOpen || panelType !== 'marker'"
+>
+  <div class="panel-header">
+    <h3>Añadir Marcador</h3>
+    <ion-button fill="clear" (click)="closePanel()">
+      <ion-icon name="close" slot="icon-only"></ion-icon>
+    </ion-button>
+  </div>
+
+  <div class="panel-content">
+    <!-- Estado de ubicación -->
+    <div class="location-status">
+      @if (clickedLocation) {
+      <ion-chip color="success">
+        <ion-icon name="checkmark-circle"></ion-icon>
+        <ion-label>Ubicación seleccionada</ion-label>
+      </ion-chip>
+      } @else if (isCreatingMarker) {
+      <ion-chip color="medium">
+        <ion-icon name="location-outline"></ion-icon>
+        <ion-label>Modo creación activo</ion-label>
+      </ion-chip>
+      <ion-button
+        fill="outline"
+        color="danger"
+        size="small"
+        (click)="stopCreatingMarker()"
+      >
+        <ion-icon name="stop" slot="start" size="small"></ion-icon>
+        Cancelar
+      </ion-button>
+      } @else {
+      <ion-chip color="warning">
+        <ion-icon name="location-outline"></ion-icon>
+        <ion-label>Toca el mapa para ubicación</ion-label>
+      </ion-chip>
+      }
+    </div>
+
+    <!-- Formulario compacto -->
+    <div class="form-compact">
+      <ion-item lines="none" class="form-item">
+        <ion-input
+          [(ngModel)]="markerForm.title"
+          placeholder="Nombre del marcador *"
+          fill="outline"
+          clearInput="true"
+        >
+        </ion-input>
+      </ion-item>
+
+      <ion-item lines="none" class="form-item">
+        <ion-textarea
+          [(ngModel)]="markerForm.description"
+          placeholder="Descripción (opcional)"
+          fill="outline"
+          rows="2"
+          autoGrow="true"
+        >
+        </ion-textarea>
+      </ion-item>
+
+      <!-- Selección rápida de tipo con botones -->
+      <div class="type-selector">
+        <p class="selector-label">Tipo de marcador:</p>
+        <div class="type-buttons">
+          <ion-button
+            [fill]="markerForm.type === 'marker' ? 'solid' : 'outline'"
+            size="small"
+            (click)="markerForm.type = 'marker'"
+          >
+            <ion-icon name="location" slot="start" size="small"></ion-icon>
+            Marcador
+          </ion-button>
+
+          <ion-button
+            [fill]="markerForm.type === 'house' ? 'solid' : 'outline'"
+            size="small"
+            color="secondary"
+            (click)="markerForm.type = 'house'"
+          >
+            <ion-icon name="home" slot="start" size="small"></ion-icon>
+            Casa
+          </ion-button>
+
+          <ion-button
+            [fill]="markerForm.type === 'poi' ? 'solid' : 'outline'"
+            size="small"
+            color="tertiary"
+            (click)="markerForm.type = 'poi'"
+          >
+            <ion-icon name="star" slot="start" size="small"></ion-icon>
+            POI
+          </ion-button>
+        </div>
+      </div>
+
+      <!-- Selección rápida de colores -->
+      <div class="color-selector">
+        <p class="selector-label">Color:</p>
+        <div class="color-options">
+          @for (color of colors; track color.value) {
+          <button
+            class="color-button"
+            [class.selected]="markerForm.color === color.value"
+            [style.background-color]="color.value"
+            (click)="markerForm.color = color.value"
+          ></button>
+          }
+        </div>
+      </div>
+
+      <!-- Botón de acción principal -->
+      <ion-button
+        expand="block"
+        size="large"
+        (click)="addMarker()"
+        [disabled]="!clickedLocation || !markerForm.title.trim()"
+        class="action-button"
+      >
+        <ion-icon name="add-circle" slot="start"></ion-icon>
+        Crear Marcador
+      </ion-button>
+    </div>
+  </div>
+</div>
+
+<!-- Panel deslizante para zonas -->
+<div
+  class="slide-panel zone-panel"
+  [class.panel-open]="panelOpen && panelType === 'zone'"
+  [class.panel-closed]="!panelOpen || panelType !== 'zone'"
+>
+  <div class="panel-header">
+    <h3>Crear Zona</h3>
+    <ion-button fill="clear" (click)="closePanel()">
+      <ion-icon name="close" slot="icon-only"></ion-icon>
+    </ion-button>
+  </div>
+
+  <div class="panel-content">
+    <!-- Estado de puntos -->
+    <div class="points-status">
+      @if (!isCreatingZone) {
+      <ion-chip color="medium">
+        <ion-icon name="shapes"></ion-icon>
+        <ion-label>Modo definición: Inactivo</ion-label>
+      </ion-chip>
+      <ion-button
+        fill="solid"
+        color="primary"
+        size="small"
+        (click)="startCreatingZone()"
+      >
+        <ion-icon name="add-circle" slot="start" size="small"></ion-icon>
+        Empezar Zona
+      </ion-button>
+      } @else { @if (zonePoints.length >= 3) {
+      <ion-chip color="success">
+        <ion-icon name="checkmark-circle"></ion-icon>
+        <ion-label>{{ zonePoints.length }} puntos - Lista para crear</ion-label>
+      </ion-chip>
+      } @else {
+      <ion-chip color="warning">
+        <ion-icon name="location-outline"></ion-icon>
+        <ion-label>{{ zonePoints.length }}/3 puntos mínimos</ion-label>
+      </ion-chip>
+      }
+      <ion-button
+        fill="outline"
+        color="danger"
+        size="small"
+        (click)="cancelZoneCreation()"
+      >
+        <ion-icon name="stop" slot="start" size="small"></ion-icon>
+        Cancelar
+      </ion-button>
+      }
+    </div>
+
+    <!-- Mensaje de ayuda dinámico -->
+    @if (!isCreatingZone) {
+    <div class="help-text">
+      <p>
+        💡 Haz clic en "Empezar Zona" y luego toca el mapa para definir los
+        puntos de la zona
+      </p>
+    </div>
+    } @else {
+    <div class="help-text zone-active">
+      <p>🎯 <strong>Modo activo:</strong> Toca el mapa para agregar puntos</p>
+      @if (zonePoints.length < 3) {
+      <p>
+        ⏳ Necesitas {{ 3 - zonePoints.length }} puntos más para crear la zona
+      </p>
+      } @else {
+      <p>✅ Ya puedes crear la zona con {{ zonePoints.length }} puntos</p>
+      }
+    </div>
+    }
+
+    <!-- Formulario compacto -->
+    <div class="form-compact">
+      <ion-item lines="none" class="form-item">
+        <ion-input
+          [(ngModel)]="zoneForm.name"
+          placeholder="Nombre de la zona *"
+          fill="outline"
+          clearInput="true"
+        >
+        </ion-input>
+      </ion-item>
+
+      <ion-item lines="none" class="form-item">
+        <ion-input
+          [(ngModel)]="zoneForm.number"
+          placeholder="Número de zona *"
+          fill="outline"
+          type="number"
+          min="1"
+        >
+          <div slot="start">
+            <ion-icon name="apps" color="primary"></ion-icon>
+          </div>
+        </ion-input>
+      </ion-item>
+
+      <ion-item lines="none" class="form-item">
+        <ion-textarea
+          [(ngModel)]="zoneForm.description"
+          placeholder="Descripción (opcional)"
+          fill="outline"
+          rows="2"
+          autoGrow="true"
+        >
+        </ion-textarea>
+      </ion-item>
+
+      <!-- Selección rápida de tipo -->
+      <div class="type-selector">
+        <p class="selector-label">Tipo de zona:</p>
+        <div class="type-buttons">
+          <ion-button
+            [fill]="zoneForm.type === 'zone' ? 'solid' : 'outline'"
+            size="small"
+            (click)="zoneForm.type = 'zone'"
+          >
+            Zona
+          </ion-button>
+
+          <ion-button
+            [fill]="zoneForm.type === 'area' ? 'solid' : 'outline'"
+            size="small"
+            color="secondary"
+            (click)="zoneForm.type = 'area'"
+          >
+            Área
+          </ion-button>
+
+          <ion-button
+            [fill]="zoneForm.type === 'sector' ? 'solid' : 'outline'"
+            size="small"
+            color="tertiary"
+            (click)="zoneForm.type = 'sector'"
+          >
+            Sector
+          </ion-button>
+        </div>
+      </div>
+
+      <!-- Selección de colores -->
+      <div class="color-selector">
+        <p class="selector-label">Color:</p>
+        <div class="color-options">
+          @for (color of colors; track color.value) {
+          <button
+            class="color-button"
+            [class.selected]="zoneForm.color === color.value"
+            [style.background-color]="color.value"
+            (click)="zoneForm.color = color.value"
+          ></button>
+          }
+        </div>
+      </div>
+
+      <!-- Botón de acción principal -->
+      <ion-button
+        expand="block"
+        size="large"
+        (click)="createZone()"
+        [disabled]="zonePoints.length < 3 || !zoneForm.name.trim()"
+        class="action-button"
+      >
+        <ion-icon name="shapes" slot="start"></ion-icon>
+        Crear Zona
+      </ion-button>
+    </div>
+  </div>
+</div>
+
+<!-- Overlay para cerrar paneles - solo cuando no estamos interactuando con el mapa -->
+@if (panelOpen && !isCreatingZone && !isCreatingMarker && (panelType !==
+'marker' || clickedLocation)) {
+<div class="panel-overlay" (click)="closePanel()"></div>
+}

@@ -1,0 +1,262 @@
+/* Login Page - Estilo Uber */
+
+.login-page {
+  --background: var(--gp-bg-primary);
+  --color: var(--gp-text-primary);
+}
+
+.login-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: var(--gp-space-xl) var(--gp-space-lg);
+  background: var(--gp-bg-primary);
+}
+
+/* === SECCIÓN DE MARCA === */
+.brand-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: var(--gp-space-2xl) 0;
+}
+
+.brand-logo {
+  width: 80px;
+  height: 80px;
+  background: var(--gp-brand-primary);
+  border-radius: var(--gp-radius-xl);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--gp-space-lg);
+  box-shadow: var(--gp-shadow-lg);
+  
+  .logo-icon {
+    font-size: 2.5rem;
+    color: var(--gp-bg-primary);
+  }
+}
+
+.brand-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--gp-text-primary);
+  margin: 0 0 var(--gp-space-sm) 0;
+  letter-spacing: -0.02em;
+}
+
+.brand-subtitle {
+  font-size: 1.125rem;
+  font-weight: 400;
+  color: var(--gp-text-secondary);
+  margin: 0;
+  max-width: 300px;
+  line-height: 1.4;
+}
+
+/* === FORMULARIO === */
+.login-form {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  max-width: 400px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.form-group {
+  margin-bottom: var(--gp-space-lg);
+}
+
+.form-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--gp-text-secondary);
+  margin-bottom: var(--gp-space-sm);
+  letter-spacing: 0.025em;
+}
+
+.uber-input {
+  --background: var(--gp-bg-secondary);
+  --color: var(--gp-text-primary);
+  --border-color: var(--gp-bg-tertiary);
+  --border-width: 1px;
+  --border-style: solid;
+  --border-radius: var(--gp-radius);
+  --padding-start: 1rem;
+  --padding-end: 1rem;
+  --padding-top: 1rem;
+  --padding-bottom: 1rem;
+  --placeholder-color: var(--gp-text-tertiary);
+  
+  font-size: 1rem;
+  font-weight: 400;
+  transition: all 0.2s ease;
+  
+  &.ion-focused {
+    --border-color: var(--gp-brand-primary);
+    --box-shadow: 0 0 0 3px rgba(0, 212, 106, 0.1);
+  }
+}
+
+/* === ACCIONES DEL FORMULARIO === */
+.form-actions {
+  margin-top: var(--gp-space-xl);
+}
+
+.login-button {
+  --background: var(--gp-text-primary);
+  --color: var(--gp-bg-primary);
+  --border-radius: var(--gp-radius-lg);
+  --padding-top: 1rem;
+  --padding-bottom: 1rem;
+  --box-shadow: var(--gp-shadow);
+  
+  font-weight: 600;
+  font-size: 1.125rem;
+  text-transform: none;
+  letter-spacing: 0;
+  margin-bottom: var(--gp-space-lg);
+  
+  &:hover:not(.button-disabled) {
+    --background: var(--gp-text-secondary);
+    transform: translateY(-1px);
+    --box-shadow: var(--gp-shadow-md);
+  }
+  
+  &.button-disabled {
+    --background: var(--gp-bg-tertiary);
+    --color: var(--gp-text-tertiary);
+    opacity: 0.6;
+  }
+}
+
+/* Divisor */
+.divider {
+  position: relative;
+  margin: var(--gp-space-lg) 0;
+  text-align: center;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: var(--gp-bg-tertiary);
+    transform: translateY(-50%);
+  }
+}
+
+.divider-text {
+  background: var(--gp-bg-primary);
+  padding: 0 var(--gp-space-md);
+  font-size: 0.875rem;
+  color: var(--gp-text-tertiary);
+  font-weight: 400;
+}
+
+.register-button {
+  --background: transparent;
+  --color: var(--gp-text-primary);
+  --border-color: var(--gp-bg-tertiary);
+  --border-width: 1px;
+  --border-style: solid;
+  --border-radius: var(--gp-radius-lg);
+  --padding-top: 1rem;
+  --padding-bottom: 1rem;
+  
+  font-weight: 500;
+  font-size: 1rem;
+  text-transform: none;
+  letter-spacing: 0;
+  
+  &:hover {
+    --background: var(--gp-bg-secondary);
+    --border-color: var(--gp-text-tertiary);
+  }
+}
+
+/* === FOOTER === */
+.login-footer {
+  margin-top: var(--gp-space-2xl);
+  text-align: center;
+  padding: var(--gp-space-lg) 0;
+}
+
+.footer-text {
+  font-size: 0.75rem;
+  color: var(--gp-text-tertiary);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.footer-link {
+  color: var(--gp-brand-primary);
+  text-decoration: none;
+  font-weight: 500;
+  
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+/* === RESPONSIVE === */
+@media (max-width: 480px) {
+  .login-container {
+    padding: var(--gp-space-lg) var(--gp-space-md);
+  }
+  
+  .brand-title {
+    font-size: 2rem;
+  }
+  
+  .brand-subtitle {
+    font-size: 1rem;
+  }
+  
+  .brand-logo {
+    width: 60px;
+    height: 60px;
+    
+    .logo-icon {
+      font-size: 2rem;
+    }
+  }
+}
+
+@media (min-width: 768px) {
+  .login-container {
+    justify-content: center;
+    align-items: center;
+    flex-direction: row;
+    gap: var(--gp-space-2xl);
+    padding: var(--gp-space-xl);
+  }
+  
+  .brand-section {
+    flex: 1;
+    max-width: 500px;
+    align-items: flex-start;
+    text-align: left;
+  }
+  
+  .login-form {
+    flex: 0 0 400px;
+  }
+  
+  .brand-title {
+    font-size: 3rem;
+  }
+  
+  .brand-subtitle {
+    font-size: 1.25rem;
+    max-width: none;
+  }
+}

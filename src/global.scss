@@ -1,12 +1,7 @@
 /*
- * App Global CSS
+ * GeoPoint - Estilos Globales Estilo Uber
  * ----------------------------------------------------------------------------
- * Put style rules here that you want to apply globally. These styles are for
- * the entire app and not just one component. Additionally, this file can be
- * used as an entry point to import other CSS/Sass files to be included in the
- * output CSS.
- * For more information on global stylesheets, visit the documentation:
- * https://ionicframework.com/docs/layout/global-stylesheets
+ * Tema oscuro profesional inspirado en Uber
  */
 
 /* Core CSS required for Ionic components to work properly */
@@ -25,13 +20,715 @@
 @import "@ionic/angular/css/text-transformation.css";
 @import "@ionic/angular/css/flex-utils.css";
 
-/**
- * Ionic Dark Mode
- * -----------------------------------------------------
- * For more info, please see:
- * https://ionicframework.com/docs/theming/dark-mode
- */
+/* Forzar tema oscuro siempre */
+@import '@ionic/angular/css/palettes/dark.always.css';
 
-/* @import "@ionic/angular/css/palettes/dark.always.css"; */
-/* @import "@ionic/angular/css/palettes/dark.class.css"; */
-@import '@ionic/angular/css/palettes/dark.system.css';
+/* Leaflet CSS para mapas */
+@import "leaflet/dist/leaflet.css";
+
+/* === ESTILOS GLOBALES ESTILO UBER === */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--ion-font-family);
+  background: var(--gp-bg-primary);
+  color: var(--gp-text-primary);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* === TIPOGRAFÍA === */
+.text-uber-title {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+  color: var(--gp-text-primary);
+}
+
+.text-uber-subtitle {
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--gp-text-primary);
+}
+
+.text-uber-body {
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--gp-text-secondary);
+}
+
+.text-uber-caption {
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--gp-text-tertiary);
+}
+
+.text-uber-small {
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--gp-text-tertiary);
+}
+
+/* === COMPONENTES ESTILO UBER === */
+
+/* Botones */
+.btn-uber-primary {
+  background: var(--gp-text-primary);
+  color: var(--gp-bg-primary);
+  border: none;
+  border-radius: var(--gp-radius);
+  padding: 1rem 1.5rem;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--gp-text-secondary);
+    transform: translateY(-1px);
+    box-shadow: var(--gp-shadow-md);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.btn-uber-secondary {
+  background: var(--gp-bg-secondary);
+  color: var(--gp-text-primary);
+  border: 1px solid var(--gp-bg-tertiary);
+  border-radius: var(--gp-radius);
+  padding: 1rem 1.5rem;
+  font-weight: 500;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--gp-bg-tertiary);
+    border-color: var(--gp-text-tertiary);
+  }
+}
+
+/* Cards estilo Uber */
+.card-uber {
+  background: var(--gp-bg-secondary);
+  border: 1px solid var(--gp-bg-tertiary);
+  border-radius: var(--gp-radius-lg);
+  padding: var(--gp-space-lg);
+  box-shadow: var(--gp-shadow);
+  transition: all 0.2s ease;
+
+  &:hover {
+    box-shadow: var(--gp-shadow-md);
+    transform: translateY(-2px);
+  }
+}
+
+/* Inputs estilo Uber */
+.input-uber {
+  background: var(--gp-bg-secondary);
+  border: 1px solid var(--gp-bg-tertiary);
+  border-radius: var(--gp-radius);
+  padding: 0.875rem 1rem;
+  font-size: 1rem;
+  color: var(--gp-text-primary);
+  transition: all 0.2s ease;
+
+  &:focus {
+    outline: none;
+    border-color: var(--gp-brand-primary);
+    box-shadow: 0 0 0 3px rgba(0, 212, 106, 0.1);
+  }
+
+  &::placeholder {
+    color: var(--gp-text-tertiary);
+  }
+}
+
+/* === PERSONALIZACIÓN IONIC PARA TEMA UBER === */
+
+/* Ion Content */
+ion-content {
+  --background: var(--gp-bg-primary);
+  --color: var(--gp-text-primary);
+}
+
+/* Ion Header */
+ion-header {
+  ion-toolbar {
+    --background: var(--gp-bg-primary);
+    --color: var(--gp-text-primary);
+    --border-width: 0;
+    --border-style: none;
+    --box-shadow: 0 2px 4px rgba(255, 255, 255, 0.1);
+    
+    ion-title {
+      font-weight: 600;
+      font-size: 1.125rem;
+    }
+  }
+}
+
+/* Ion Button personalizado */
+ion-button {
+  --border-radius: var(--gp-radius);
+  --padding-start: 1.5rem;
+  --padding-end: 1.5rem;
+  --padding-top: 0.75rem;
+  --padding-bottom: 0.75rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+
+  &.button-fill-solid {
+    --background: var(--gp-text-primary);
+    --color: var(--gp-bg-primary);
+    
+    &:hover {
+      --background: var(--gp-text-secondary);
+    }
+  }
+
+  &.button-fill-outline {
+    --border-color: var(--gp-text-tertiary);
+    --color: var(--gp-text-primary);
+    
+    &:hover {
+      --background: var(--gp-bg-secondary);
+    }
+  }
+
+  &.button-size-large {
+    --padding-top: 1rem;
+    --padding-bottom: 1rem;
+    font-size: 1.125rem;
+  }
+}
+
+/* Ion Card */
+ion-card {
+  --background: var(--gp-bg-secondary);
+  --color: var(--gp-text-primary);
+  border: 1px solid var(--gp-bg-tertiary);
+  border-radius: var(--gp-radius-lg);
+  box-shadow: var(--gp-shadow);
+  margin: var(--gp-space-md);
+
+  ion-card-header {
+    padding-bottom: 0;
+
+    ion-card-title {
+      color: var(--gp-text-primary);
+      font-weight: 600;
+      font-size: 1.25rem;
+    }
+
+    ion-card-subtitle {
+      color: var(--gp-text-secondary);
+      font-weight: 400;
+    }
+  }
+}
+
+/* Ion Item */
+ion-item {
+  --background: transparent;
+  --color: var(--gp-text-primary);
+  --border-color: var(--gp-bg-tertiary);
+  --inner-border-width: 0;
+  --padding-start: 0;
+  --padding-end: 0;
+
+  ion-label {
+    font-weight: 400;
+  }
+}
+
+/* Ion Input */
+ion-input {
+  --background: var(--gp-bg-secondary);
+  --color: var(--gp-text-primary);
+  --padding-start: 1rem;
+  --padding-end: 1rem;
+  --padding-top: 0.875rem;
+  --padding-bottom: 0.875rem;
+  border: 1px solid var(--gp-bg-tertiary);
+  border-radius: var(--gp-radius);
+  margin: var(--gp-space-xs) 0;
+
+  &.ion-focused {
+    border-color: var(--gp-brand-primary);
+    box-shadow: 0 0 0 3px rgba(0, 212, 106, 0.1);
+  }
+}
+
+/* Ion Textarea */
+ion-textarea {
+  --background: var(--gp-bg-secondary);
+  --color: var(--gp-text-primary);
+  --padding-start: 1rem;
+  --padding-end: 1rem;
+  --padding-top: 0.875rem;
+  --padding-bottom: 0.875rem;
+  border: 1px solid var(--gp-bg-tertiary);
+  border-radius: var(--gp-radius);
+  margin: var(--gp-space-xs) 0;
+
+  &.ion-focused {
+    border-color: var(--gp-brand-primary);
+    box-shadow: 0 0 0 3px rgba(0, 212, 106, 0.1);
+  }
+}
+
+/* Ion Chip */
+ion-chip {
+  --background: var(--gp-bg-secondary);
+  --color: var(--gp-text-primary);
+  border: 1px solid var(--gp-bg-tertiary);
+  border-radius: var(--gp-radius-xl);
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+/* Ion FAB */
+ion-fab-button {
+  --background: var(--gp-text-primary);
+  --color: var(--gp-bg-primary);
+  --box-shadow: var(--gp-shadow-lg);
+  --border-radius: 50%;
+
+  &:hover {
+    --background: var(--gp-text-secondary);
+    transform: scale(1.05);
+  }
+}
+
+/* === ESTILOS ESPECÍFICOS PARA EL MAPA === */
+
+/* Contenedor del mapa */
+.map-container {
+  height: 100%;
+  width: 100%;
+  position: relative;
+  background: var(--gp-bg-primary);
+  border-radius: var(--gp-radius-lg);
+  overflow: hidden;
+  box-shadow: var(--gp-shadow-lg);
+}
+
+/* Marcador de ubicación del usuario */
+.user-location-marker {
+  font-size: 20px;
+  text-align: center;
+  line-height: 20px;
+  color: var(--gp-brand-primary);
+  text-shadow: 0 0 10px rgba(0, 212, 106, 0.5);
+  animation: pulse-location 2s infinite;
+}
+
+@keyframes pulse-location {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Popup del mapa estilo Uber */
+.leaflet-popup-content-wrapper {
+  background: var(--gp-bg-secondary) !important;
+  border: 1px solid var(--gp-bg-tertiary) !important;
+  border-radius: var(--gp-radius-lg) !important;
+  box-shadow: var(--gp-shadow-xl) !important;
+  
+  .leaflet-popup-content {
+    color: var(--gp-text-primary) !important;
+    font-family: var(--ion-font-family) !important;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    margin: 0.75rem !important;
+
+    h3 {
+      color: var(--gp-text-primary);
+      font-weight: 600;
+      margin: 0 0 0.5rem 0;
+    }
+
+    p {
+      color: var(--gp-text-secondary);
+      margin: 0;
+    }
+  }
+}
+
+.leaflet-popup-tip {
+  background: var(--gp-bg-secondary) !important;
+  border: 1px solid var(--gp-bg-tertiary) !important;
+  border-top: none !important;
+  border-right: none !important;
+}
+
+/* Controles del mapa */
+.leaflet-control-zoom {
+  a {
+    background: var(--gp-bg-secondary) !important;
+    border: 1px solid var(--gp-bg-tertiary) !important;
+    color: var(--gp-text-primary) !important;
+    
+    &:hover {
+      background: var(--gp-bg-tertiary) !important;
+    }
+  }
+}
+
+.leaflet-control-attribution {
+  background: rgba(17, 17, 17, 0.8) !important;
+  color: var(--gp-text-tertiary) !important;
+  font-size: 0.75rem !important;
+  border-radius: var(--gp-radius) !important;
+  
+  a {
+    color: var(--gp-brand-primary) !important;
+  }
+}
+
+/* === UTILIDADES === */
+
+/* Efectos de hover estilo Uber */
+.hover-lift {
+  transition: all 0.2s ease;
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--gp-shadow-lg);
+  }
+}
+
+.hover-scale {
+  transition: transform 0.2s ease;
+  
+  &:hover {
+    transform: scale(1.02);
+  }
+}
+
+/* Gradientes */
+.gradient-uber {
+  background: linear-gradient(135deg, var(--gp-bg-primary) 0%, var(--gp-bg-secondary) 100%);
+}
+
+.gradient-brand {
+  background: linear-gradient(135deg, var(--gp-brand-primary) 0%, var(--gp-brand-secondary) 100%);
+}
+
+/* Espaciado */
+.space-y-uber > * + * {
+  margin-top: var(--gp-space-md);
+}
+
+.space-y-uber-sm > * + * {
+  margin-top: var(--gp-space-sm);
+}
+
+.space-y-uber-lg > * + * {
+  margin-top: var(--gp-space-lg);
+}
+
+/* === ANIMACIONES === */
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 30px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-slideInUp {
+  animation: slideInUp 0.3s ease-out;
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* === RESPONSIVE === */
+@media (max-width: 768px) {
+  .text-uber-title {
+    font-size: 1.75rem;
+  }
+  
+  .text-uber-subtitle {
+    font-size: 1.25rem;
+  }
+  
+  .btn-uber-primary,
+  .btn-uber-secondary {
+    padding: 0.875rem 1.25rem;
+    font-size: 0.9rem;
+  }
+  
+  .card-uber {
+    padding: var(--gp-space-md);
+    margin: var(--gp-space-sm);
+  }
+}
+
+/* === SCROLLBAR PERSONALIZADO === */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--gp-bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--gp-bg-tertiary);
+  border-radius: 3px;
+  
+  &:hover {
+    background: var(--gp-text-tertiary);
+  }
+}
+
+/* === FOCUS STATES === */
+*:focus {
+  outline: 2px solid var(--gp-brand-primary);
+  outline-offset: 2px;
+}
+
+/* Estilos personalizados para el mapa */
+.user-location-marker {
+  font-size: 20px;
+  text-align: center;
+  line-height: 20px;
+}
+
+.map-container {
+  height: 100%;
+  width: 100%;
+  
+  .leaflet-container {
+    height: 100%;
+    width: 100%;
+  }
+}
+
+/* Estilos para etiquetas de zonas */
+.zone-label {
+  background: transparent !important;
+  border: none !important;
+}
+
+.zone-number-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #333;
+  font-weight: bold;
+  font-size: 14px;
+  border-radius: 50%;
+  border: 2px solid #333;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s ease;
+}
+
+.zone-number-label:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+/* Estilos para popup de zonas */
+.zone-popup {
+  .zone-number {
+    display: inline-block;
+    background: var(--ion-color-primary);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: bold;
+    margin-right: 8px;
+  }
+}
+
+/* === MODO ELIMINACIÓN === */
+// Estilos optimizados para modo de eliminación en el mapa
+.delete-mode {
+  cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="%23ff4757" viewBox="0 0 24 24"><path d="M9 3v1H4v2h1v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6h1V4h-5V3H9zm1 2h4v1H10V5zm-4 3v11h12V8H6z"/><path d="M8 10h2v7H8zm4 0h2v7h-2z"/></svg>') 12 12, crosshair !important;
+  
+  // Indicador visual sutil sin movimiento excesivo
+  outline: 2px solid rgba(255, 71, 87, 0.6);
+  outline-offset: 2px;
+  
+  // Hover más suave sin escalado que cause movimiento
+  &:hover {
+    outline-color: rgba(255, 71, 87, 0.9);
+    filter: brightness(0.8) saturate(1.2);
+    transition: all 0.15s ease-in-out;
+  }
+  
+  // Pulso sutil solo en el outline
+  animation: deleteModePulse 3s ease-in-out infinite;
+}
+
+@keyframes deleteModePulse {
+  0%, 100% {
+    outline-color: rgba(255, 71, 87, 0.4);
+  }
+  50% {
+    outline-color: rgba(255, 71, 87, 0.8);
+  }
+}
+
+// Estilos específicos para markers en modo eliminación - sin escalado
+.leaflet-marker-icon.delete-mode {
+  filter: hue-rotate(340deg) brightness(0.9);
+  position: relative;
+  
+  // Sin transform que cause movimiento
+  &:hover {
+    filter: hue-rotate(340deg) brightness(0.7);
+  }
+  
+  // Indicador visual alternativo con pseudo-elemento
+  &::before {
+    content: '×';
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #ff4757;
+    color: white;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+    z-index: 1000;
+    animation: fadeInScale 0.3s ease-out;
+  }
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+// Estilos específicos para zonas en modo eliminación - más sutiles
+.leaflet-interactive.delete-mode {
+  stroke: #ff4757 !important;
+  stroke-width: 2px !important;
+  stroke-dasharray: 8,4 !important;
+  stroke-opacity: 0.8 !important;
+  
+  &:hover {
+    stroke-width: 3px !important;
+    stroke-opacity: 1 !important;
+    fill-opacity: 0.3 !important;
+  }
+}
+
+/* === MARCADOR DE UBICACIÓN DEL USUARIO === */
+// Estilos para el marcador discreto de ubicación del usuario
+.user-location-marker {
+  z-index: 1000;
+}
+
+.user-location-icon {
+  position: relative;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.user-location-dot {
+  width: 12px;
+  height: 12px;
+  background: #007AFF; // Azul iOS para ubicación
+  border: 2px solid white;
+  border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(0, 122, 255, 0.4);
+  z-index: 2;
+}
+
+.user-location-pulse {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  background: rgba(0, 122, 255, 0.3);
+  border-radius: 50%;
+  animation: user-location-pulse 2s infinite ease-out;
+  z-index: 1;
+}
+
+@keyframes user-location-pulse {
+  0% {
+    transform: scale(0.5);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+// Modo oscuro para el marcador de usuario
+@media (prefers-color-scheme: dark) {
+  .user-location-dot {
+    border-color: #1c1c1e;
+  }
+}

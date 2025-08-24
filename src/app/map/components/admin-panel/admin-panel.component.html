@@ -1,0 +1,192 @@
+<ion-card>
+  <ion-card-header>
+    <ion-card-title>Panel de Administración</ion-card-title>
+  </ion-card-header>
+  <ion-card-content>
+    <div class="action-buttons">
+      <ion-button
+        fill="outline"
+        size="small"
+        (click)="startAddingMarker()"
+        [color]="isAddingMarker ? 'primary' : 'medium'"
+      >
+        <ion-icon name="add-outline" slot="start"></ion-icon>
+        Marcador
+      </ion-button>
+      <ion-button
+        fill="outline"
+        size="small"
+        (click)="startAddingZone()"
+        [color]="isAddingZone ? 'primary' : 'medium'"
+      >
+        <ion-icon name="color-palette-outline" slot="start"></ion-icon>
+        Zona
+      </ion-button>
+      <ion-button
+        fill="outline"
+        size="small"
+        (click)="startAddingRoute()"
+        [color]="isAddingRoute ? 'primary' : 'medium'"
+      >
+        <ion-icon name="navigate-outline" slot="start"></ion-icon>
+        Ruta
+      </ion-button>
+    </div>
+
+    <div class="form-section" *ngIf="isAddingMarker">
+      <ion-text color="primary">
+        <h6>Nuevo Marcador</h6>
+      </ion-text>
+      <ion-item>
+        <ion-label position="stacked">Título</ion-label>
+        <ion-input
+          [(ngModel)]="newMarker.title"
+          placeholder="Nombre del marcador"
+        >
+        </ion-input>
+      </ion-item>
+      <ion-item>
+        <ion-label position="stacked">Descripción</ion-label>
+        <ion-textarea
+          [(ngModel)]="newMarker.description"
+          placeholder="Descripción opcional"
+          rows="2"
+        >
+        </ion-textarea>
+      </ion-item>
+      <ion-item>
+        <ion-label position="stacked">Color</ion-label>
+        <ion-input type="color" [(ngModel)]="newMarker.color"> </ion-input>
+      </ion-item>
+      <ion-item>
+        <ion-label position="stacked">Latitud</ion-label>
+        <ion-input type="number" [(ngModel)]="newMarker.lat" readonly>
+        </ion-input>
+      </ion-item>
+      <ion-item>
+        <ion-label position="stacked">Longitud</ion-label>
+        <ion-input type="number" [(ngModel)]="newMarker.lng" readonly>
+        </ion-input>
+      </ion-item>
+      <div class="action-buttons">
+        <ion-button (click)="saveMarker()" expand="block" color="success"
+          >Guardar</ion-button
+        >
+        <ion-button
+          (click)="cancelCurrentAction()"
+          expand="block"
+          color="medium"
+          fill="outline"
+          >Cancelar</ion-button
+        >
+      </div>
+    </div>
+
+    <div class="form-section" *ngIf="isAddingZone">
+      <ion-text color="primary">
+        <h6>Nueva Zona</h6>
+      </ion-text>
+      <ion-item>
+        <ion-label position="stacked">Nombre</ion-label>
+        <ion-input [(ngModel)]="newZone.name" placeholder="Nombre de la zona">
+        </ion-input>
+      </ion-item>
+      <ion-item>
+        <ion-label position="stacked">Descripción</ion-label>
+        <ion-textarea
+          [(ngModel)]="newZone.description"
+          placeholder="Descripción opcional"
+          rows="2"
+        >
+        </ion-textarea>
+      </ion-item>
+      <ion-item>
+        <ion-label position="stacked">Color</ion-label>
+        <ion-input type="color" [(ngModel)]="newZone.color"> </ion-input>
+      </ion-item>
+      <ion-item>
+        <ion-label position="stacked">Opacidad</ion-label>
+        <ion-input
+          type="number"
+          [(ngModel)]="newZone.fillOpacity"
+          placeholder="0.0 - 1.0"
+          min="0"
+          max="1"
+          step="0.1"
+        >
+        </ion-input>
+      </ion-item>
+      <div class="action-buttons">
+        <ion-button
+          (click)="saveZone()"
+          expand="block"
+          color="success"
+          [disabled]="newZone.coordinates.length < 3"
+          >Guardar</ion-button
+        >
+        <ion-button
+          (click)="cancelCurrentAction()"
+          expand="block"
+          color="medium"
+          fill="outline"
+          >Cancelar</ion-button
+        >
+      </div>
+      <ion-text color="medium">
+        <p>
+          <small>Puntos: {{ newZone.coordinates.length }} (mínimo 3)</small>
+        </p>
+      </ion-text>
+    </div>
+
+    <div class="form-section" *ngIf="isAddingRoute">
+      <ion-text color="primary">
+        <h6>Nueva Ruta</h6>
+      </ion-text>
+      <ion-item>
+        <ion-label position="stacked">Nombre</ion-label>
+        <ion-input [(ngModel)]="newRoute.name" placeholder="Nombre de la ruta">
+        </ion-input>
+      </ion-item>
+      <ion-item>
+        <ion-label position="stacked">Descripción</ion-label>
+        <ion-textarea
+          [(ngModel)]="newRoute.description"
+          placeholder="Descripción opcional"
+          rows="2"
+        >
+        </ion-textarea>
+      </ion-item>
+      <ion-item>
+        <ion-label position="stacked">Color</ion-label>
+        <ion-input type="color" [(ngModel)]="newRoute.color"> </ion-input>
+      </ion-item>
+      <ion-item>
+        <ion-label position="stacked">Ancho de Línea</ion-label>
+        <ion-input type="number" [(ngModel)]="newRoute.width" min="1" max="10">
+        </ion-input>
+      </ion-item>
+      <div class="action-buttons">
+        <ion-button
+          (click)="saveRoute()"
+          expand="block"
+          color="success"
+          [disabled]="newRoute.waypoints.length < 2"
+          >Guardar</ion-button
+        >
+        <ion-button
+          (click)="cancelCurrentAction()"
+          expand="block"
+          color="medium"
+          fill="outline"
+          >Cancelar</ion-button
+        >
+      </div>
+      <ion-text color="medium">
+        <p>
+          <small>Waypoints: {{ newRoute.waypoints.length }} (mínimo 2)</small>
+        </p>
+      </ion-text>
+    </div>
+  </ion-card-content>
+</ion-card>

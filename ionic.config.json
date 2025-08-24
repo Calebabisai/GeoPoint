@@ -1,7 +1,8 @@
 {
-  "name": "field-maps",
+  "name": "GeoPoint",
   "integrations": {
     "capacitor": {}
   },
-  "type": "angular-standalone"
+  "type": "angular",
+  "id": "ionic-map-app"
 }
