@@ -1047,17 +1047,19 @@ export class OrganizationService {
     'owner' | 'admin' | 'moderator' | 'user' | null
   > {
     return this.authService.getCurrentUser().pipe(
-      switchMap((user) => {
-        if (!user) return of(null);
+      map((user) => {
+        if (!user) return null;
 
-        return this.getCurrentOrganization().pipe(
-          map((org) => {
-            if (!org) return null;
+        // ✅ CORREGIDO: Leer organizationRole directamente del usuario
+        // en lugar de buscarlo en org.members
+        const userOrgRole = (user as any).organizationRole;
 
-            const member = org.members.find((m) => m.userId === user.uid);
-            return member ? member.role : null;
-          })
-        );
+        console.log(`🔍 getCurrentOrganizationRole for ${user.email}:`, {
+          organizationRole: userOrgRole || 'NOT SET',
+          globalRole: user.role,
+        });
+
+        return userOrgRole || null;
       })
     );
   }

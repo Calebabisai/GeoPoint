@@ -25,7 +25,7 @@ import {
 
 export interface UserWithOrganization extends User {
   organizationName?: string;
-  organizationRole?: 'owner' | 'admin' | 'user';
+  organizationRole?: 'owner' | 'admin' | 'moderator' | 'user';
   lastActivity?: Date;
   isOnline?: boolean;
 }
@@ -35,7 +35,7 @@ export interface UserRoleChangeRequest {
   currentRole: 'admin' | 'user';
   newRole: 'admin' | 'user';
   organizationId?: string;
-  organizationRole?: 'owner' | 'admin' | 'user';
+  organizationRole?: 'owner' | 'admin' | 'moderator' | 'user';
   reason?: string;
 }
 
@@ -311,11 +311,25 @@ export class UserManagementService {
                 createdAtDate = new Date();
               }
 
+              // ✅ CORREGIDO: Usar el organizationRole almacenado en Firebase
+              // en lugar de calcularlo basado en el rol global
+              const firebaseOrgRole = (userData as any).organizationRole;
+              const fallbackOrgRole = this.determineOrganizationRole(userData);
+              const orgRole = firebaseOrgRole || fallbackOrgRole;
+
+              // 🔍 DEBUG: Log detallado de roles
+              console.log(`👤 User: ${userData.email}`, {
+                globalRole: userData.role,
+                firebaseOrgRole: firebaseOrgRole || 'NOT SET',
+                fallbackOrgRole,
+                finalOrgRole: orgRole,
+              });
+
               return {
                 ...userData,
                 createdAt: createdAtDate, // Asegurar que sea Date
                 organizationName: 'Tu Organización',
-                organizationRole: this.determineOrganizationRole(userData),
+                organizationRole: orgRole, // ✅ Usar el rol real de Firebase
                 lastActivity: createdAtDate,
                 isOnline: this.isUserOnlineSafe(createdAtDate),
               } as UserWithOrganization;
@@ -431,11 +445,22 @@ export class UserManagementService {
       const firebaseUsers: UserWithOrganization[] = snapshot.docs.map((doc) => {
         const userData = { uid: doc.id, ...doc.data() } as User;
 
+        // ✅ CORREGIDO: Usar organizationRole de Firebase, no calcularlo
+        const firebaseOrgRole = (userData as any).organizationRole;
+        const finalOrgRole =
+          firebaseOrgRole || this.determineOrganizationRole(userData);
+
+        console.log(`👤 getRealOrganizationUsers - User: ${userData.email}`, {
+          globalRole: userData.role,
+          firebaseOrgRole: firebaseOrgRole || 'NOT SET',
+          finalOrgRole,
+        });
+
         // Enriquecer con datos de organización
         return {
           ...userData,
           organizationName: 'Organización Firebase', // Se puede obtener el nombre real
-          organizationRole: this.determineOrganizationRole(userData),
+          organizationRole: finalOrgRole, // ✅ Usar el rol correcto
           lastActivity: userData.createdAt || new Date(),
           isOnline: this.isUserOnline(userData),
         } as UserWithOrganization;
@@ -465,11 +490,19 @@ export class UserManagementService {
 
   /**
    * Determina el rol del usuario en la organización basado en su rol global
+   * NOTA: Este método solo se usa como FALLBACK si no hay organizationRole en Firebase
+   * El rol global (admin/user) NO debe determinar el rol en la organización
    */
   private determineOrganizationRole(user: User): 'owner' | 'admin' | 'user' {
-    if (user.role === 'admin') {
-      return 'admin';
-    }
+    // ⚠️ IMPORTANTE: Si llegamos aquí, significa que el usuario NO tiene
+    // organizationRole definido en Firebase. Esto puede pasar con usuarios antiguos.
+    // Por defecto, asignar 'user' a menos que se demuestre lo contrario.
+
+    console.warn(
+      `⚠️ User ${user.email} has NO organizationRole in Firebase. Using fallback: 'user'`
+    );
+
+    // Por defecto, todos los usuarios nuevos sin organizationRole son 'user'
     return 'user';
   }
 
@@ -594,8 +627,21 @@ export class UserManagementService {
       return member.role;
     }
 
-    // Fallback basado en el rol global del usuario
-    return user.role === 'admin' ? 'admin' : 'user';
+    // ⚠️ CORREGIDO: Si no hay member, usar el organizationRole del usuario si existe
+    if ((user as any).organizationRole) {
+      console.log(
+        `✅ Using organizationRole from user document: ${
+          (user as any).organizationRole
+        }`
+      );
+      return (user as any).organizationRole;
+    }
+
+    // Fallback: por defecto todos son 'user', no asumir admin
+    console.warn(
+      `⚠️ User ${user.email} has no organizationRole. Defaulting to 'user'`
+    );
+    return 'user';
   }
 
   /**
@@ -1085,6 +1131,84 @@ export class UserManagementService {
       }
     } catch (error) {
       console.error('Error removing user from organization:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Actualiza el rol de organización de un usuario
+   * SOLO ACCESIBLE PARA ADMINISTRADORES
+   */
+  async updateUserOrganizationRole(
+    userId: string,
+    newRole: 'owner' | 'admin' | 'moderator' | 'user'
+  ): Promise<void> {
+    try {
+      // Verificar permisos de administrador
+      const currentUser = await this.authService.getCurrentUser().toPromise();
+      if (!currentUser) {
+        throw new Error('Usuario no autenticado');
+      }
+
+      const hasPermission = await this.authorizationService
+        .hasPermission('manage-users')
+        .toPromise();
+
+      if (!hasPermission || currentUser.role !== 'admin') {
+        throw new Error(
+          'Solo los administradores pueden cambiar roles de usuarios'
+        );
+      }
+
+      // No permitir que un admin cambie su propio rol
+      if (currentUser.uid === userId) {
+        throw new Error('No puedes cambiar tu propio rol');
+      }
+
+      console.log(
+        `🔄 Admin ${currentUser.email} changing user ${userId} role to ${newRole}`
+      );
+
+      // Actualizar en Firebase
+      try {
+        const userDoc = doc(this.firestore, 'users', userId);
+        await updateDoc(userDoc, {
+          organizationRole: newRole,
+          updatedAt: new Date(),
+          roleUpdatedBy: currentUser.uid,
+          roleUpdatedAt: new Date(),
+        });
+
+        console.log(`✅ User role updated in Firebase:`, {
+          userId,
+          newRole,
+          updatedBy: currentUser.email,
+          timestamp: new Date(),
+        });
+
+        // Recargar usuarios
+        await this.getOrganizationUsers();
+      } catch (firebaseError) {
+        console.error('🔥 Firebase role update failed:', firebaseError);
+
+        // Fallback a datos de desarrollo
+        if (this.isDevelopmentMode()) {
+          const userIndex = this.developmentUsers.findIndex(
+            (u) => u.uid === userId
+          );
+          if (userIndex !== -1) {
+            this.developmentUsers[userIndex].organizationRole = newRole;
+            this.usersSubject.next([...this.developmentUsers]);
+            console.log(`✅ User role updated in development mode`);
+          } else {
+            throw new Error('Usuario no encontrado en datos de desarrollo');
+          }
+        } else {
+          throw firebaseError;
+        }
+      }
+    } catch (error) {
+      console.error('Error updating user organization role:', error);
       throw error;
     }
   }

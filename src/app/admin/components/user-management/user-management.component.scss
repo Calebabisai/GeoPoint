@@ -510,3 +510,87 @@
     }
   }
 }
+
+// Estilos para acciones de usuario
+.user-actions-container {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  min-width: 140px;
+  
+  .role-chip-display {
+    margin: 0;
+  }
+  
+  .action-buttons {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    
+    ion-button {
+      --padding-start: 12px;
+      --padding-end: 12px;
+      height: 36px;
+      font-size: 13px;
+      text-transform: none;
+      font-weight: 600;
+      cursor: pointer;
+      
+      &[fill="outline"] {
+        --border-width: 2px;
+      }
+      
+      &[fill="clear"] {
+        --padding-start: 8px;
+        --padding-end: 8px;
+        --background-hover: rgba(0, 168, 84, 0.1);
+      }
+      
+      ion-icon {
+        font-size: 20px;
+      }
+      
+      // Asegurar que sea clickeable
+      pointer-events: auto;
+      
+      &:hover {
+        opacity: 0.8;
+        transform: scale(1.02);
+      }
+      
+      &:active {
+        transform: scale(0.98);
+      }
+    }
+  }
+}
+
+// Responsive para móvil
+@media (max-width: 768px) {
+  .user-actions-container {
+    .action-buttons {
+      ion-button {
+        font-size: 11px;
+        height: 28px;
+        --padding-start: 8px;
+        --padding-end: 8px;
+        
+        ion-icon {
+          font-size: 16px;
+        }
+      }
+    }
+  }
+}
+
+// Estilos para el diálogo de roles
+ion-alert.role-selector {
+  .alert-wrapper {
+    .alert-radio-group {
+      .alert-radio-label {
+        padding-left: 16px;
+      }
+    }
+  }
+}

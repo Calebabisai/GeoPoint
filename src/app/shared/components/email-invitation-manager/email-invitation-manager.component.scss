@@ -1,4 +1,9 @@
-// 🎨 ESTILO UBER NEGRO/VERDE - EMAIL INVITATIONS MANAGER
+// 🎨 ESTILO UBER NEGRO/VERDE - EMAIL INVITA      text-shadow: 0 0 10px rgba(0, 168, 84, 0.3);
+      
+      ion-icon {
+        font-size: 1.3em;
+        color: #1ab865;
+      }MANAGER
 .email-invitation-container {
   max-width: 900px;
   margin: 0 auto;
@@ -12,9 +17,9 @@
   margin-bottom: 24px;
   border-radius: 20px;
   background: linear-gradient(135deg, #1e1e1e 0%, #2a2a2a 100%);
-  border: 1px solid #00d46a;
+  border: 1px solid #00a854;
   box-shadow: 
-    0 8px 32px rgba(0, 212, 106, 0.15),
+    0 8px 32px rgba(0, 168, 84, 0.15),
     0 2px 8px rgba(0, 0, 0, 0.3);
   overflow: hidden;
   position: relative;
@@ -27,7 +32,7 @@
     left: 0;
     right: 0;
     height: 2px;
-    background: linear-gradient(90deg, transparent, #00d46a, #00ff7f, #00d46a, transparent);
+    background: linear-gradient(90deg, transparent, #00a854, #1ab865, #00a854, transparent);
     opacity: 0.8;
   }
 
@@ -39,14 +44,14 @@
       display: flex;
       align-items: center;
       gap: 12px;
-      color: #00d46a;
+      color: #00a854;
       font-size: 1.4em;
       font-weight: 700;
-      text-shadow: 0 0 10px rgba(0, 212, 106, 0.3);
+      text-shadow: 0 0 10px rgba(0, 168, 84, 0.3);
       
       ion-icon {
         font-size: 1.3em;
-        color: #00ff7f;
+        color: #1ab865;
       }
     }
   }
@@ -69,20 +74,20 @@
     flex-wrap: wrap;
     
     ion-chip {
-      --background: rgba(0, 212, 106, 0.1);
-      --color: #00d46a;
-      border: 1px solid #00d46a;
+      --background: rgba(0, 168, 84, 0.1);
+      --color: #00a854;
+      border: 1px solid #00a854;
       border-radius: 20px;
       font-weight: 600;
       padding: 8px 16px;
       
       ion-icon {
-        color: #00ff7f;
+        color: #1ab865;
         margin-right: 6px;
       }
       
       &:hover {
-        --background: rgba(0, 212, 106, 0.2);
+        --background: rgba(0, 168, 84, 0.2);
         transform: translateY(-2px);
         transition: all 0.3s ease;
       }
@@ -103,9 +108,9 @@
   transition: all 0.3s ease;
 
   &:hover {
-    border-color: #00d46a;
+    border-color: #00a854;
     box-shadow: 
-      0 8px 32px rgba(0, 212, 106, 0.2),
+      0 8px 32px rgba(0, 168, 84, 0.2),
       0 6px 20px rgba(0, 0, 0, 0.4);
     transform: translateY(-4px);
   }
@@ -124,7 +129,7 @@
       font-weight: 600;
       
       ion-icon {
-        color: #00d46a;
+        color: #00a854;
         font-size: 1.2em;
       }
     }
@@ -152,15 +157,15 @@
     
     &[fill="outline"] {
       --border-width: 2px;
-      --border-color: #00d46a;
-      --color: #00d46a;
+      --border-color: #00a854;
+      --color: #00a854;
       --background: transparent;
       
       &:hover {
-        --background: #00d46a;
+        --background: #00a854;
         --color: #000000;
         transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(0, 212, 106, 0.3);
+        box-shadow: 0 6px 20px rgba(0, 168, 84, 0.3);
       }
     }
   }
@@ -184,10 +189,10 @@
     transition: all 0.3s ease;
 
     &:hover, &:focus-within {
-      --border-color: #00d46a;
+      --border-color: #00a854;
       --background: linear-gradient(135deg, #2d2d30 0%, #2a2a2a 100%);
       box-shadow: 
-        0 4px 12px rgba(0, 212, 106, 0.2),
+        0 4px 12px rgba(0, 168, 84, 0.2),
         0 2px 8px rgba(0, 0, 0, 0.3);
     }
 
@@ -231,14 +236,14 @@
   margin-top: 20px;
   
   ion-badge {
-    --background: linear-gradient(45deg, #00d46a, #00ff7f);
+    --background: linear-gradient(45deg, #00a854, #1ab865);
     --color: #000000;
     --padding-start: 16px;
     --padding-end: 16px;
     --border-radius: 20px;
     font-weight: 700;
     font-size: 0.95em;
-    box-shadow: 0 4px 12px rgba(0, 212, 106, 0.3);
+    box-shadow: 0 4px 12px rgba(0, 168, 84, 0.3);
   }
 }
 
@@ -271,7 +276,7 @@
     
     ion-toggle {
       --background: #444;
-      --background-checked: #00d46a;
+      --background-checked: #00a854;
       --handle-background: #ffffff;
       --handle-background-checked: #000000;
     }
@@ -280,14 +285,14 @@
 
 // 👁️ VISTA PREVIA DEL ROL
 .preview-card {
-  background: linear-gradient(135deg, #00d46a 0%, #00bb5d 100%);
+  background: linear-gradient(135deg, #00a854 0%, #00944a 100%);
   color: #000000;
   margin-bottom: 24px;
   border-radius: 20px;
   box-shadow: 
-    0 8px 32px rgba(0, 212, 106, 0.4),
+    0 8px 32px rgba(0, 168, 84, 0.4),
     0 4px 16px rgba(0, 0, 0, 0.2);
-  border: 1px solid #00ff7f;
+  border: 1px solid #1ab865;
 
   .role-preview {
     padding: 4px;
@@ -346,31 +351,31 @@
 
     &[fill="outline"] {
       --border-width: 2px;
-      --border-color: #00d46a;
-      --color: #00d46a;
+      --border-color: #00a854;
+      --color: #00a854;
       --background: transparent;
-      box-shadow: 0 4px 15px rgba(0, 212, 106, 0.2);
+      box-shadow: 0 4px 15px rgba(0, 168, 84, 0.2);
       
       &:hover {
-        --background: #00d46a;
+        --background: #00a854;
         --color: #000000;
         transform: translateY(-3px);
-        box-shadow: 0 8px 25px rgba(0, 212, 106, 0.4);
+        box-shadow: 0 8px 25px rgba(0, 168, 84, 0.4);
       }
     }
 
     // Botón principal de envío - Estilo Uber premium
     &[color="success"] {
-      --background: linear-gradient(135deg, #00d46a 0%, #00ff7f 100%);
+      --background: linear-gradient(135deg, #00a854 0%, #1ab865 100%);
       --color: #000000;
       box-shadow: 
-        0 8px 30px rgba(0, 212, 106, 0.4),
+        0 8px 30px rgba(0, 168, 84, 0.4),
         0 4px 15px rgba(0, 0, 0, 0.2);
       
       &:hover {
         transform: translateY(-4px);
         box-shadow: 
-          0 12px 40px rgba(0, 212, 106, 0.5),
+          0 12px 40px rgba(0, 168, 84, 0.5),
           0 6px 20px rgba(0, 0, 0, 0.3);
       }
       
@@ -388,8 +393,8 @@
   padding: 24px;
   background: linear-gradient(135deg, #1a1a1a 0%, #2d2d30 100%);
   border-radius: 20px;
-  border: 1px solid #00d46a;
-  box-shadow: 0 6px 20px rgba(0, 212, 106, 0.2);
+  border: 1px solid #00a854;
+  box-shadow: 0 6px 20px rgba(0, 168, 84, 0.2);
 
   p {
     margin-top: 16px;
@@ -399,8 +404,8 @@
   }
   
   ion-progress-bar {
-    --progress-background: linear-gradient(90deg, #00d46a, #00ff7f);
-    --buffer-background: rgba(0, 212, 106, 0.2);
+    --progress-background: linear-gradient(90deg, #00a854, #1ab865);
+    --buffer-background: rgba(0, 168, 84, 0.2);
     height: 6px;
     border-radius: 3px;
     margin-bottom: 8px;
@@ -424,7 +429,7 @@
     --border-color: #333;
     
     ion-icon {
-      color: #00d46a;
+      color: #00a854;
       margin-right: 12px;
     }
     
@@ -472,17 +477,17 @@
       }
       
       &[color="success"] {
-        --background: #00d46a;
+        --background: #00a854;
         --color: #000000;
       }
     }
   }
   
   ion-button[fill="clear"] {
-    --color: #00d46a;
+    --color: #00a854;
     
     &:hover {
-      --background: rgba(0, 212, 106, 0.1);
+      --background: rgba(0, 168, 84, 0.1);
       transform: scale(1.1);
     }
   }
@@ -540,10 +545,10 @@
 
 @keyframes pulseGreen {
   0%, 100% {
-    box-shadow: 0 0 0 0 rgba(0, 212, 106, 0.4);
+    box-shadow: 0 0 0 0 rgba(0, 168, 84, 0.4);
   }
   50% {
-    box-shadow: 0 0 0 10px rgba(0, 212, 106, 0);
+    box-shadow: 0 0 0 10px rgba(0, 168, 84, 0);
   }
 }
 
@@ -564,8 +569,8 @@ ion-select {
   transition: all 0.3s ease;
   
   &:hover, &:focus {
-    border-color: #00d46a;
-    box-shadow: 0 0 10px rgba(0, 212, 106, 0.2);
+    border-color: #00a854;
+    box-shadow: 0 0 10px rgba(0, 168, 84, 0.2);
   }
 }
 
@@ -580,8 +585,8 @@ ion-textarea {
   transition: all 0.3s ease;
   
   &:hover, &:focus-within {
-    border-color: #00d46a;
-    box-shadow: 0 0 10px rgba(0, 212, 106, 0.2);
+    border-color: #00a854;
+    box-shadow: 0 0 10px rgba(0, 168, 84, 0.2);
   }
 }
 

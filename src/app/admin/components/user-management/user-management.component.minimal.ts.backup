@@ -186,7 +186,7 @@ export class UserManagementComponent implements OnInit, OnDestroy {
       // Cargar usuarios REALES de Firebase
       console.log('📦 Calling loadDevelopmentData...');
       await this.loadDevelopmentData();
-
+      
       console.log('✅ ngOnInit completed successfully');
     } catch (error) {
       console.error('❌ Error in ngOnInit:', error);
@@ -251,28 +251,28 @@ export class UserManagementComponent implements OnInit, OnDestroy {
    */
   private async loadDevelopmentData() {
     console.log('📦 Loading development data directly...');
-
+    
     // Timeout de seguridad de 10 segundos
     const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(
-        () => reject(new Error('Timeout: La carga tardó más de 10 segundos')),
-        10000
-      );
+      setTimeout(() => reject(new Error('Timeout: La carga tardó más de 10 segundos')), 10000);
     });
 
     try {
       console.log('📞 Calling getSimpleOrganizationUsers...');
-
+      
       // Race entre la carga y el timeout
       const users = await Promise.race([
         this.userManagementService.getSimpleOrganizationUsers(),
-        timeoutPromise,
+        timeoutPromise
       ]);
 
       console.log(`✅ Development data loaded: ${users.length} users`);
 
       if (users.length > 0) {
-        await this.showToast(`Cargados ${users.length} usuarios`, 'success');
+        await this.showToast(
+          `Cargados ${users.length} usuarios`,
+          'success'
+        );
       } else {
         await this.showToast('No se encontraron usuarios', 'warning');
       }

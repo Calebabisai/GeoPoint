@@ -43,7 +43,7 @@
       </ion-card-header>
       <ion-card-content>
         <ion-list *ngIf="users$ | async as users">
-          <ion-item *ngFor="let user of users" lines="full">
+          <ion-item *ngFor="let user of users" lines="full" [button]="false">
             <ion-avatar slot="start">
               <ion-icon name="person" color="medium"></ion-icon>
             </ion-avatar>
@@ -57,27 +57,13 @@
               </p>
             </ion-label>
 
-            <div slot="end" class="user-roles">
-              <!-- Rol de Sistema -->
-              <ion-chip
-                [color]="user.role === 'admin' ? 'danger' : 'medium'"
-                [outline]="user.role !== 'admin'"
-              >
-                <ion-icon
-                  [name]="user.role === 'admin' ? 'shield-checkmark' : 'person'"
-                  slot="start"
-                >
-                </ion-icon>
-                <ion-label>{{
-                  user.role === "admin" ? "Administrador" : "Usuario"
-                }}</ion-label>
-              </ion-chip>
-
-              <!-- Rol de Organización -->
+            <!-- Acciones de Usuario -->
+            <div slot="end" class="user-actions-container">
+              <!-- Rol Badge (solo visual) -->
               <ion-chip
                 *ngIf="user.organizationRole"
                 [color]="getOrgRoleColor(user.organizationRole)"
-                outline
+                class="role-chip-display"
               >
                 <ion-icon
                   [name]="getOrgRoleIcon(user.organizationRole)"
@@ -87,6 +73,27 @@
                 <ion-label>{{
                   getOrgRoleDisplayName(user.organizationRole)
                 }}</ion-label>
+              </ion-chip>
+
+              <!-- Botón de opciones (solo si NO es el usuario actual) -->
+              <div class="action-buttons" *ngIf="!isCurrentUser(user)">
+                <ion-button
+                  size="small"
+                  fill="clear"
+                  color="medium"
+                  (click)="openUserOptions(user); $event.stopPropagation()"
+                >
+                  <ion-icon
+                    name="ellipsis-vertical"
+                    slot="icon-only"
+                  ></ion-icon>
+                </ion-button>
+              </div>
+
+              <!-- Badge "Tú" para el usuario actual -->
+              <ion-chip *ngIf="isCurrentUser(user)" color="success">
+                <ion-icon name="person" slot="start"></ion-icon>
+                <ion-label>Tú</ion-label>
               </ion-chip>
             </div>
           </ion-item>

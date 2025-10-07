@@ -286,7 +286,7 @@ export class HomePage implements OnInit, OnDestroy {
     const toast = await this.toastController.create({
       message,
       duration: 2000,
-      position: 'bottom',
+      position: 'top',
       color,
       cssClass: 'custom-toast',
     });

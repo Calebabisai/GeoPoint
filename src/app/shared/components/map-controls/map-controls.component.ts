@@ -901,7 +901,8 @@ export class MapControlsComponent implements OnInit, OnDestroy {
     const toast = await this.toastCtrl.create({
       message,
       duration: 2000,
-      position: 'bottom',
+      position: 'top',
+      cssClass: 'custom-toast',
     });
     await toast.present();
   }

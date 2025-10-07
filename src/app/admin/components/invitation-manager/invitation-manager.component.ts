@@ -498,7 +498,8 @@ export class InvitationManagerComponent implements OnInit, OnDestroy {
       message,
       duration: 3000,
       color,
-      position: 'bottom',
+      position: 'top',
+      cssClass: 'custom-toast',
     });
     await toast.present();
   }

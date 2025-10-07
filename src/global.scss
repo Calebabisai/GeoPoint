@@ -336,30 +336,7 @@ ion-fab-button {
   box-shadow: var(--gp-shadow-lg);
 }
 
-/* Marcador de ubicación del usuario */
-.user-location-marker {
-  font-size: 20px;
-  text-align: center;
-  line-height: 20px;
-  color: var(--gp-brand-primary);
-  text-shadow: 0 0 10px rgba(0, 212, 106, 0.5);
-  animation: pulse-location 2s infinite;
-}
-
-@keyframes pulse-location {
-  0% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(1.2);
-    opacity: 0.8;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
+/* Marcador de ubicación del usuario - DESACTIVADO (GPS funciona sin marcador visual) */
 
 /* Popup del mapa estilo Uber */
 .leaflet-popup-content-wrapper {
@@ -538,11 +515,6 @@ ion-fab-button {
 }
 
 /* Estilos personalizados para el mapa */
-.user-location-marker {
-  font-size: 20px;
-  text-align: center;
-  line-height: 20px;
-}
 
 .map-container {
   height: 100%;
@@ -689,58 +661,8 @@ ion-fab-button {
   }
 }
 
-/* === MARCADOR DE UBICACIÓN DEL USUARIO === */
-// Estilos para el marcador discreto de ubicación del usuario
-.user-location-marker {
-  z-index: 1000;
-}
-
-.user-location-icon {
-  position: relative;
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.user-location-dot {
-  width: 12px;
-  height: 12px;
-  background: #007AFF; // Azul iOS para ubicación
-  border: 2px solid white;
-  border-radius: 50%;
-  box-shadow: 0 2px 6px rgba(0, 122, 255, 0.4);
-  z-index: 2;
-}
-
-.user-location-pulse {
-  position: absolute;
-  width: 20px;
-  height: 20px;
-  background: rgba(0, 122, 255, 0.3);
-  border-radius: 50%;
-  animation: user-location-pulse 2s infinite ease-out;
-  z-index: 1;
-}
-
-@keyframes user-location-pulse {
-  0% {
-    transform: scale(0.5);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(2);
-    opacity: 0;
-  }
-}
-
-// Modo oscuro para el marcador de usuario
-@media (prefers-color-scheme: dark) {
-  .user-location-dot {
-    border-color: #1c1c1e;
-  }
-}
+/* === MARCADOR DE UBICACIÓN DEL USUARIO - DESACTIVADO === */
+// El GPS funciona correctamente pero sin mostrar marcador visual
 
 /* === ESTILOS MEJORADOS PARA MARCADORES === */
 .marker-container {
@@ -892,240 +814,9 @@ ion-fab-button {
   }
 }
 
-/* === MARCADOR DE UBICACIÓN DEL USUARIO === */
-.user-location-marker {
-  z-index: 1000 !important;
-  /* Forzar visibilidad en móviles */
-  opacity: 1 !important;
-  visibility: visible !important;
-  display: block !important;
-}
-
-.user-location-container {
-  position: relative;
-  width: 40px;
-  height: 40px;
-  display: flex !important;
-  align-items: center;
-  justify-content: center;
-  /* Asegurar visibilidad en móviles */
-  opacity: 1;
-  visibility: visible;
-  pointer-events: auto;
-}
-
-/* Anillo de precisión */
-.user-location-accuracy-ring {
-  position: absolute;
-  width: 60px;
-  height: 60px;
-  border: 3px solid rgba(33, 150, 243, 0.4);
-  border-radius: 50%;
-  background: rgba(33, 150, 243, 0.15);
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  animation: userAccuracyPulse 3s ease-in-out infinite;
-  /* Mejorar visibilidad */
-  opacity: 0.8;
-}
-
-/* Efecto de pulso principal */
-.user-location-pulse {
-  position: absolute;
-  width: 40px;
-  height: 40px;
-  border: 4px solid rgba(33, 150, 243, 0.7);
-  border-radius: 50%;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  animation: userLocationPulse 2s ease-in-out infinite;
-  /* Asegurar visibilidad */
-  opacity: 0.9;
-}
-
-/* Punto central del usuario - MEJORADO PARA MÓVILES */
-.user-location-dot {
-  position: absolute;
-  width: 18px;
-  height: 18px;
-  background: linear-gradient(135deg, #2196F3, #1976D2);
-  border: 3px solid #ffffff;
-  border-radius: 50%;
-  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.5),
-              0 3px 8px rgba(0, 0, 0, 0.4);
-  z-index: 15;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%); /* Centrado perfecto */
-  /* Forzar visibilidad en móviles */
-  opacity: 1 !important;
-  visibility: visible !important;
-}
-
-/* Punto interior brillante */
-.user-location-inner-dot {
-  position: absolute;
-  width: 6px;
-  height: 6px;
-  background: #ffffff;
-  border-radius: 50%;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  animation: userLocationGlow 2s ease-in-out infinite alternate;
-}
-
-
-
-/* Animaciones */
-@keyframes userLocationPulse {
-  0% {
-    transform: translate(-50%, -50%) scale(0.8);
-    opacity: 1;
-  }
-  100% {
-    transform: translate(-50%, -50%) scale(1.4);
-    opacity: 0;
-  }
-}
-
-@keyframes userAccuracyPulse {
-  0%, 100% {
-    transform: translate(-50%, -50%) scale(1);
-    opacity: 0.3;
-  }
-  50% {
-    transform: translate(-50%, -50%) scale(1.1);
-    opacity: 0.1;
-  }
-}
-
-@keyframes userLocationGlow {
-  0% {
-    box-shadow: 0 0 3px rgba(255, 255, 255, 0.8);
-    opacity: 0.8;
-  }
-  100% {
-    box-shadow: 0 0 8px rgba(255, 255, 255, 1);
-    opacity: 1;
-  }
-}
-
-
-
-/* Popup de ubicación del usuario */
-.user-location-popup-container {
-  .leaflet-popup-content {
-    background: linear-gradient(135deg, #1a1a1a, #2d2d2d);
-    color: #ffffff;
-    border-radius: 12px;
-    border: 1px solid rgba(33, 150, 243, 0.3);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-    padding: 12px;
-    margin: 0;
-    min-width: 180px;
-  }
-  
-  .leaflet-popup-tip {
-    background: linear-gradient(135deg, #1a1a1a, #2d2d2d);
-    border: 1px solid rgba(33, 150, 243, 0.3);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  }
-}
-
-.user-location-popup {
-  text-align: center;
-  
-  strong {
-    color: #2196F3;
-    display: block;
-    margin-bottom: 8px;
-    font-size: 14px;
-  }
-  
-  small {
-    color: rgba(255, 255, 255, 0.7);
-    font-size: 11px;
-    line-height: 1.4;
-  }
-}
-
-/* Responsivo para marcador de usuario */
-@media (max-width: 768px) {
-  .user-location-container {
-    width: 50px; /* Más grande en móvil */
-    height: 50px;
-  }
-  
-  .user-location-accuracy-ring {
-    width: 70px; /* Más visible */
-    height: 70px;
-    border-width: 2px; /* Línea más gruesa */
-  }
-  
-  .user-location-pulse {
-    width: 50px;
-    height: 50px;
-    border-width: 3px; /* Línea más gruesa */
-  }
-  
-  .user-location-dot {
-    width: 22px; /* Más grande */
-    height: 22px;
-    border-width: 3px; /* Borde más grueso */
-  }
-  
-  .user-location-inner-dot {
-    width: 10px; /* Proporcionalmente más grande */
-    height: 10px;
-  }
-}
-
-/* Optimización específica para Xiaomi y dispositivos Android */
-@media (max-width: 768px) and (pointer: coarse) {
-  .user-location-marker {
-    /* Compensación de offset en dispositivos táctiles */
-    transform: translateZ(0); /* Forzar aceleración hardware */
-    will-change: transform; /* Optimizar para cambios */
-  }
-  
-  .user-location-container {
-    /* Mejorar precisión en pantallas de alta densidad */
-    transform: translate3d(0, 0, 0); /* Forzar GPU */
-    backface-visibility: hidden; /* Evitar flickering */
-  }
-  
-  /* Hacer el marcador más preciso visualmente */
-  .user-location-dot {
-    /* Usar box-shadow para mejor precisión que border */
-    box-shadow: 
-      0 0 0 3px #ffffff,
-      0 0 0 5px rgba(33, 150, 243, 0.8),
-      0 2px 8px rgba(0, 0, 0, 0.3);
-    border: none; /* Remover border para usar box-shadow */
-  }
-  
-  /* Optimización específica para dispositivos Xiaomi/MIUI */
-  .leaflet-marker-pane {
-    /* Mejorar renderizado en MIUI */
-    transform: translateZ(0);
-    -webkit-transform: translateZ(0);
-    -webkit-backface-visibility: hidden;
-    backface-visibility: hidden;
-    /* Forzar precisión subpixel */
-    image-rendering: -webkit-optimize-contrast;
-    image-rendering: crisp-edges;
-  }
-  
-  /* Corrección específica para marcador de usuario en Xiaomi */
-  .user-location-marker {
-    /* Compensar offset típico de MIUI */
-    transform: translate3d(-0.5px, -0.5px, 0) !important;
-    -webkit-transform: translate3d(-0.5px, -0.5px, 0) !important;
-  }
-}
+/* === MARCADOR DE UBICACIÓN DEL USUARIO - DESACTIVADO === */
+// El sistema GPS funciona correctamente en segundo plano
+// pero no muestra ningún marcador visual (punto azul eliminado)
 
 /* === MARCADORES POI CON ANIMACIÓN === */
 .poi-marker-icon {
@@ -1426,4 +1117,66 @@ ion-fab-button {
   .poi-description {
     font-size: 13px;
   }
+}
+
+/* === TOAST PERSONALIZADOS === */
+.custom-toast {
+  --border-radius: 12px;
+  --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --min-width: 300px;
+  --max-width: 500px;
+  
+  &::part(message) {
+    font-size: 15px;
+    font-weight: 500;
+    padding: 16px;
+    line-height: 1.4;
+  }
+  
+  &::part(container) {
+    backdrop-filter: blur(10px);
+  }
+}
+
+/* Toast Success */
+ion-toast.custom-toast.toast-success {
+  --background: rgba(0, 212, 106, 0.95);
+  --color: #ffffff;
+  --border-width: 1px;
+  --border-style: solid;
+  --border-color: rgba(0, 212, 106, 1);
+}
+
+/* Toast Danger/Error */
+ion-toast.custom-toast.toast-danger {
+  --background: rgba(255, 59, 48, 0.95);
+  --color: #ffffff;
+  --border-width: 1px;
+  --border-style: solid;
+  --border-color: rgba(255, 59, 48, 1);
+}
+
+/* Toast Warning */
+ion-toast.custom-toast.toast-warning {
+  --background: rgba(255, 149, 0, 0.95);
+  --color: #ffffff;
+  --border-width: 1px;
+  --border-style: solid;
+  --border-color: rgba(255, 149, 0, 1);
+}
+
+/* Animación de entrada */
+@keyframes toastSlideIn {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.custom-toast {
+  animation: toastSlideIn 0.3s ease-out;
 }

@@ -122,10 +122,57 @@ export class InvitationService {
       throw new Error('Usuario no autenticado');
     }
 
-    // Buscar la invitación
-    const invite = this.developmentInvites.find(
-      (inv) => inv.code === inviteCode && inv.status === 'pending'
-    );
+    console.log(`🔍 Looking for invitation with code: ${inviteCode}`);
+
+    // 1. PRIMERO: Buscar la invitación en Firebase
+    let invite: OrganizationInvite | null = null;
+
+    try {
+      const invitationsRef = collection(this.firestore, 'invitations');
+      const q = query(
+        invitationsRef,
+        where('code', '==', inviteCode),
+        where('status', '==', 'pending')
+      );
+      const snapshot = await getDocs(q);
+
+      if (!snapshot.empty) {
+        const inviteDoc = snapshot.docs[0];
+        invite = {
+          id: inviteDoc.id,
+          ...inviteDoc.data(),
+        } as OrganizationInvite;
+
+        // Convertir Timestamp a Date si es necesario
+        if (
+          invite.expiresAt &&
+          typeof invite.expiresAt === 'object' &&
+          'toDate' in invite.expiresAt
+        ) {
+          invite.expiresAt = (invite.expiresAt as any).toDate();
+        }
+
+        console.log('✅ Found invitation in Firebase:', invite);
+      } else {
+        console.log(
+          '📝 No Firebase invitation found, checking development data...'
+        );
+
+        // Fallback: buscar en datos de desarrollo
+        invite =
+          this.developmentInvites.find(
+            (inv) => inv.code === inviteCode && inv.status === 'pending'
+          ) || null;
+      }
+    } catch (firebaseError) {
+      console.error('🔥 Firebase invitation lookup failed:', firebaseError);
+
+      // Fallback a datos de desarrollo
+      invite =
+        this.developmentInvites.find(
+          (inv) => inv.code === inviteCode && inv.status === 'pending'
+        ) || null;
+    }
 
     if (!invite) {
       throw new Error('Código de invitación inválido o expirado');
@@ -154,10 +201,31 @@ export class InvitationService {
         }
       );
 
-      // Marcar invitación como aceptada
+      // Marcar invitación como aceptada en Firebase
+      if (invite.id) {
+        try {
+          const inviteDocRef = doc(this.firestore, 'invitations', invite.id);
+          await updateDoc(inviteDocRef, {
+            status: 'accepted',
+            acceptedAt: new Date(),
+            acceptedBy: currentUser.uid,
+          });
+          console.log('✅ Invitation marked as accepted in Firebase');
+        } catch (updateError) {
+          console.error(
+            '⚠️ Could not update invitation status in Firebase:',
+            updateError
+          );
+        }
+      }
+
+      // Marcar invitación como aceptada (fallback local)
       invite.status = 'accepted';
 
-      // Actualizar el usuario con la información de la organización
+      // ✅ CRUCIAL: Actualizar el usuario con la información de la organización Y EL ROL
+      console.log(
+        `📝 Updating user ${currentUser.email} with organization role: ${invite.role}`
+      );
       await this.updateUserOrganization(
         currentUser.uid,
         invite.organizationId,
@@ -165,7 +233,7 @@ export class InvitationService {
       );
 
       console.log(
-        `✅ User ${currentUser.email} joined organization ${invite.organizationName}`
+        `✅ User ${currentUser.email} joined organization ${invite.organizationName} with role: ${invite.role}`
       );
     } catch (error) {
       console.error('Error accepting invitation:', error);
@@ -249,19 +317,19 @@ export class InvitationService {
     organizationRole: 'admin' | 'moderator' | 'user'
   ): Promise<void> {
     try {
-      // TODO: Implementar actualización real en Firestore
-      // const userDoc = doc(this.firestore, 'users', userId);
-      // await updateDoc(userDoc, {
-      //   organizationId,
-      //   organizationRole,
-      //   updatedAt: new Date(),
-      // });
+      // Actualizar el usuario en Firestore con su organizationRole real
+      const userDoc = doc(this.firestore, 'users', userId);
+      await updateDoc(userDoc, {
+        organizationId,
+        organizationRole, // ✅ CORREGIDO: Guardar el rol de organización real
+        updatedAt: new Date(),
+      });
 
       console.log(
-        `📄 User organization updated: ${userId} -> ${organizationId}`
+        `✅ User organization updated in Firebase: ${userId} -> org: ${organizationId}, role: ${organizationRole}`
       );
     } catch (error) {
-      console.error('Error updating user organization:', error);
+      console.error('Error updating user organization in Firebase:', error);
       throw error;
     }
   }

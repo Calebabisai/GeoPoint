@@ -213,8 +213,9 @@ export class ProfilePage implements OnInit {
     const toast = await this.toastController.create({
       message,
       duration: 3000,
-      position: 'bottom',
+      position: 'top',
       color,
+      cssClass: 'custom-toast',
     });
     await toast.present();
   }

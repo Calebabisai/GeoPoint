@@ -415,13 +415,7 @@ export class EmailInvitationManagerComponent implements OnInit {
 
     const alert = await this.alertCtrl.create({
       header: 'Vista Previa del Email',
-      message: `
-        <div style="max-height: 400px; overflow-y: auto;">
-          <h4>Asunto: ${emailTemplate.subject}</h4>
-          <hr>
-          <div style="font-size: 12px; white-space: pre-wrap;">${emailTemplate.textBody}</div>
-        </div>
-      `,
+      message: `Asunto: ${emailTemplate.subject}\n\n${emailTemplate.textBody}`,
       buttons: [
         {
           text: 'Ver HTML Completo',
@@ -577,11 +571,15 @@ export class EmailInvitationManagerComponent implements OnInit {
     const successCount = results.successful.length;
     const failCount = results.failed.length;
 
+    // Construir mensaje sin etiquetas HTML
     let message = '';
     if (successCount > 0) {
-      message += `✅ ${successCount} invitación(es) enviada(s) correctamente.\n`;
+      message += `✅ ${successCount} invitación(es) enviada(s) correctamente.`;
     }
     if (failCount > 0) {
+      if (successCount > 0) {
+        message += '\n\n';
+      }
       message += `❌ ${failCount} invitación(es) fallaron:\n`;
       results.failed.forEach((failure) => {
         message += `• ${failure.email}: ${failure.error}\n`;
@@ -590,7 +588,7 @@ export class EmailInvitationManagerComponent implements OnInit {
 
     const alert = await this.alertCtrl.create({
       header: 'Resultados del Envío',
-      message: message.replace(/\n/g, '<br>'),
+      message: message,
       buttons: [
         {
           text: 'Ver Códigos',
@@ -616,15 +614,11 @@ export class EmailInvitationManagerComponent implements OnInit {
 
     const codesList = invites
       .map((invite) => `• ${invite.invitedEmail}: ${invite.code}`)
-      .join('<br>');
+      .join('\n');
 
     const alert = await this.alertCtrl.create({
       header: 'Códigos de Invitación',
-      message: `
-        <div style="font-family: monospace; font-size: 12px;">
-          ${codesList}
-        </div>
-      `,
+      message: codesList,
       buttons: [
         {
           text: 'Copiar Todos',
@@ -683,8 +677,9 @@ export class EmailInvitationManagerComponent implements OnInit {
     const toast = await this.toastCtrl.create({
       message,
       duration: 3000,
-      position: 'bottom',
+      position: 'top',
       color,
+      cssClass: 'custom-toast',
     });
     await toast.present();
   }

@@ -158,8 +158,9 @@ export class EmailPreviewPage implements OnInit {
       const toast = await this.toastCtrl.create({
         message: `Código de ejemplo copiado: ${code}`,
         duration: 2000,
-        position: 'bottom',
+        position: 'top',
         color: 'success',
+        cssClass: 'custom-toast',
       });
       await toast.present();
     } catch (error) {

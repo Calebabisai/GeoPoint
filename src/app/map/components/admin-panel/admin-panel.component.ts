@@ -286,7 +286,8 @@ export class AdminPanelComponent {
       message,
       duration: 3000,
       color,
-      position: 'bottom',
+      position: 'top',
+      cssClass: 'custom-toast',
     });
     toast.present();
   }

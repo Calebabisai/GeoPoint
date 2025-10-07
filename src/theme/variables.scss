@@ -13,13 +13,13 @@
   --ion-color-primary-shade: #e0e0e0;
   --ion-color-primary-tint: #ffffff;
 
-  /* Secondary - Verde Uber */
-  --ion-color-secondary: #00d46a;
-  --ion-color-secondary-rgb: 0, 212, 106;
+  /* Secondary - Verde profesional */
+  --ion-color-secondary: #00a854;
+  --ion-color-secondary-rgb: 0, 168, 84;
   --ion-color-secondary-contrast: #ffffff;
   --ion-color-secondary-contrast-rgb: 255, 255, 255;
-  --ion-color-secondary-shade: #00bb5d;
-  --ion-color-secondary-tint: #1ad979;
+  --ion-color-secondary-shade: #00944a;
+  --ion-color-secondary-tint: #1ab865;
 
   /* Tertiary - Azul claro para acciones */
   --ion-color-tertiary: #00a8ff;
@@ -29,13 +29,13 @@
   --ion-color-tertiary-shade: #0095e0;
   --ion-color-tertiary-tint: #1ab0ff;
 
-  /* Success - Verde éxito */
-  --ion-color-success: #00d46a;
-  --ion-color-success-rgb: 0, 212, 106;
+  /* Success - Verde profesional */
+  --ion-color-success: #00a854;
+  --ion-color-success-rgb: 0, 168, 84;
   --ion-color-success-contrast: #ffffff;
   --ion-color-success-contrast-rgb: 255, 255, 255;
-  --ion-color-success-shade: #00bb5d;
-  --ion-color-success-tint: #1ad979;
+  --ion-color-success-shade: #00944a;
+  --ion-color-success-tint: #1ab865;
 
   /* Warning - Amarillo/Naranja */
   --ion-color-warning: #ffb800;
@@ -133,7 +133,7 @@
 /* === VARIABLES PERSONALIZADAS GEOPOINT === */
 :root {
   /* Colores de la marca */
-  --gp-brand-primary: #00d46a;
+  --gp-brand-primary: #00a854; /* Verde más oscuro y profesional */
   --gp-brand-secondary: #00a8ff;
   
   /* Grises personalizados */
