@@ -7,5 +7,6 @@ export interface MapZone {
   number: number; // Número identificador de la zona
   type: 'zone' | 'area' | 'sector';
   createdBy: string;
+  organizationId: string;
   createdAt: Date;
 }

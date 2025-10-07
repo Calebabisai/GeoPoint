@@ -1,0 +1,110 @@
+<ion-header [translucent]="true">
+  <ion-toolbar color="dark">
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/home"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Mi Perfil</ion-title>
+    <ion-buttons slot="end">
+      <ion-button fill="clear" (click)="toggleEdit()" *ngIf="!isEditing">
+        <ion-icon name="pencil-outline" slot="icon-only"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="profile-page">
+  <div class="profile-container" *ngIf="currentUser$ | async as user">
+    <!-- Sección de Avatar -->
+    <div class="avatar-section">
+      <ion-avatar class="profile-avatar">
+        <div class="avatar-content">{{ getUserInitials(user) }}</div>
+      </ion-avatar>
+      <h2 class="current-name">{{ getUserDisplayName(user) }}</h2>
+      <p class="current-email">{{ user.email }}</p>
+    </div>
+
+    <!-- Formulario de Perfil -->
+    <ion-card class="profile-card">
+      <ion-card-header>
+        <ion-card-title>
+          <ion-icon name="person-outline"></ion-icon>
+          Información Personal
+        </ion-card-title>
+      </ion-card-header>
+
+      <ion-card-content>
+        <form [formGroup]="profileForm">
+          <!-- Nombre completo -->
+          <ion-item [class.editing]="isEditing">
+            <ion-label position="stacked">
+              <ion-icon name="person-outline" slot="start"></ion-icon>
+              Nombre completo
+            </ion-label>
+            <ion-input
+              formControlName="displayName"
+              [readonly]="!isEditing"
+              placeholder="Ingresa tu nombre completo"
+              [class.error]="isFieldInvalid('displayName')"
+              fill="outline"
+            >
+            </ion-input>
+          </ion-item>
+
+          <div *ngIf="isFieldInvalid('displayName')" class="error-message">
+            <ion-icon name="close-outline"></ion-icon>
+            <span *ngIf="profileForm.get('displayName')?.errors?.['required']">
+              El nombre es requerido
+            </span>
+            <span *ngIf="profileForm.get('displayName')?.errors?.['minlength']">
+              El nombre debe tener al menos 2 caracteres
+            </span>
+          </div>
+
+          <!-- Email (solo lectura) -->
+          <ion-item class="readonly-item">
+            <ion-label position="stacked">
+              <ion-icon name="mail-outline" slot="start"></ion-icon>
+              Correo electrónico
+            </ion-label>
+            <ion-input formControlName="email" readonly fill="outline">
+            </ion-input>
+          </ion-item>
+
+          <p class="help-text">
+            <ion-icon name="information-circle-outline"></ion-icon>
+            El correo electrónico no se puede modificar
+          </p>
+        </form>
+      </ion-card-content>
+    </ion-card>
+
+    <!-- Botones de acción -->
+    <div class="action-buttons" *ngIf="isEditing">
+      <ion-button
+        expand="block"
+        fill="outline"
+        color="medium"
+        (click)="toggleEdit()"
+        [disabled]="isSaving"
+      >
+        <ion-icon name="close-outline" slot="start"></ion-icon>
+        Cancelar
+      </ion-button>
+
+      <ion-button
+        expand="block"
+        color="success"
+        (click)="saveProfile()"
+        [disabled]="profileForm.invalid || isSaving"
+      >
+        <ion-spinner *ngIf="isSaving" name="crescent"></ion-spinner>
+        <ion-icon
+          *ngIf="!isSaving"
+          name="checkmark-outline"
+          slot="start"
+        ></ion-icon>
+        {{ isSaving ? 'Guardando...' : 'Guardar cambios' }}
+      </ion-button>
+    </div>
+  </div>
+</ion-content>

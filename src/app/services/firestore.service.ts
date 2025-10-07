@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, switchMap, of, take } from 'rxjs';
 import {
   Firestore,
   collection,
@@ -9,30 +9,69 @@ import {
   doc,
   collectionData,
   Timestamp,
+  query,
+  where,
 } from '@angular/fire/firestore';
 import { MapMarker } from '../shared/models/marker.model';
 import { MapZone } from '../shared/models/zone.model';
+import { OrganizationService } from '../shared/services/organization.service';
+import { Organization } from '../shared/models/organization.model';
 
 @Injectable({ providedIn: 'root' })
 export class FirestoreService {
   private firestore = inject(Firestore);
+  private organizationService = inject(OrganizationService);
 
-  // Marcadores
+  constructor() {
+    console.log('🔥 FirestoreService initialized with constructor injection');
+  }
+
+  // Marcadores por organización
   getMarkers(): Observable<MapMarker[]> {
-    const markersCollection = collection(this.firestore, 'markers');
-    return collectionData(markersCollection, { idField: 'id' }) as Observable<
-      MapMarker[]
-    >;
+    return this.organizationService.getCurrentOrganization().pipe(
+      switchMap((org: Organization | null) => {
+        if (!org) return of([]);
+
+        const markersCollection = collection(this.firestore, 'markers');
+        const q = query(
+          markersCollection,
+          where('organizationId', '==', org.id)
+        );
+        return collectionData(q, { idField: 'id' }) as Observable<MapMarker[]>;
+      })
+    );
   }
 
   async addMarker(marker: Omit<MapMarker, 'id'>): Promise<string> {
-    const markersCollection = collection(this.firestore, 'markers');
-    const markerData = {
-      ...marker,
-      createdAt: Timestamp.now(),
-    };
-    const docRef = await addDoc(markersCollection, markerData);
-    return docRef.id;
+    return new Promise((resolve, reject) => {
+      this.organizationService
+        .getCurrentOrganization()
+        .pipe(take(1))
+        .subscribe({
+          next: async (currentOrg: Organization | null) => {
+            try {
+              if (!currentOrg) {
+                throw new Error('No hay organización activa');
+              }
+
+              const markersCollection = collection(this.firestore, 'markers');
+              const markerData = {
+                ...marker,
+                organizationId: currentOrg.id,
+                createdAt: Timestamp.now(),
+              };
+
+              console.log('🎯 Adding marker to Firebase:', markerData);
+              const docRef = await addDoc(markersCollection, markerData);
+              console.log('✅ Marker added with ID:', docRef.id);
+              resolve(docRef.id);
+            } catch (error) {
+              reject(error);
+            }
+          },
+          error: reject,
+        });
+    });
   }
 
   async updateMarker(id: string, marker: Partial<MapMarker>): Promise<void> {
@@ -45,22 +84,49 @@ export class FirestoreService {
     await deleteDoc(markerDoc);
   }
 
-  // Zonas
+  // Zonas por organización
   getZones(): Observable<MapZone[]> {
-    const zonesCollection = collection(this.firestore, 'zones');
-    return collectionData(zonesCollection, { idField: 'id' }) as Observable<
-      MapZone[]
-    >;
+    return this.organizationService.getCurrentOrganization().pipe(
+      switchMap((org: Organization | null) => {
+        if (!org) return of([]);
+
+        const zonesCollection = collection(this.firestore, 'zones');
+        const q = query(zonesCollection, where('organizationId', '==', org.id));
+        return collectionData(q, { idField: 'id' }) as Observable<MapZone[]>;
+      })
+    );
   }
 
   async addZone(zone: Omit<MapZone, 'id'>): Promise<string> {
-    const zonesCollection = collection(this.firestore, 'zones');
-    const zoneData = {
-      ...zone,
-      createdAt: Timestamp.now(),
-    };
-    const docRef = await addDoc(zonesCollection, zoneData);
-    return docRef.id;
+    return new Promise((resolve, reject) => {
+      this.organizationService
+        .getCurrentOrganization()
+        .pipe(take(1))
+        .subscribe({
+          next: async (currentOrg: Organization | null) => {
+            try {
+              if (!currentOrg) {
+                throw new Error('No hay organización activa');
+              }
+
+              const zonesCollection = collection(this.firestore, 'zones');
+              const zoneData = {
+                ...zone,
+                organizationId: currentOrg.id,
+                createdAt: Timestamp.now(),
+              };
+
+              console.log('🗺️ Adding zone to Firebase:', zoneData);
+              const docRef = await addDoc(zonesCollection, zoneData);
+              console.log('✅ Zone added with ID:', docRef.id);
+              resolve(docRef.id);
+            } catch (error) {
+              reject(error);
+            }
+          },
+          error: reject,
+        });
+    });
   }
 
   async updateZone(id: string, zone: Partial<MapZone>): Promise<void> {
@@ -73,18 +139,47 @@ export class FirestoreService {
     await deleteDoc(zoneDoc);
   }
 
-  // Rutas (mantener compatibilidad)
+  // Rutas por organización (mantener compatibilidad)
   getRoutes(): Observable<any[]> {
-    const routesCollection = collection(this.firestore, 'routes');
-    return collectionData(routesCollection, { idField: 'id' });
+    return this.organizationService.getCurrentOrganization().pipe(
+      switchMap((org: Organization | null) => {
+        if (!org) return of([]);
+
+        const routesCollection = collection(this.firestore, 'routes');
+        const q = query(
+          routesCollection,
+          where('organizationId', '==', org.id)
+        );
+        return collectionData(q, { idField: 'id' });
+      })
+    );
   }
 
   async addRoute(route: any): Promise<string> {
-    const routesCollection = collection(this.firestore, 'routes');
-    const docRef = await addDoc(routesCollection, {
-      ...route,
-      createdAt: Timestamp.now(),
+    return new Promise((resolve, reject) => {
+      this.organizationService
+        .getCurrentOrganization()
+        .pipe(take(1))
+        .subscribe({
+          next: async (currentOrg: Organization | null) => {
+            try {
+              if (!currentOrg) {
+                throw new Error('No hay organización activa');
+              }
+
+              const routesCollection = collection(this.firestore, 'routes');
+              const docRef = await addDoc(routesCollection, {
+                ...route,
+                organizationId: currentOrg.id,
+                createdAt: Timestamp.now(),
+              });
+              resolve(docRef.id);
+            } catch (error) {
+              reject(error);
+            }
+          },
+          error: reject,
+        });
     });
-    return docRef.id;
   }
 }

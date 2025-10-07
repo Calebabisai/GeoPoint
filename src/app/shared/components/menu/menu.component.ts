@@ -21,6 +21,7 @@ import {
   IonSelectOption,
   ToastController,
   AlertController,
+  MenuController,
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import {
@@ -45,7 +46,11 @@ import { AuthorizationService } from 'src/app/auth/services/authorization.servic
 import { OrganizationService } from '../../services/organization.service';
 import { Router } from '@angular/router';
 import { Observable, Subscription } from 'rxjs';
-import { User } from '../../models/user.model';
+import {
+  User,
+  getUserDisplayName,
+  getUserShortName,
+} from '../../models/user.model';
 import { Organization } from '../../models/organization.model';
 
 @Component({
@@ -75,12 +80,15 @@ export class MenuComponent implements OnInit, OnDestroy {
   private cdr = inject(ChangeDetectorRef);
   private toastCtrl = inject(ToastController);
   private alertCtrl = inject(AlertController);
+  private menuCtrl = inject(MenuController);
 
   currentUser$: Observable<User | null>;
   isDev$: Observable<boolean>;
   currentOrganization$: Observable<Organization | null>;
   userOrganizations$: Observable<Organization[]>;
-  organizationRole$: Observable<'owner' | 'admin' | 'user' | null>;
+  organizationRole$: Observable<
+    'owner' | 'admin' | 'moderator' | 'user' | null
+  >;
   private roleChangeSubscription?: Subscription;
 
   constructor() {
@@ -119,6 +127,13 @@ export class MenuComponent implements OnInit, OnDestroy {
       'organizationChanged',
       this.onOrganizationChanged.bind(this)
     );
+    // Escuchar eventos de creación de organización
+    window.addEventListener(
+      'organizationCreated',
+      this.onOrganizationChanged.bind(this)
+    );
+
+    console.log('🎯 Menu: Listening for organization events');
   }
 
   ngOnDestroy() {
@@ -126,6 +141,10 @@ export class MenuComponent implements OnInit, OnDestroy {
     window.removeEventListener('roleChanged', this.onRoleChanged.bind(this));
     window.removeEventListener(
       'organizationChanged',
+      this.onOrganizationChanged.bind(this)
+    );
+    window.removeEventListener(
+      'organizationCreated',
       this.onOrganizationChanged.bind(this)
     );
     if (this.roleChangeSubscription) {
@@ -146,15 +165,15 @@ export class MenuComponent implements OnInit, OnDestroy {
     // Forzar actualización de observables de organización
     this.currentOrganization$ =
       this.organizationService.getCurrentOrganization();
+    this.userOrganizations$ = this.organizationService.getUserOrganizations();
     this.organizationRole$ =
       this.organizationService.getCurrentOrganizationRole();
     this.cdr.detectChanges();
+    console.log('✅ Menu: Observables updated and change detection triggered');
   }
 
   getRoleDisplayName(role: string): string {
     switch (role?.toLowerCase()) {
-      case 'dev':
-        return 'Desarrollador';
       case 'admin':
         return 'Administrador';
       case 'moderator':
@@ -168,8 +187,6 @@ export class MenuComponent implements OnInit, OnDestroy {
 
   getRoleIcon(role: string): string {
     switch (role?.toLowerCase()) {
-      case 'dev':
-        return 'code-slash-outline';
       case 'admin':
         return 'ribbon-outline';
       case 'moderator':
@@ -183,8 +200,6 @@ export class MenuComponent implements OnInit, OnDestroy {
 
   getRoleClass(role: string): string {
     switch (role?.toLowerCase()) {
-      case 'dev':
-        return 'role-dev';
       case 'admin':
         return 'role-admin';
       case 'moderator':
@@ -196,8 +211,8 @@ export class MenuComponent implements OnInit, OnDestroy {
     }
   }
 
-  // Cambiar rol (solo disponible para DEV)
-  async changeRole(newRole: 'dev' | 'admin' | 'user') {
+  // Cambiar rol (solo disponible para admins)
+  async changeRole(newRole: 'admin' | 'user') {
     try {
       console.log(`🔄 Changing role to: ${newRole}`);
       this.authorizationService.setDevelopmentRole(newRole);
@@ -304,65 +319,12 @@ export class MenuComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Invitar usuario a la organización
+   * Invitar usuario a la organización - Redirige al panel de gestión de invitaciones
    */
   async inviteUser() {
-    const alert = await this.alertCtrl.create({
-      header: 'Invitar Usuario',
-      message: 'Envía una invitación para unirse a tu organización',
-      inputs: [
-        {
-          name: 'email',
-          type: 'email',
-          placeholder: 'correo@ejemplo.com',
-        },
-      ],
-      buttons: [
-        {
-          text: 'Cancelar',
-          role: 'cancel',
-        },
-        {
-          text: 'Enviar Invitación',
-          handler: async (data) => {
-            if (data.email?.trim()) {
-              try {
-                const currentOrg = await this.currentOrganization$
-                  .pipe()
-                  .toPromise();
-                if (currentOrg) {
-                  const invite = await this.organizationService.inviteUser(
-                    currentOrg.id,
-                    data.email.trim()
-                  );
-
-                  const toast = await this.toastCtrl.create({
-                    message: `Invitación enviada a ${data.email}`,
-                    duration: 3000,
-                    position: 'bottom',
-                    color: 'success',
-                  });
-                  await toast.present();
-                }
-              } catch (error) {
-                console.error('❌ Error sending invite:', error);
-
-                const toast = await this.toastCtrl.create({
-                  message: 'Error al enviar la invitación',
-                  duration: 3000,
-                  position: 'bottom',
-                  color: 'danger',
-                });
-                await toast.present();
-              }
-            }
-            return true;
-          },
-        },
-      ],
-    });
-
-    await alert.present();
+    console.log('🎯 Navegando al panel de gestión de invitaciones...');
+    await this.menuCtrl.close();
+    this.router.navigate(['/admin/email-invitations']);
   }
 
   /**
@@ -427,8 +389,53 @@ export class MenuComponent implements OnInit, OnDestroy {
     }
   }
 
+  closeMenu() {
+    this.menuCtrl.close();
+  }
+
   onLogout() {
     this.authService.logout();
     this.router.navigateByUrl('/auth', { replaceUrl: true });
+  }
+
+  /**
+   * Abrir el gestor de invitaciones por email
+   */
+  openEmailInvitations() {
+    this.menuCtrl.close(); // Cerrar el menú
+    this.router.navigate(['/admin/email-invitations']);
+  }
+
+  /**
+   * Abrir la gestión de usuarios (solo para administradores)
+   */
+  openUserManagement() {
+    this.menuCtrl.close(); // Cerrar el menú
+    this.router.navigate(['/admin/user-management']);
+  }
+
+  // Métodos utilitarios para mostrar nombres de usuario
+  getUserDisplayName(user: User | null): string {
+    return getUserDisplayName(user);
+  }
+
+  getUserShortName(user: User | null): string {
+    return getUserShortName(user);
+  }
+
+  // Obtener las iniciales del nombre para el avatar
+  getUserInitials(user: User | null): string {
+    if (!user) return 'U';
+
+    const displayName = this.getUserDisplayName(user);
+    const words = displayName.split(' ').filter((word) => word.length > 0);
+
+    if (words.length >= 2) {
+      return `${words[0][0]}${words[1][0]}`.toUpperCase();
+    } else if (words.length === 1) {
+      return words[0][0].toUpperCase();
+    } else {
+      return 'U';
+    }
   }
 }

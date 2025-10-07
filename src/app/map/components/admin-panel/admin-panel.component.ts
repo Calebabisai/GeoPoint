@@ -128,6 +128,7 @@ export class AdminPanelComponent {
         color: this.newMarker.color,
         type: 'marker', // Valor por defecto
         createdBy: user?.uid,
+        organizationId: '', // Se asignará en FirestoreService
         createdAt: new Date(),
       };
       await this.firestoreService.addMarker(marker);
@@ -169,6 +170,7 @@ export class AdminPanelComponent {
         number: this.getNextZoneNumber(),
         type: 'zone', // Valor por defecto
         createdBy: user?.uid,
+        organizationId: '', // Se asignará en FirestoreService
         createdAt: new Date(),
       };
       await this.firestoreService.addZone(zone);

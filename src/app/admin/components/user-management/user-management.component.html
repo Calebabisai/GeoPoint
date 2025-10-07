@@ -1,23 +1,18 @@
 <ion-header [translucent]="true">
   <ion-toolbar color="dark">
     <ion-buttons slot="start">
-      <ion-back-button></ion-back-button>
+      <ion-back-button defaultHref="/home"></ion-back-button>
     </ion-buttons>
     <ion-title>Gestión de Usuarios</ion-title>
     <ion-buttons slot="end">
-      <ion-button (click)="onRefreshButtonClick()">
-        <ion-icon name="refresh" slot="icon-only"></ion-icon>
+      <ion-button fill="clear" routerLink="/home">
+        <ion-icon name="home" slot="icon-only"></ion-icon>
       </ion-button>
     </ion-buttons>
   </ion-toolbar>
 </ion-header>
 
 <ion-content [fullscreen]="true" class="user-management">
-  <!-- Refresher -->
-  <ion-refresher slot="fixed" (ionRefresh)="onRefresh($event)">
-    <ion-refresher-content></ion-refresher-content>
-  </ion-refresher>
-
   <!-- Loading State -->
   <div *ngIf="isLoading" class="loading-container">
     <div class="loading-content">
@@ -26,217 +21,88 @@
     </div>
   </div>
 
-  <!-- Main Content -->
+  <!-- Content -->
   <div *ngIf="!isLoading" class="content-container">
-    <!-- Stats Cards -->
-    <div class="stats-section" *ngIf="userStats$ | async as stats">
-      <ion-grid>
-        <ion-row>
-          <ion-col size="6" size-md="3">
-            <ion-card class="stat-card">
-              <ion-card-content>
-                <div class="stat-icon">
-                  <ion-icon name="people" color="primary"></ion-icon>
-                </div>
-                <div class="stat-info">
-                  <div class="stat-number">{{ stats.totalUsers }}</div>
-                  <div class="stat-label">Total Usuarios</div>
-                </div>
-              </ion-card-content>
-            </ion-card>
-          </ion-col>
-          <ion-col size="6" size-md="3">
-            <ion-card class="stat-card">
-              <ion-card-content>
-                <div class="stat-icon">
-                  <ion-icon name="shield-checkmark" color="warning"></ion-icon>
-                </div>
-                <div class="stat-info">
-                  <div class="stat-number">{{ stats.adminUsers }}</div>
-                  <div class="stat-label">Administradores</div>
-                </div>
-              </ion-card-content>
-            </ion-card>
-          </ion-col>
-          <ion-col size="6" size-md="3">
-            <ion-card class="stat-card">
-              <ion-card-content>
-                <div class="stat-icon">
-                  <ion-icon name="globe" color="success"></ion-icon>
-                </div>
-                <div class="stat-info">
-                  <div class="stat-number">{{ stats.onlineUsers }}</div>
-                  <div class="stat-label">En Línea</div>
-                </div>
-              </ion-card-content>
-            </ion-card>
-          </ion-col>
-          <ion-col size="6" size-md="3">
-            <ion-card class="stat-card">
-              <ion-card-content>
-                <div class="stat-icon">
-                  <ion-icon name="business" color="medium"></ion-icon>
-                </div>
-                <div class="stat-info">
-                  <div class="stat-number">
-                    {{ stats.usersWithoutOrganization }}
-                  </div>
-                  <div class="stat-label">Sin Organización</div>
-                </div>
-              </ion-card-content>
-            </ion-card>
-          </ion-col>
-        </ion-row>
-      </ion-grid>
-    </div>
-
-    <!-- Search and Filter -->
-    <div class="search-filter-section">
-      <ion-searchbar
-        placeholder="Buscar por email o organización"
-        debounce="300"
-        (ionInput)="onSearchInput($event)"
-        class="search-bar"
-      >
-      </ion-searchbar>
-
-      <ion-segment
-        value="{{ selectedFilter }}"
-        (ionChange)="onFilterChange($event)"
-        class="filter-segment"
-      >
-        <ion-segment-button value="all">
-          <ion-label>Todos</ion-label>
-        </ion-segment-button>
-        <ion-segment-button value="admins">
-          <ion-label>Admins</ion-label>
-        </ion-segment-button>
-        <ion-segment-button value="users">
-          <ion-label>Usuarios</ion-label>
-        </ion-segment-button>
-        <ion-segment-button value="without-org">
-          <ion-label>Sin Org</ion-label>
-        </ion-segment-button>
-        <ion-segment-button value="online">
-          <ion-label>En Línea</ion-label>
-        </ion-segment-button>
-      </ion-segment>
-    </div>
+    <!-- Header Info -->
+    <ion-card>
+      <ion-card-header>
+        <ion-card-title>
+          <ion-icon name="people" color="primary"></ion-icon>
+          Usuarios de la Organización
+        </ion-card-title>
+      </ion-card-header>
+      <ion-card-content>
+        <p>Lista de usuarios y sus roles en la organización actual.</p>
+      </ion-card-content>
+    </ion-card>
 
     <!-- Users List -->
-    <div class="users-list-section">
-      <ion-list *ngIf="filteredUsers$ | async as users">
-        <div *ngIf="users.length === 0" class="empty-state">
-          <ion-icon name="people" color="medium"></ion-icon>
-          <h3>No se encontraron usuarios</h3>
-          <p>Intenta cambiar los filtros o el término de búsqueda</p>
-        </div>
+    <ion-card>
+      <ion-card-header>
+        <ion-card-title>Miembros Activos</ion-card-title>
+      </ion-card-header>
+      <ion-card-content>
+        <ion-list *ngIf="users$ | async as users">
+          <ion-item *ngFor="let user of users" lines="full">
+            <ion-avatar slot="start">
+              <ion-icon name="person" color="medium"></ion-icon>
+            </ion-avatar>
 
-        <ion-item
-          *ngFor="let user of users; trackBy: trackByUserId"
-          button
-          (click)="showUserActions(user)"
-          class="user-item"
-        >
-          <!-- Avatar -->
-          <ion-avatar slot="start" [class.online]="user.isOnline">
-            <div class="user-avatar">
-              <ion-icon name="person"></ion-icon>
-              <div *ngIf="user.isOnline" class="online-indicator"></div>
-            </div>
-          </ion-avatar>
+            <ion-label>
+              <h2>{{ getUserDisplayName(user) }}</h2>
+              <p>{{ user.email }}</p>
+              <p>{{ user.organizationName || "Sin organización" }}</p>
+              <p *ngIf="user.createdAt">
+                Miembro desde: {{ user.createdAt | date : "dd/MM/yyyy" }}
+              </p>
+            </ion-label>
 
-          <!-- User Info -->
-          <div class="user-info">
-            <div class="user-main-info">
-              <h3 class="user-email">{{ user.email }}</h3>
-              <div class="user-badges">
-                <ion-chip [color]="getRoleColor(user.role)" class="role-chip">
-                  <ion-icon
-                    [name]="
-                      user.role === 'dev'
-                        ? 'settings'
-                        : user.role === 'admin'
-                        ? 'shield-checkmark'
-                        : 'person'
-                    "
-                  ></ion-icon>
-                  <ion-label>{{ getRoleDisplayName(user.role) }}</ion-label>
-                </ion-chip>
-                <ion-chip
-                  *ngIf="user.organizationName"
-                  color="tertiary"
-                  class="org-chip"
-                >
-                  <ion-icon name="business"></ion-icon>
-                  <ion-label>{{ user.organizationName }}</ion-label>
-                </ion-chip>
-              </div>
-            </div>
-
-            <div class="user-meta">
-              <div class="user-activity">
-                <ion-icon name="time" color="medium"></ion-icon>
-                <span>{{
-                  getTimeAgo(user.lastActivity || user.createdAt)
-                }}</span>
-              </div>
-              <div *ngIf="user.organizationRole" class="org-role">
-                <ion-icon name="shield" color="medium"></ion-icon>
-                <span>{{ user.organizationRole }}</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Actions -->
-          <ion-button
-            slot="end"
-            fill="clear"
-            color="medium"
-            (click)="$event.stopPropagation(); showUserActions(user)"
-          >
-            <ion-icon name="ellipsis-vertical" slot="icon-only"></ion-icon>
-          </ion-button>
-        </ion-item>
-      </ion-list>
-    </div>
-
-    <!-- Recent Activity Section -->
-    <div
-      class="recent-activity-section"
-      *ngIf="recentActivity$ | async as recentUsers"
-    >
-      <ion-card *ngIf="recentUsers.length > 0">
-        <ion-card-header>
-          <ion-card-title>
-            <ion-icon name="time" color="primary"></ion-icon>
-            Actividad Reciente
-          </ion-card-title>
-        </ion-card-header>
-        <ion-card-content>
-          <ion-list>
-            <ion-item *ngFor="let user of recentUsers.slice(0, 5)" lines="none">
-              <ion-avatar slot="start" [class.online]="user.isOnline">
-                <div class="user-avatar">
-                  <ion-icon name="person"></ion-icon>
-                  <div *ngIf="user.isOnline" class="online-indicator"></div>
-                </div>
-              </ion-avatar>
-              <ion-label>
-                <h3>{{ user.email }}</h3>
-                <p>{{ getTimeAgo(user.lastActivity || user.createdAt) }}</p>
-              </ion-label>
+            <div slot="end" class="user-roles">
+              <!-- Rol de Sistema -->
               <ion-chip
-                [color]="getRoleColor(user.role)"
-                slot="end"
-                size="small"
+                [color]="user.role === 'admin' ? 'danger' : 'medium'"
+                [outline]="user.role !== 'admin'"
               >
-                {{ getRoleDisplayName(user.role) }}
+                <ion-icon
+                  [name]="user.role === 'admin' ? 'shield-checkmark' : 'person'"
+                  slot="start"
+                >
+                </ion-icon>
+                <ion-label>{{
+                  user.role === "admin" ? "Administrador" : "Usuario"
+                }}</ion-label>
               </ion-chip>
-            </ion-item>
-          </ion-list>
-        </ion-card-content>
-      </ion-card>
-    </div>
+
+              <!-- Rol de Organización -->
+              <ion-chip
+                *ngIf="user.organizationRole"
+                [color]="getOrgRoleColor(user.organizationRole)"
+                outline
+              >
+                <ion-icon
+                  [name]="getOrgRoleIcon(user.organizationRole)"
+                  slot="start"
+                >
+                </ion-icon>
+                <ion-label>{{
+                  getOrgRoleDisplayName(user.organizationRole)
+                }}</ion-label>
+              </ion-chip>
+            </div>
+          </ion-item>
+        </ion-list>
+
+        <!-- Empty State -->
+        <div *ngIf="(users$ | async)?.length === 0" class="empty-state">
+          <ion-icon
+            name="people-outline"
+            size="large"
+            color="medium"
+          ></ion-icon>
+          <h3>No hay usuarios</h3>
+          <p>No se encontraron usuarios en esta organización.</p>
+        </div>
+      </ion-card-content>
+    </ion-card>
   </div>
 </ion-content>

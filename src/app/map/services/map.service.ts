@@ -1,6 +1,8 @@
 import { Injectable } from '@angular/core';
 import { Observable, Subject } from 'rxjs';
 import * as L from 'leaflet';
+import { Capacitor } from '@capacitor/core';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { MapMarker } from '../../shared/models/marker.model';
 import { MapZone } from '../../shared/models/zone.model';
 
@@ -14,6 +16,7 @@ export class MapService {
   private map: L.Map | undefined;
   private userMarker: L.Marker | undefined;
   private markers: Map<string, L.Marker> = new Map();
+  private markerData: Map<string, MapMarker> = new Map(); // Almacenar datos originales
   private zones: Map<string, L.Polygon> = new Map();
 
   mapClick$ = new Subject<LatLng>();
@@ -28,6 +31,142 @@ export class MapService {
   // Estado de creación
   private isCreatingMarker = false;
   private isCreatingZone = false;
+
+  // Detección de plataforma móvil
+  private isMobile = Capacitor.isNativePlatform();
+  private isTouchDevice =
+    'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+  // Gestión de memoria para móvil
+  private maxMarkersOnMobile = 50; // Límite de marcadores en móvil
+  private maxZonesOnMobile = 20; // Límite de zonas en móvil
+  private markersLoadedCount = 0;
+  private zonesLoadedCount = 0;
+
+  // Método público para consultar si es móvil
+  get isMobilePlatform(): boolean {
+    return this.isMobile || this.isTouchDevice;
+  }
+
+  // Métodos para feedback háptico
+  private async hapticLight() {
+    if (this.isMobile) {
+      try {
+        await Haptics.impact({ style: ImpactStyle.Light });
+      } catch (error) {
+        console.log('Haptics not available:', error);
+      }
+    }
+  }
+
+  private async hapticMedium() {
+    if (this.isMobile) {
+      try {
+        await Haptics.impact({ style: ImpactStyle.Medium });
+      } catch (error) {
+        console.log('Haptics not available:', error);
+      }
+    }
+  }
+
+  private async hapticHeavy() {
+    if (this.isMobile) {
+      try {
+        await Haptics.impact({ style: ImpactStyle.Heavy });
+      } catch (error) {
+        console.log('Haptics not available:', error);
+      }
+    }
+  }
+
+  // Gestión de memoria móvil
+  private checkMemoryLimits(): void {
+    if (this.isMobile || this.isTouchDevice) {
+      // Verificar límites de marcadores
+      if (this.markersLoadedCount > this.maxMarkersOnMobile) {
+        console.warn('⚠️ Marker limit exceeded on mobile, cleaning up...');
+        this.cleanupOldMarkers();
+      }
+
+      // Verificar límites de zonas
+      if (this.zonesLoadedCount > this.maxZonesOnMobile) {
+        console.warn('⚠️ Zone limit exceeded on mobile, cleaning up...');
+        this.cleanupOldZones();
+      }
+    }
+  }
+
+  private cleanupOldMarkers(): void {
+    const markerIds = Array.from(this.markers.keys());
+    const excessCount = markerIds.length - this.maxMarkersOnMobile;
+
+    if (excessCount > 0) {
+      // Remover los marcadores más antiguos (primeros agregados)
+      const markersToRemove = markerIds.slice(0, excessCount);
+      markersToRemove.forEach((id) => {
+        this.removeMarker(id);
+      });
+      console.log(
+        `🧹 Cleaned up ${excessCount} old markers for memory optimization`
+      );
+    }
+  }
+
+  private cleanupOldZones(): void {
+    const zoneIds = Array.from(this.zones.keys());
+    const excessCount = zoneIds.length - this.maxZonesOnMobile;
+
+    if (excessCount > 0) {
+      // Remover las zonas más antiguas (primeras agregadas)
+      const zonesToRemove = zoneIds.slice(0, excessCount);
+      zonesToRemove.forEach((id) => {
+        this.removeZone(id);
+      });
+      console.log(
+        `🧹 Cleaned up ${excessCount} old zones for memory optimization`
+      );
+    }
+  }
+
+  // Método público para limpiar memoria manualmente
+  public cleanupMemory(): void {
+    if (this.isMobile || this.isTouchDevice) {
+      this.cleanupOldMarkers();
+      this.cleanupOldZones();
+
+      // Forzar garbage collection si está disponible
+      if ((window as any).gc) {
+        (window as any).gc();
+      }
+
+      console.log('🧹 Memory cleanup completed');
+    }
+  }
+
+  // Método público para obtener estadísticas de memoria
+  public getMemoryStats(): {
+    markers: { count: number; limit: number; percentage: number };
+    zones: { count: number; limit: number; percentage: number };
+    isMobile: boolean;
+  } {
+    return {
+      markers: {
+        count: this.markersLoadedCount,
+        limit: this.maxMarkersOnMobile,
+        percentage: Math.round(
+          (this.markersLoadedCount / this.maxMarkersOnMobile) * 100
+        ),
+      },
+      zones: {
+        count: this.zonesLoadedCount,
+        limit: this.maxZonesOnMobile,
+        percentage: Math.round(
+          (this.zonesLoadedCount / this.maxZonesOnMobile) * 100
+        ),
+      },
+      isMobile: this.isMobile || this.isTouchDevice,
+    };
+  }
 
   // Colores predefinidos para zonas
   private zoneColors = {
@@ -53,15 +192,60 @@ export class MapService {
       container.style.width = '100%';
     }
 
-    this.map = L.map(containerId, {
-      center: [25.6866, -100.3161],
-      zoom: 13,
-    });
+    // Configuración del mapa optimizada para móvil
+    const mapConfig =
+      this.isMobile || this.isTouchDevice
+        ? {
+            center: [25.6866, -100.3161] as L.LatLngTuple,
+            zoom: 12, // Zoom inicial menor en móvil
+            minZoom: 8,
+            maxZoom: 18,
+            zoomControl: false,
+            attributionControl: false,
+            // Optimizaciones táctiles
+            tap: true,
+            tapTolerance: 15, // Mayor tolerancia para taps en móvil
+            touchZoom: true,
+            bounceAtZoomLimits: false,
+            wheelPxPerZoomLevel: 120, // Zoom más suave
+            zoomSnap: 0.5, // Permitir zooms intermedios
+            zoomDelta: 0.5,
+          }
+        : {
+            center: [25.6866, -100.3161] as L.LatLngTuple,
+            zoom: 13,
+            zoomControl: false,
+            attributionControl: false,
+          };
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 18,
-      attribution: '© OpenStreetMap contributors',
-    }).addTo(this.map);
+    this.map = L.map(containerId, mapConfig);
+
+    // Configuración de tiles optimizada para móvil
+    const tileLayerOptions =
+      this.isMobile || this.isTouchDevice
+        ? {
+            maxZoom: 18,
+            minZoom: 8,
+            attribution: '© OpenStreetMap contributors',
+            // Optimizaciones para móvil
+            updateWhenIdle: false, // Actualizar mientras se mueve
+            updateInterval: 150, // Reducir interval para móvil
+            keepBuffer: 2, // Buffer menor para ahorrar memoria
+            maxNativeZoom: 18,
+            tileSize: 256,
+            zoomOffset: 0,
+            // Loading optimizado para móvil
+            crossOrigin: true,
+          }
+        : {
+            maxZoom: 18,
+            attribution: '© OpenStreetMap contributors',
+          };
+
+    L.tileLayer(
+      'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      tileLayerOptions
+    ).addTo(this.map);
 
     // Esperar a que el mapa se renderice completamente antes de agregar listeners
     setTimeout(() => {
@@ -82,29 +266,42 @@ export class MapService {
   }
 
   updateUserLocation(coords: LatLng) {
-    if (!this.map) return;
-
-    // Remover marcador anterior si existe
-    if (this.userMarker) {
-      this.map.removeLayer(this.userMarker);
+    if (!this.map) {
+      console.error('❌ Cannot update user location: map not initialized');
+      return;
     }
 
-    // Crear marcador discreto para el usuario
-    this.userMarker = L.marker([coords.lat, coords.lng], {
-      icon: L.divIcon({
-        className: 'user-location-marker',
-        html: `
-          <div class="user-location-icon">
-            <div class="user-location-dot"></div>
-            <div class="user-location-pulse"></div>
-          </div>
-        `,
-        iconSize: [20, 20],
-        iconAnchor: [10, 10],
-      }),
-    }).addTo(this.map);
+    console.log('🗺️  Updating user location marker at:', coords);
 
-    console.log('📍 User location marker updated:', coords);
+    // Limpiar referencia de marcador anterior (si existía)
+    if (this.userMarker) {
+      console.log('🗑️ Cleaning up previous user marker reference');
+      this.map.removeLayer(this.userMarker);
+      this.userMarker = undefined;
+    }
+
+    // MARCADOR DE USUARIO DESACTIVADO - Solo mantener funcionalidad GPS
+    console.log('📍 GPS coordinates updated (marker disabled):', coords);
+
+    // NO crear marcador visual - solo registrar las coordenadas para centrado
+    // El GPS funciona pero sin mostrar punto azul
+
+    console.log(
+      'ℹ️ User location marker disabled - GPS tracking active without visual marker'
+    );
+
+    // Forzar refresco del mapa para móviles (especialmente Xiaomi)
+    setTimeout(() => {
+      if (this.map) {
+        this.map.invalidateSize();
+        // Pequeño ajuste de vista para forzar re-renderizado en dispositivos móviles
+        if (this.isMobile || this.isTouchDevice) {
+          const currentZoom = this.map.getZoom();
+          this.map.setView(coords, currentZoom, { animate: false });
+          this.map.fire('refresh');
+        }
+      }
+    }, 100);
   }
 
   addMarker(marker: MapMarker): string {
@@ -136,7 +333,14 @@ export class MapService {
     // Configurar eventos según el modo actual
     this.configureMarkerEvents(leafletMarker, markerId, marker);
 
+    // Almacenar el marcador y sus datos
     this.markers.set(markerId, leafletMarker);
+    this.markerData.set(markerId, marker);
+
+    // Actualizar contador y verificar límites de memoria
+    this.markersLoadedCount++;
+    this.checkMemoryLimits();
+
     return markerId;
   }
 
@@ -181,6 +385,11 @@ export class MapService {
     this.configureZoneEvents(polygon, zoneId, zone);
 
     this.zones.set(zoneId, polygon);
+
+    // Actualizar contador y verificar límites de memoria
+    this.zonesLoadedCount++;
+    this.checkMemoryLimits();
+
     return zoneId;
   }
 
@@ -189,6 +398,10 @@ export class MapService {
     if (marker && this.map) {
       this.map.removeLayer(marker);
       this.markers.delete(id);
+      this.markerData.delete(id); // También limpiar los datos
+
+      // Decrementar contador
+      this.markersLoadedCount = Math.max(0, this.markersLoadedCount - 1);
     }
   }
 
@@ -202,42 +415,111 @@ export class MapService {
       // Remover el polígono
       this.map.removeLayer(zone);
       this.zones.delete(id);
+
+      // Decrementar contador
+      this.zonesLoadedCount = Math.max(0, this.zonesLoadedCount - 1);
     }
   }
 
   private createHouseIcon(color: string): L.DivIcon {
+    // Tamaños optimizados para móvil
+    const iconSize: [number, number] =
+      this.isMobile || this.isTouchDevice ? [40, 52] : [32, 42];
+    const iconAnchor: [number, number] =
+      this.isMobile || this.isTouchDevice ? [20, 52] : [16, 42];
+
     return L.divIcon({
-      className: 'house-marker',
-      html: `<div style="background-color: ${color}; border-radius: 50%; padding: 5px;">🏠</div>`,
-      iconSize: [30, 30],
-      iconAnchor: [15, 15],
+      className: 'house-marker-icon',
+      html: `
+        <div class="marker-container" style="--marker-color: ${color}">
+          <div class="marker-background"></div>
+          <ion-icon name="home" class="marker-icon house-icon"></ion-icon>
+        </div>
+      `,
+      iconSize,
+      iconAnchor,
     });
   }
 
   private createPoiIcon(color: string): L.DivIcon {
+    // Tamaños optimizados para móvil
+    const iconSize: [number, number] =
+      this.isMobile || this.isTouchDevice ? [40, 52] : [32, 42];
+    const iconAnchor: [number, number] =
+      this.isMobile || this.isTouchDevice ? [20, 52] : [16, 42];
+
     return L.divIcon({
-      className: 'poi-marker',
-      html: `<div style="background-color: ${color}; border-radius: 50%; padding: 5px;">📍</div>`,
-      iconSize: [25, 25],
-      iconAnchor: [12, 12],
+      className: 'poi-marker-icon',
+      html: `
+        <div class="marker-container poi-pulse-container" style="--marker-color: ${color}">
+          <div class="poi-pulse-ring"></div>
+          <div class="marker-background poi-background"></div>
+          <ion-icon name="star" class="marker-icon poi-icon"></ion-icon>
+        </div>
+      `,
+      iconSize,
+      iconAnchor,
     });
   }
 
   private createMarkerIcon(color: string): L.DivIcon {
+    // Tamaños optimizados para móvil
+    const iconSize: [number, number] =
+      this.isMobile || this.isTouchDevice ? [40, 52] : [32, 42];
+    const iconAnchor: [number, number] =
+      this.isMobile || this.isTouchDevice ? [20, 52] : [16, 42];
+
     return L.divIcon({
-      className: 'custom-marker',
-      html: `<div style="background-color: ${color}; border-radius: 50%; padding: 3px;">●</div>`,
-      iconSize: [20, 20],
-      iconAnchor: [10, 10],
+      className: 'custom-marker-icon',
+      html: `
+        <div class="marker-container" style="--marker-color: ${color}">
+          <div class="marker-background"></div>
+          <ion-icon name="location" class="marker-icon default-icon"></ion-icon>
+        </div>
+      `,
+      iconSize,
+      iconAnchor,
     });
   }
 
   private createMarkerPopup(marker: MapMarker): string {
+    // Si es un POI, crear popup especial con enlace a Google Maps
+    if (marker.type === 'poi') {
+      return this.createPoiPopup(marker);
+    }
+
     return `
       <div class="marker-popup">
         <h4>${marker.title}</h4>
         ${marker.description ? `<p>${marker.description}</p>` : ''}
         <small>Tipo: ${marker.type}</small>
+      </div>
+    `;
+  }
+
+  private createPoiPopup(marker: MapMarker): string {
+    const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${marker.lat},${marker.lng}`;
+
+    return `
+      <div class="poi-popup">
+        <div class="poi-header">
+          <ion-icon name="star" class="poi-popup-icon"></ion-icon>
+          <h4>${marker.title}</h4>
+        </div>
+        ${
+          marker.description
+            ? `<p class="poi-description">${marker.description}</p>`
+            : ''
+        }
+        <div class="poi-actions">
+          <button class="google-maps-btn" onclick="window.open('${googleMapsUrl}', '_blank')">
+            <ion-icon name="navigate-outline"></ion-icon>
+            Cómo llegar
+          </button>
+          <div class="poi-coords">
+            <small>📍 ${marker.lat.toFixed(6)}, ${marker.lng.toFixed(6)}</small>
+          </div>
+        </div>
       </div>
     `;
   }
@@ -274,8 +556,39 @@ export class MapService {
     this.deleteMode = enabled;
     console.log('🗑️ Delete mode:', enabled ? 'ENABLED' : 'DISABLED');
 
+    // Limpiar cursor del mapa primero
+    this.resetMapCursor();
+
     // Actualizar el cursor y estilos visuales de todos los elementos
     this.updateElementsForDeleteMode();
+
+    // Aplicar o quitar clase delete-mode del contenedor del mapa
+    if (this.map) {
+      const mapContainer = this.map.getContainer();
+      if (enabled) {
+        mapContainer.classList.add('delete-mode');
+      } else {
+        mapContainer.classList.remove('delete-mode');
+      }
+    }
+  }
+
+  private resetMapCursor() {
+    if (this.map) {
+      const mapContainer = this.map.getContainer();
+      // Restaurar cursor predeterminado
+      mapContainer.style.cursor = '';
+
+      // Limpiar cualquier clase relacionada con delete-mode del contenedor
+      mapContainer.classList.remove('delete-mode');
+
+      // También limpiar del elemento leaflet-container si existe
+      const leafletContainer = mapContainer.querySelector('.leaflet-container');
+      if (leafletContainer) {
+        leafletContainer.classList.remove('delete-mode');
+        (leafletContainer as HTMLElement).style.cursor = '';
+      }
+    }
   }
 
   private configureMarkerEvents(
@@ -289,13 +602,20 @@ export class MapService {
       leafletMarker.on('click', (e: L.LeafletMouseEvent) => {
         e.originalEvent.stopPropagation();
         console.log('🗑️ Marker clicked for deletion:', markerId);
+        // Feedback háptico para eliminación (vibraición fuerte)
+        this.hapticHeavy();
         this.markerDelete$.next(markerId);
       });
     } else {
       // Configurar eventos normales
       leafletMarker.on('click', (e: L.LeafletMouseEvent) => {
         e.originalEvent?.stopPropagation();
+        console.log('📍 Marker clicked (initial config):', markerId);
+        // Feedback háptico suave para interacción normal
+        this.hapticLight();
         this.markerClick$.next({ ...marker, id: markerId });
+        // Abrir el popup explícitamente
+        leafletMarker.openPopup();
       });
     }
   }
@@ -346,43 +666,77 @@ export class MapService {
   private updateElementsForDeleteMode() {
     // Actualizar markers existentes
     this.markers.forEach((marker, id) => {
-      // Limpiar eventos existentes
+      // Limpiar eventos existentes completamente
       marker.off('click');
+      marker.off('mouseover');
+      marker.off('mouseout');
 
-      // Reconfigurar eventos
+      const markerElement = marker.getElement() as HTMLElement;
+
+      // Reconfigurar eventos y estilos
       if (this.deleteMode) {
-        (marker.getElement() as HTMLElement)?.classList.add('delete-mode');
+        markerElement?.classList.add('delete-mode');
         marker.on('click', (e: L.LeafletMouseEvent) => {
           e.originalEvent.stopPropagation();
           console.log('🗑️ Marker clicked for deletion:', id);
           this.markerDelete$.next(id);
         });
       } else {
-        (marker.getElement() as HTMLElement)?.classList.remove('delete-mode');
+        // LIMPIEZA COMPLETA al salir del modo delete
+        markerElement?.classList.remove('delete-mode');
+
+        // Restaurar cursor del elemento específico
+        if (markerElement) {
+          markerElement.style.cursor = '';
+        }
+
+        // Restaurar popup y evento normal de click
+        const markerData = this.markerData.get(id);
+        if (markerData) {
+          // Recrear y vincular el popup con los datos originales
+          const popupContent = this.createMarkerPopup(markerData);
+          marker.bindPopup(popupContent);
+          console.log('✅ Popup restored for marker:', id);
+        }
+
         marker.on('click', (e: L.LeafletMouseEvent) => {
           e.originalEvent?.stopPropagation();
-          // Aquí deberíamos tener los datos del marker, pero como no los tenemos
-          // disponibles en este contexto, solo logeamos el click
           console.log('📍 Marker clicked (normal mode):', id);
+          // Feedback háptico suave para interacción restaurada
+          this.hapticLight();
+          // Abrir el popup explícitamente
+          marker.openPopup();
         });
       }
     });
 
     // Actualizar zones existentes
     this.zones.forEach((zone, id) => {
-      // Limpiar eventos existentes
+      // Limpiar eventos existentes completamente
       zone.off('click');
+      zone.off('mouseover');
+      zone.off('mouseout');
 
-      // Reconfigurar eventos
+      const zoneElement = zone.getElement() as HTMLElement;
+
+      // Reconfigurar eventos y estilos
       if (this.deleteMode) {
-        (zone.getElement() as HTMLElement)?.classList.add('delete-mode');
+        zoneElement?.classList.add('delete-mode');
         zone.on('click', (e: L.LeafletMouseEvent) => {
           e.originalEvent.stopPropagation();
           console.log('🗑️ Zone clicked for deletion:', id);
           this.zoneDelete$.next(id);
         });
       } else {
-        (zone.getElement() as HTMLElement)?.classList.remove('delete-mode');
+        // LIMPIEZA COMPLETA al salir del modo delete
+        zoneElement?.classList.remove('delete-mode');
+
+        // Restaurar cursor del elemento específico
+        if (zoneElement) {
+          zoneElement.style.cursor = '';
+        }
+
+        // Reconfigurar evento normal de click
         zone.on('click', (e: L.LeafletMouseEvent) => {
           if (this.isCreatingMarker) {
             // Si estamos creando un marcador, permitir propagación

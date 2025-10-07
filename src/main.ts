@@ -15,9 +15,20 @@ import { initializeApp, provideFirebaseApp } from '@angular/fire/app';
 import { getAuth, provideAuth } from '@angular/fire/auth';
 import { getFirestore, provideFirestore } from '@angular/fire/firestore';
 
+// Iconos para marcadores POI
+import { addIcons } from 'ionicons';
+import { navigateOutline, star, location } from 'ionicons/icons';
+
 if (environment.production) {
   enableProdMode();
 }
+
+// Registrar íconos globalmente
+addIcons({
+  navigateOutline,
+  star,
+  location,
+});
 
 bootstrapApplication(AppComponent, {
   providers: [

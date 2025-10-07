@@ -1,116 +1,290 @@
 <ion-content class="register-page">
   <div class="register-container">
-    <!-- Header Section -->
-    <div class="header-section">
+    <header class="header">
       <div class="back-button">
         <ion-button fill="clear" routerLink="/auth" class="back-btn">
           <ion-icon name="arrow-back-outline" slot="icon-only"></ion-icon>
         </ion-button>
       </div>
 
-      <div class="header-content">
-        <div class="brand-logo">
+      <div class="logo-section">
+        <div class="logo">
           <ion-icon name="person-add-outline" class="logo-icon"></ion-icon>
         </div>
-        <h1 class="header-title">Crear Cuenta</h1>
-        <p class="header-subtitle">
-          Únete a GeoPoint y comienza a explorar el mundo de manera inteligente
+        <h1>Crear Cuenta</h1>
+        <p class="subtitle">{{ getStepTitle() }}</p>
+      </div>
+
+      <!-- Progress indicator -->
+      <div class="progress-container">
+        <div class="progress-bar">
+          <div
+            class="progress-fill"
+            [style.width.%]="(currentStep / totalSteps) * 100"
+          ></div>
+        </div>
+        <p class="progress-text">Paso {{ currentStep }} de {{ totalSteps }}</p>
+      </div>
+    </header>
+
+    <form
+      [formGroup]="registerForm"
+      (ngSubmit)="handleStepSubmit()"
+      class="register-form"
+    >
+      <!-- Paso 1: Selección de tipo de cuenta -->
+      <div *ngIf="currentStep === 1" class="step-content">
+        <h2>Tipo de Cuenta</h2>
+        <p class="step-description">
+          Selecciona el tipo de cuenta que deseas crear
+        </p>
+
+        <div class="account-type-cards">
+          <ion-card
+            class="account-card"
+            [class.selected]="selectedAccountType === 'admin'"
+            (click)="selectAccountType('admin')"
+            button
+          >
+            <ion-card-header>
+              <ion-icon name="business-outline" class="card-icon"></ion-icon>
+              <ion-card-title>Administrador</ion-card-title>
+            </ion-card-header>
+            <ion-card-content>
+              <p>Crear organización y gestionar usuarios</p>
+              <div class="features">
+                <ion-item lines="none">
+                  <ion-label>✓ Crear organización</ion-label>
+                </ion-item>
+                <ion-item lines="none">
+                  <ion-label>✓ Gestionar usuarios</ion-label>
+                </ion-item>
+                <ion-item lines="none">
+                  <ion-label>✓ Control total</ion-label>
+                </ion-item>
+              </div>
+            </ion-card-content>
+          </ion-card>
+
+          <ion-card
+            class="account-card"
+            [class.selected]="selectedAccountType === 'user'"
+            (click)="selectAccountType('user')"
+            button
+          >
+            <ion-card-header>
+              <ion-icon name="person-outline" class="card-icon"></ion-icon>
+              <ion-card-title>Usuario</ion-card-title>
+            </ion-card-header>
+            <ion-card-content>
+              <p>Cuenta básica para usar la aplicación</p>
+              <div class="features">
+                <ion-item lines="none">
+                  <ion-label>✓ Acceso a mapas</ion-label>
+                </ion-item>
+                <ion-item lines="none">
+                  <ion-label>✓ Gestión de puntos</ion-label>
+                </ion-item>
+                <ion-item lines="none">
+                  <ion-label>✓ Uso básico</ion-label>
+                </ion-item>
+              </div>
+            </ion-card-content>
+          </ion-card>
+        </div>
+      </div>
+
+      <!-- Paso 2: Información personal -->
+      <div *ngIf="currentStep === 2" class="step-content">
+        <h2>Información Personal</h2>
+        <p class="step-description">Ingresa tus datos personales</p>
+
+        <div class="form-group">
+          <label for="displayName">Nombre completo</label>
+          <ion-input
+            id="displayName"
+            type="text"
+            placeholder="Tu nombre completo"
+            formControlName="displayName"
+            [class.error]="isFieldInvalid('displayName')"
+            fill="outline"
+          >
+          </ion-input>
+          <div *ngIf="isFieldInvalid('displayName')" class="error-message">
+            <ion-icon name="alert-circle-outline"></ion-icon>
+            El nombre es requerido
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="email">Correo electrónico</label>
+          <ion-input
+            id="email"
+            type="email"
+            placeholder="tu@email.com"
+            formControlName="email"
+            [class.error]="isFieldInvalid('email')"
+            fill="outline"
+          >
+          </ion-input>
+          <div *ngIf="isFieldInvalid('email')" class="error-message">
+            <ion-icon name="alert-circle-outline"></ion-icon>
+            <span *ngIf="registerForm.get('email')?.errors?.['required']">
+              El correo es requerido
+            </span>
+            <span *ngIf="registerForm.get('email')?.errors?.['email']">
+              Formato de correo inválido
+            </span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="password">Contraseña</label>
+          <ion-input
+            id="password"
+            type="password"
+            placeholder="Mínimo 6 caracteres"
+            formControlName="password"
+            [class.error]="isFieldInvalid('password')"
+            fill="outline"
+          >
+          </ion-input>
+          <div *ngIf="isFieldInvalid('password')" class="error-message">
+            <ion-icon name="alert-circle-outline"></ion-icon>
+            <span *ngIf="registerForm.get('password')?.errors?.['required']">
+              La contraseña es requerida
+            </span>
+            <span *ngIf="registerForm.get('password')?.errors?.['minlength']">
+              Mínimo 6 caracteres
+            </span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="confirmPassword">Confirmar contraseña</label>
+          <ion-input
+            id="confirmPassword"
+            type="password"
+            placeholder="Repite tu contraseña"
+            formControlName="confirmPassword"
+            [class.error]="isFieldInvalid('confirmPassword') || registerForm.hasError('passwordMismatch')"
+            fill="outline"
+          >
+          </ion-input>
+          <div
+            *ngIf="isFieldInvalid('confirmPassword') || registerForm.hasError('passwordMismatch')"
+            class="error-message"
+          >
+            <ion-icon name="alert-circle-outline"></ion-icon>
+            <span
+              *ngIf="registerForm.get('confirmPassword')?.errors?.['required']"
+            >
+              Confirma tu contraseña
+            </span>
+            <span *ngIf="registerForm.hasError('passwordMismatch')">
+              Las contraseñas no coinciden
+            </span>
+          </div>
+        </div>
+
+        <div class="form-group checkbox-group">
+          <ion-item lines="none" class="checkbox-item">
+            <ion-checkbox
+              formControlName="acceptTerms"
+              slot="start"
+            ></ion-checkbox>
+            <ion-label>
+              Acepto los
+              <a href="#" class="link">términos y condiciones</a>
+            </ion-label>
+          </ion-item>
+          <div *ngIf="isFieldInvalid('acceptTerms')" class="error-message">
+            <ion-icon name="alert-circle-outline"></ion-icon>
+            Debes aceptar los términos y condiciones
+          </div>
+        </div>
+      </div>
+
+      <!-- Paso 3: Información de organización (solo para admin) -->
+      <div
+        *ngIf="currentStep === 3 && selectedAccountType === 'admin'"
+        class="step-content"
+      >
+        <h2>Crear Organización</h2>
+        <p class="step-description">Configura tu organización</p>
+
+        <div class="form-group">
+          <label for="organizationName">Nombre de la organización</label>
+          <ion-input
+            id="organizationName"
+            type="text"
+            placeholder="Nombre de tu empresa/organización"
+            formControlName="organizationName"
+            [class.error]="isFieldInvalid('organizationName')"
+            fill="outline"
+          >
+          </ion-input>
+          <div *ngIf="isFieldInvalid('organizationName')" class="error-message">
+            <ion-icon name="alert-circle-outline"></ion-icon>
+            El nombre de la organización es requerido
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="organizationDescription">Descripción (opcional)</label>
+          <ion-input
+            id="organizationDescription"
+            type="text"
+            placeholder="Breve descripción de la organización"
+            formControlName="organizationDescription"
+            fill="outline"
+          >
+          </ion-input>
+        </div>
+      </div>
+
+      <!-- Error general -->
+      @if (errorMessage) {
+      <div class="error-container">
+        <ion-icon name="alert-circle-outline"></ion-icon>
+        <span>{{ errorMessage }}</span>
+      </div>
+      }
+
+      <!-- Botones de navegación -->
+      <div class="button-group">
+        @if (currentStep > 1) {
+        <ion-button fill="outline" (click)="previousStep()" class="nav-button">
+          <ion-icon name="arrow-back-outline" slot="start"></ion-icon>
+          Anterior
+        </ion-button>
+        }
+
+        <ion-button
+          type="submit"
+          expand="block"
+          [disabled]="!canProceed() || loading"
+          class="primary-button"
+        >
+          @if (!loading) {
+          <ion-icon
+            [name]="isLastStep() ? 'log-in-outline' : 'arrow-forward-outline'"
+            slot="start"
+          >
+          </ion-icon>
+          } @if (loading) {
+          <ion-spinner name="crescent"></ion-spinner>
+          } {{ isLastStep() ? 'Crear Cuenta' : 'Continuar' }}
+        </ion-button>
+      </div>
+
+      <!-- Link to login -->
+      <div class="auth-link">
+        <p>
+          ¿Ya tienes una cuenta?
+          <a routerLink="/auth" class="link">Iniciar Sesión</a>
         </p>
       </div>
-    </div>
-
-    <!-- Form Section -->
-    <div class="form-section">
-      <form (ngSubmit)="register()" class="register-form">
-        <!-- Email Field -->
-        <div class="form-group">
-          <label class="form-label">Correo Electrónico</label>
-          <ion-input
-            [(ngModel)]="email"
-            name="email"
-            type="email"
-            class="uber-input"
-            placeholder="tu@ejemplo.com"
-            [class.error]="error && !email"
-          >
-          </ion-input>
-        </div>
-
-        <!-- Password Field -->
-        <div class="form-group">
-          <label class="form-label">Contraseña</label>
-          <ion-input
-            [(ngModel)]="password"
-            name="password"
-            type="password"
-            class="uber-input"
-            placeholder="Mínimo 6 caracteres"
-            [class.error]="error && !password"
-          >
-          </ion-input>
-        </div>
-
-        <!-- Confirm Password Field -->
-        <div class="form-group">
-          <label class="form-label">Confirmar Contraseña</label>
-          <ion-input
-            [(ngModel)]="confirmPassword"
-            name="confirmPassword"
-            type="password"
-            class="uber-input"
-            placeholder="Repite tu contraseña"
-            [class.error]="error && password !== confirmPassword"
-          >
-          </ion-input>
-        </div>
-
-        <!-- Error Message -->
-        <div *ngIf="error" class="error-message">
-          <ion-icon name="alert-circle-outline"></ion-icon>
-          <span>{{ error }}</span>
-        </div>
-
-        <!-- Terms and Conditions -->
-        <div class="terms-section">
-          <p class="terms-text">
-            Al crear una cuenta, aceptas nuestros
-            <a href="#" class="terms-link">Términos de Servicio</a> y
-            <a href="#" class="terms-link">Política de Privacidad</a>
-          </p>
-        </div>
-
-        <!-- Submit Button -->
-        <div class="form-actions">
-          <ion-button
-            type="submit"
-            expand="block"
-            class="register-button"
-            [disabled]="loading"
-          >
-            <ion-icon
-              name="person-add-outline"
-              slot="start"
-              *ngIf="!loading"
-            ></ion-icon>
-            <ion-spinner name="crescent" *ngIf="loading"></ion-spinner>
-            {{ loading ? 'Creando cuenta...' : 'Crear Cuenta' }}
-          </ion-button>
-
-          <div class="divider">
-            <span class="divider-text">¿Ya tienes cuenta?</span>
-          </div>
-
-          <ion-button
-            fill="outline"
-            expand="block"
-            class="login-button"
-            routerLink="/login"
-          >
-            <ion-icon name="log-in-outline" slot="start"></ion-icon>
-            Iniciar Sesión
-          </ion-button>
-        </div>
-      </form>
-    </div>
+    </form>
   </div>
 </ion-content>

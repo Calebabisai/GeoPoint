@@ -1,0 +1,244 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>📧 Invitaciones por Email</ion-title>
+    <ion-button slot="end" fill="clear" (click)="goBack()">
+      <ion-icon name="close-outline"></ion-icon>
+    </ion-button>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <div class="email-invitation-container">
+    <!-- Información de la organización -->
+    <ion-card class="organization-info-card" *ngIf="currentOrganization">
+      <ion-card-header>
+        <ion-card-title>
+          <ion-icon name="business-outline"></ion-icon>
+          {{ currentOrganization.name }}
+        </ion-card-title>
+      </ion-card-header>
+      <ion-card-content>
+        <p>
+          {{
+            currentOrganization.description ||
+              "Invita usuarios a unirse a tu organización por email"
+          }}
+        </p>
+        <div class="org-stats">
+          <ion-chip color="success">
+            <ion-icon name="people-outline"></ion-icon>
+            <ion-label
+              >{{ currentOrganization.members.length }} miembros</ion-label
+            >
+          </ion-chip>
+          <ion-chip color="success" fill="outline">
+            <ion-icon name="key-outline"></ion-icon>
+            <ion-label>Código: {{ currentOrganization.code }}</ion-label>
+          </ion-chip>
+        </div>
+      </ion-card-content>
+    </ion-card>
+
+    <!-- Formulario de invitación -->
+    <form [formGroup]="inviteForm" (ngSubmit)="sendInvitations()">
+      <!-- Sección de emails -->
+      <ion-card class="form-card">
+        <ion-card-header>
+          <ion-card-title>
+            <ion-icon name="mail-outline"></ion-icon>
+            Destinatarios
+          </ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+          <div class="email-actions-header">
+            <ion-button fill="outline" size="small" (click)="addEmailField()">
+              <ion-icon name="add-outline" slot="start"></ion-icon>
+              Agregar Email
+            </ion-button>
+            <ion-button fill="outline" size="small" (click)="importEmails()">
+              <ion-icon name="document-text-outline" slot="start"></ion-icon>
+              Importar Lista
+            </ion-button>
+          </div>
+
+          <div formArrayName="emails" class="emails-container">
+            <div
+              *ngFor="let emailControl of emails; let i = index"
+              class="email-input-row"
+            >
+              <ion-item class="email-item">
+                <ion-input
+                  type="email"
+                  placeholder="usuario@ejemplo.com"
+                  [formControlName]="i"
+                  [class.error]="emailControl.invalid && emailControl.touched"
+                ></ion-input>
+                <ion-button
+                  slot="end"
+                  fill="clear"
+                  color="danger"
+                  (click)="removeEmailField(i)"
+                  [disabled]="emails.length <= 1"
+                >
+                  <ion-icon name="remove-outline"></ion-icon>
+                </ion-button>
+              </ion-item>
+              <div
+                class="error-message"
+                *ngIf="emailControl.invalid && emailControl.touched"
+              >
+                Email inválido
+              </div>
+            </div>
+          </div>
+
+          <div class="email-count">
+            <ion-badge color="success"
+              >{{ emails.length }} destinatario(s)</ion-badge
+            >
+          </div>
+        </ion-card-content>
+      </ion-card>
+
+      <!-- Configuración de la invitación -->
+      <ion-card class="form-card">
+        <ion-card-header>
+          <ion-card-title>
+            <ion-icon name="settings-outline"></ion-icon>
+            Configuración de la Invitación
+          </ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+          <!-- Rol del usuario -->
+          <ion-item>
+            <ion-label position="stacked">Rol del Usuario</ion-label>
+            <ion-select formControlName="role" placeholder="Seleccionar rol">
+              <ion-select-option
+                *ngFor="let role of roleOptions"
+                [value]="role.value"
+              >
+                {{ role.label }} - {{ role.description }}
+              </ion-select-option>
+            </ion-select>
+          </ion-item>
+
+          <!-- Departamento -->
+          <ion-item>
+            <ion-label position="stacked">Departamento</ion-label>
+            <ion-select
+              formControlName="department"
+              placeholder="Seleccionar departamento"
+            >
+              <ion-select-option
+                *ngFor="let dept of availableDepartments"
+                [value]="dept"
+              >
+                {{ dept }}
+              </ion-select-option>
+            </ion-select>
+          </ion-item>
+
+          <!-- Días de expiración -->
+          <ion-item>
+            <ion-label position="stacked">Duración de la Invitación</ion-label>
+            <ion-select
+              formControlName="expirationDays"
+              placeholder="Seleccionar duración"
+            >
+              <ion-select-option
+                *ngFor="let option of expirationOptions"
+                [value]="option.value"
+              >
+                {{ option.label }}
+              </ion-select-option>
+            </ion-select>
+          </ion-item>
+
+          <!-- Mensaje personal -->
+          <ion-item>
+            <ion-label position="stacked"
+              >Mensaje Personal (Opcional)</ion-label
+            >
+            <ion-textarea
+              formControlName="personalMessage"
+              placeholder="Escribe un mensaje personalizado para los invitados..."
+              rows="3"
+              maxlength="500"
+            ></ion-textarea>
+          </ion-item>
+
+          <!-- Opciones adicionales eliminadas por solicitud del usuario -->
+        </ion-card-content>
+      </ion-card>
+
+      <!-- Vista previa del rol seleccionado -->
+      <ion-card class="preview-card" *ngIf="selectedRole">
+        <ion-card-content>
+          <div class="role-preview">
+            <h4>Rol Seleccionado: {{ selectedRole.label }}</h4>
+            <p>{{ selectedRole.description }}</p>
+          </div>
+        </ion-card-content>
+      </ion-card>
+
+      <!-- Botones de acción -->
+      <div class="action-buttons">
+        <ion-button
+          expand="block"
+          type="submit"
+          [disabled]="!inviteForm.valid || isLoading"
+          color="success"
+        >
+          <ion-icon name="send-outline" slot="start"></ion-icon>
+          <span *ngIf="!isLoading">Enviar Invitaciones</span>
+          <span *ngIf="isLoading">Enviando...</span>
+        </ion-button>
+      </div>
+    </form>
+
+    <!-- Indicador de carga -->
+    <div class="loading-indicator" *ngIf="isLoading">
+      <ion-progress-bar type="indeterminate"></ion-progress-bar>
+      <p>Enviando invitaciones por email...</p>
+    </div>
+
+    <!-- Invitaciones recientes -->
+    <ion-accordion-group
+      *ngIf="recentInvites.length > 0"
+      class="recent-invites"
+    >
+      <ion-accordion value="recent">
+        <ion-item slot="header">
+          <ion-icon name="time-outline" slot="start"></ion-icon>
+          <ion-label>
+            <h3>Invitaciones Recientes</h3>
+            <p>{{ recentInvites.length }} invitación(es) enviada(s)</p>
+          </ion-label>
+        </ion-item>
+        <div class="accordion-content" slot="content">
+          <ion-list>
+            <ion-item *ngFor="let invite of recentInvites">
+              <div class="invite-info">
+                <h4>{{ invite.invitedEmail }}</h4>
+                <p>Código: {{ invite.code }}</p>
+                <p>Rol: {{ invite.role }}</p>
+                <ion-badge
+                  [color]="invite.status === 'pending' ? 'warning' : 'success'"
+                >
+                  {{ invite.status }}
+                </ion-badge>
+              </div>
+              <ion-button
+                slot="end"
+                fill="clear"
+                (click)="copyInviteCode(invite.code)"
+              >
+                <ion-icon name="copy-outline"></ion-icon>
+              </ion-button>
+            </ion-item>
+          </ion-list>
+        </div>
+      </ion-accordion>
+    </ion-accordion-group>
+  </div>
+</ion-content>

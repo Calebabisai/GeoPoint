@@ -1,0 +1,117 @@
+<ion-header [translucent]="true">
+  <ion-toolbar color="dark">
+    <ion-title>Invitación a Organización</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="join-invitation">
+  <!-- Estado de carga -->
+  <div *ngIf="isLoading" class="loading-container">
+    <div class="loading-content">
+      <ion-spinner name="crescent" color="secondary"></ion-spinner>
+      <h2>Procesando invitación...</h2>
+      <p>Esto solo tomará un momento</p>
+    </div>
+  </div>
+
+  <!-- Contenido principal -->
+  <div *ngIf="!isLoading" class="content-container">
+    <!-- Estado de éxito -->
+    <div *ngIf="status === 'success'" class="success-container">
+      <ion-card class="success-card">
+        <ion-card-header>
+          <div class="success-icon">
+            <ion-icon name="checkmark-circle" color="success"></ion-icon>
+          </div>
+          <ion-card-title>¡Bienvenido al equipo!</ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+          <div class="organization-info">
+            <ion-item lines="none">
+              <ion-icon
+                name="business"
+                slot="start"
+                color="secondary"
+              ></ion-icon>
+              <ion-label>
+                <h2>{{ organization?.name }}</h2>
+                <p>Te has unido exitosamente</p>
+              </ion-label>
+            </ion-item>
+
+            <ion-item lines="none" *ngIf="invitationDetails">
+              <ion-icon name="person" slot="start" color="medium"></ion-icon>
+              <ion-label>
+                <h3>
+                  Tu rol: {{ getRoleDisplayName(invitationDetails.role) }}
+                </h3>
+                <p *ngIf="invitationDetails.department">
+                  Departamento: {{ invitationDetails.department }}
+                </p>
+              </ion-label>
+            </ion-item>
+          </div>
+
+          <div class="action-buttons">
+            <ion-button expand="block" color="secondary" (click)="goToMap()">
+              <ion-icon name="home" slot="start"></ion-icon>
+              Ir al Mapa
+            </ion-button>
+          </div>
+
+          <p class="auto-redirect">
+            Serás redirigido automáticamente en unos segundos...
+          </p>
+        </ion-card-content>
+      </ion-card>
+    </div>
+
+    <!-- Estado de error -->
+    <div *ngIf="status === 'error'" class="error-container">
+      <ion-card class="error-card">
+        <ion-card-header>
+          <div class="error-icon">
+            <ion-icon name="close-circle" color="danger"></ion-icon>
+          </div>
+          <ion-card-title>Error en la invitación</ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+          <p class="error-message">{{ errorMessage }}</p>
+
+          <div class="action-buttons">
+            <ion-button expand="block" fill="outline" (click)="goHome()">
+              <ion-icon name="home" slot="start"></ion-icon>
+              Ir al Inicio
+            </ion-button>
+          </div>
+        </ion-card-content>
+      </ion-card>
+    </div>
+
+    <!-- Estado de expirada -->
+    <div *ngIf="status === 'expired'" class="expired-container">
+      <ion-card class="expired-card">
+        <ion-card-header>
+          <div class="expired-icon">
+            <ion-icon name="time" color="warning"></ion-icon>
+          </div>
+          <ion-card-title>Invitación expirada</ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+          <p>Esta invitación ha expirado y ya no es válida.</p>
+          <p>
+            Contacta al administrador de la organización para solicitar una
+            nueva invitación.
+          </p>
+
+          <div class="action-buttons">
+            <ion-button expand="block" fill="outline" (click)="goHome()">
+              <ion-icon name="home" slot="start"></ion-icon>
+              Ir al Inicio
+            </ion-button>
+          </div>
+        </ion-card-content>
+      </ion-card>
+    </div>
+  </div>
+</ion-content>

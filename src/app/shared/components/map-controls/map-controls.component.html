@@ -16,13 +16,16 @@
 </div>
 }
 
-<!-- Indicador de modo editar -->
+<!-- Indicador de modo editar mejorado -->
 @if (editMode) {
-<div class="edit-mode-indicator">
-  <ion-chip color="danger" size="small">
+<div class="edit-mode-indicator-enhanced">
+  <ion-chip color="danger" size="default">
     <ion-icon name="trash" slot="start"></ion-icon>
-    <ion-label>Modo Editar</ion-label>
+    <ion-label>🗑️ Modo Eliminar - Toca elementos</ion-label>
   </ion-chip>
+  <div class="edit-mode-instructions">
+    <small>Toca marcadores o zonas para eliminarlos</small>
+  </div>
 </div>
 }
 
@@ -45,7 +48,7 @@
       size="small"
     >
       <ion-icon
-        [name]="isCreatingMarker ? 'checkmark-circle' : 'location'"
+        [name]="isCreatingMarker ? 'checkmark-circle' : 'pin'"
         size="small"
       ></ion-icon>
     </ion-fab-button>
@@ -59,20 +62,21 @@
       size="small"
     >
       <ion-icon
-        [name]="isCreatingZone ? 'checkmark-circle' : 'color-palette'"
+        [name]="isCreatingZone ? 'checkmark-circle' : 'shapes'"
         size="small"
       ></ion-icon>
     </ion-fab-button>
     }
 
-    <!-- Botón de modo editar - solo para admins/dev -->
-    @if ((isAdmin$ | async) || ((currentUserRole$ | async) === 'dev')) {
+    <!-- Botón de modo editar - solo para admins -->
+    @if ((isAdmin$ | async)) {
     <ion-fab-button
       (click)="toggleEditMode()"
       [color]="editMode ? 'danger' : 'medium'"
       size="small"
+      [class]="editMode ? 'edit-mode-active' : ''"
     >
-      <ion-icon [name]="editMode ? 'checkmark' : 'create'" size="small">
+      <ion-icon [name]="editMode ? 'trash-bin' : 'pencil'" size="small">
       </ion-icon>
     </ion-fab-button>
     }
@@ -189,6 +193,7 @@
             class="color-button"
             [class.selected]="markerForm.color === color.value"
             [style.background-color]="color.value"
+            [title]="color.name"
             (click)="markerForm.color = color.value"
           ></button>
           }
@@ -362,6 +367,7 @@
             class="color-button"
             [class.selected]="zoneForm.color === color.value"
             [style.background-color]="color.value"
+            [title]="color.name"
             (click)="zoneForm.color = color.value"
           ></button>
           }

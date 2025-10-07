@@ -7,5 +7,7 @@ export interface MapMarker {
   color: string;
   type: 'marker' | 'house' | 'poi';
   createdBy: string;
+  organizationId: string;
   createdAt: Date;
+  number?: number; // ✅ AGREGAR campo number
 }

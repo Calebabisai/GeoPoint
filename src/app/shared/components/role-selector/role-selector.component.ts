@@ -66,14 +66,14 @@ export class RoleSelectorComponent {
   private authorizationService = inject(AuthorizationService);
   private cdr = inject(ChangeDetectorRef);
 
-  currentRole$: Observable<'dev' | 'admin' | 'user' | null>;
+  currentRole$: Observable<'admin' | 'user' | null>;
 
   constructor() {
     addIcons({ person, shieldCheckmark, settings });
     this.currentRole$ = this.authorizationService.getCurrentUserRole();
   }
 
-  setRole(role: 'dev' | 'admin' | 'user') {
+  setRole(role: 'admin' | 'user') {
     // Cambio de rol temporal para desarrollo
     console.log(`🔐 Switching to ${role} mode`);
 

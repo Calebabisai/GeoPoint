@@ -515,15 +515,6 @@
         border-radius: var(--gp-radius-lg);
         border: 1px solid var(--gp-bg-tertiary);
         
-        &.role-dev {
-          background: rgba(220, 53, 69, 0.1);
-          border-color: rgba(220, 53, 69, 0.3);
-          
-          .role-icon {
-            color: #dc3545;
-          }
-        }
-        
         &.role-admin {
           background: rgba(255, 149, 0, 0.1);
           border-color: rgba(255, 149, 0, 0.3);
@@ -593,6 +584,100 @@
     ion-icon {
       font-size: 0.875rem;
       margin-right: 4px;
+    }
+  }
+}
+
+/* === DASHBOARD STATS === */
+.dashboard-stats {
+  position: absolute;
+  top: 70px;
+  left: 16px;
+  right: 16px;
+  z-index: 900;
+  display: flex;
+  gap: 12px;
+  padding: 0;
+  pointer-events: none;
+}
+
+.stat-card {
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  pointer-events: auto;
+  
+  .stat-icon {
+    font-size: 24px;
+    color: var(--gp-brand-primary);
+    flex-shrink: 0;
+  }
+  
+  .stat-content {
+    flex: 1;
+    min-width: 0;
+    
+    .stat-number {
+      font-size: 20px;
+      font-weight: 700;
+      color: #ffffff;
+      line-height: 1;
+      margin-bottom: 2px;
+    }
+    
+    .stat-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.8);
+      line-height: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+  
+  &:hover {
+    background: rgba(0, 0, 0, 0.9);
+    border-color: rgba(255, 255, 255, 0.2);
+    transform: translateY(-1px);
+    transition: all 0.2s ease;
+  }
+}
+
+/* Responsive dashboard */
+@media (max-width: 768px) {
+  .dashboard-stats {
+    top: 60px;
+    left: 12px;
+    right: 12px;
+    gap: 8px;
+  }
+  
+  .stat-card {
+    padding: 10px 12px;
+    gap: 10px;
+    border-radius: 10px;
+    
+    .stat-icon {
+      font-size: 20px;
+    }
+    
+    .stat-content {
+      .stat-number {
+        font-size: 18px;
+      }
+      
+      .stat-label {
+        font-size: 11px;
+      }
     }
   }
 }

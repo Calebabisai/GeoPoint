@@ -48,6 +48,19 @@
           <ion-icon name="chevron-forward" slot="end" color="medium"></ion-icon>
         </ion-item>
 
+        <ion-item
+          button
+          (click)="navigateToInvitations()"
+          class="menu-item admin-item"
+        >
+          <ion-icon name="mail" slot="start" color="secondary"></ion-icon>
+          <ion-label>
+            <h3>Invitaciones</h3>
+            <p>Invitar usuarios a la organización</p>
+          </ion-label>
+          <ion-icon name="chevron-forward" slot="end" color="medium"></ion-icon>
+        </ion-item>
+
         <ion-item button (click)="viewAnalytics()" class="menu-item admin-item">
           <ion-icon name="analytics" slot="start" color="success"></ion-icon>
           <ion-label>
@@ -121,7 +134,7 @@
     <div class="role-indicator" *ngIf="userRole">
       <div class="role-badge" [class]="'role-' + userRole">
         <ion-icon
-          [name]="userRole === 'dev' ? 'code-slash' : (userRole === 'admin' ? 'shield-checkmark' : 'person')"
+          [name]="userRole === 'admin' ? 'shield-checkmark' : 'person'"
           class="role-icon"
         >
         </ion-icon>
@@ -172,7 +185,7 @@
           size="small"
         >
           <ion-icon
-            [name]="userRole === 'dev' ? 'code-slash' : (userRole === 'admin' ? 'shield-checkmark' : 'person')"
+            [name]="userRole === 'admin' ? 'shield-checkmark' : 'person'"
             size="small"
           >
           </ion-icon>
@@ -184,6 +197,25 @@
 </ion-header>
 
 <ion-content [fullscreen]="true" class="map-content" id="main-content">
+  <!-- Dashboard Stats -->
+  <div class="dashboard-stats">
+    <div class="stat-card">
+      <ion-icon name="pin-outline" class="stat-icon"></ion-icon>
+      <div class="stat-content">
+        <div class="stat-number">{{ markersCount }}</div>
+        <div class="stat-label">Marcadores</div>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <ion-icon name="shapes-outline" class="stat-icon"></ion-icon>
+      <div class="stat-content">
+        <div class="stat-number">{{ zonesCount }}</div>
+        <div class="stat-label">Zonas</div>
+      </div>
+    </div>
+  </div>
+
   <!-- Map Container -->
   <div class="map-container">
     <app-map-view></app-map-view>

@@ -7,7 +7,8 @@
         <ion-icon name="person-outline" class="avatar-icon"></ion-icon>
       </div>
       <div class="profile-info">
-        <h3 class="user-name">{{ user.email }}</h3>
+        <h3 class="user-name">{{ getUserDisplayName(user) }}</h3>
+        <p class="user-email">{{ user.email }}</p>
         <div class="user-role-badge" [class]="getRoleClass(user.role)">
           <ion-icon
             [name]="getRoleIcon(user.role)"
@@ -56,11 +57,12 @@
           </div>
         </div>
 
-        <!-- Organization Management (Solo para Owner/Admin) -->
+        <!-- Organization Management (Solo para Owner/Admin/Moderator) -->
         <ion-accordion-group
           *ngIf="
             (organizationRole$ | async) === 'owner' ||
-            (organizationRole$ | async) === 'admin'
+            (organizationRole$ | async) === 'admin' ||
+            (organizationRole$ | async) === 'moderator'
           "
         >
           <ion-accordion value="org-management">
@@ -86,6 +88,23 @@
                   <ion-label>
                     <h3>Invitar Usuario</h3>
                     <p>Enviar invitación por email</p>
+                  </ion-label>
+                </ion-item>
+
+                <!-- Gestión de usuarios para admins -->
+                <ion-item
+                  button
+                  (click)="openUserManagement()"
+                  *ngIf="(currentUser$ | async)?.role === 'admin'"
+                >
+                  <ion-icon
+                    name="people-outline"
+                    slot="start"
+                    color="secondary"
+                  ></ion-icon>
+                  <ion-label>
+                    <h3>Gestión de Usuarios</h3>
+                    <p>Administrar miembros y roles</p>
                   </ion-label>
                 </ion-item>
 
@@ -125,7 +144,7 @@
         </div>
       </div>
 
-      <!-- Panel de Desarrollo (Solo para DEV) -->
+      <!-- Panel de Desarrollo (Solo para Admins) -->
       <div class="menu-section" *ngIf="isDev$ | async">
         <div class="section-header">
           <h4 class="section-title">
@@ -151,25 +170,6 @@
               <ion-list>
                 <ion-item
                   button
-                  (click)="changeRole('dev')"
-                  [color]="user.role === 'dev' ? 'primary' : ''"
-                >
-                  <ion-icon
-                    name="code-slash-outline"
-                    slot="start"
-                    color="tertiary"
-                  ></ion-icon>
-                  <ion-label>
-                    <h3>Desarrollador</h3>
-                    <p>Acceso completo al sistema</p>
-                  </ion-label>
-                  <ion-badge *ngIf="user.role === 'dev'" color="tertiary"
-                    >Activo</ion-badge
-                  >
-                </ion-item>
-
-                <ion-item
-                  button
                   (click)="changeRole('admin')"
                   [color]="user.role === 'admin' ? 'primary' : ''"
                 >
@@ -180,9 +180,9 @@
                   ></ion-icon>
                   <ion-label>
                     <h3>Administrador</h3>
-                    <p>Gestión de zonas y usuarios</p>
+                    <p>Gestión completa del sistema</p>
                   </ion-label>
-                  <ion-badge *ngIf="user.role === 'admin'" color="warning"
+                  <ion-badge *ngIf="user.role === 'admin'" color="tertiary"
                     >Activo</ion-badge
                   >
                 </ion-item>
@@ -209,29 +209,33 @@
             </div>
           </ion-accordion>
 
-          <ion-accordion value="org-management">
+          <!-- Nueva Organización solo para admins -->
+          <ion-accordion
+            value="create-org"
+            *ngIf="(currentUser$ | async)?.role === 'admin'"
+          >
             <ion-item slot="header">
               <ion-icon
-                name="business-outline"
+                name="add-outline"
                 slot="start"
-                color="secondary"
+                color="success"
               ></ion-icon>
               <ion-label>
-                <h3>Gestión de Organizaciones</h3>
-                <p>Crear y administrar grupos</p>
+                <h3>Nueva Organización</h3>
+                <p>Crear un nuevo grupo de trabajo</p>
               </ion-label>
             </ion-item>
-            <div class="org-dev-content" slot="content">
+            <div class="create-org-content" slot="content">
               <ion-list>
                 <ion-item button (click)="createOrganization()">
                   <ion-icon
-                    name="add-outline"
+                    name="business-outline"
                     slot="start"
                     color="success"
                   ></ion-icon>
                   <ion-label>
-                    <h3>Nueva Organización</h3>
-                    <p>Crear un nuevo grupo de trabajo</p>
+                    <h3>Crear Organización</h3>
+                    <p>Establecer nueva organización</p>
                   </ion-label>
                 </ion-item>
               </ion-list>
@@ -244,6 +248,17 @@
 
   <!-- Footer Section -->
   <div class="menu-footer">
+    <ion-button
+      expand="block"
+      fill="clear"
+      class="profile-button"
+      routerLink="/profile"
+      (click)="closeMenu()"
+    >
+      <ion-icon name="person-outline" slot="start"></ion-icon>
+      <span>Mi Perfil</span>
+    </ion-button>
+
     <ion-button
       expand="block"
       fill="clear"

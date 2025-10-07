@@ -1,0 +1,597 @@
+// 🎨 ESTILO UBER NEGRO/VERDE - EMAIL INVITATIONS MANAGER
+.email-invitation-container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px;
+  background: transparent;
+  min-height: 100vh;
+}
+
+// 📱 CARD DE INFORMACIÓN DE ORGANIZACIÓN - Estilo Premium
+.organization-info-card {
+  margin-bottom: 24px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #1e1e1e 0%, #2a2a2a 100%);
+  border: 1px solid #00d46a;
+  box-shadow: 
+    0 8px 32px rgba(0, 212, 106, 0.15),
+    0 2px 8px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  position: relative;
+  
+  // Efecto de brillo sutil
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #00d46a, #00ff7f, #00d46a, transparent);
+    opacity: 0.8;
+  }
+
+  ion-card-header {
+    background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%);
+    padding: 20px;
+    
+    ion-card-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: #00d46a;
+      font-size: 1.4em;
+      font-weight: 700;
+      text-shadow: 0 0 10px rgba(0, 212, 106, 0.3);
+      
+      ion-icon {
+        font-size: 1.3em;
+        color: #00ff7f;
+      }
+    }
+  }
+  
+  ion-card-content {
+    padding: 20px;
+    color: #e0e0e0;
+    
+    p {
+      font-size: 1.05em;
+      line-height: 1.6;
+      margin-bottom: 20px;
+    }
+  }
+
+  .org-stats {
+    display: flex;
+    gap: 12px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+    
+    ion-chip {
+      --background: rgba(0, 212, 106, 0.1);
+      --color: #00d46a;
+      border: 1px solid #00d46a;
+      border-radius: 20px;
+      font-weight: 600;
+      padding: 8px 16px;
+      
+      ion-icon {
+        color: #00ff7f;
+        margin-right: 6px;
+      }
+      
+      &:hover {
+        --background: rgba(0, 212, 106, 0.2);
+        transform: translateY(-2px);
+        transition: all 0.3s ease;
+      }
+    }
+  }
+}
+
+// 📝 CARDS DE FORMULARIO - Diseño moderno
+.form-card {
+  margin-bottom: 24px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #1a1a1a 0%, #2d2d30 100%);
+  border: 1px solid #333;
+  box-shadow: 
+    0 6px 20px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  transition: all 0.3s ease;
+
+  &:hover {
+    border-color: #00d46a;
+    box-shadow: 
+      0 8px 32px rgba(0, 212, 106, 0.2),
+      0 6px 20px rgba(0, 0, 0, 0.4);
+    transform: translateY(-4px);
+  }
+
+  ion-card-header {
+    background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%);
+    padding: 18px 24px;
+    border-bottom: 1px solid #333;
+    
+    ion-card-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: #ffffff;
+      font-size: 1.2em;
+      font-weight: 600;
+      
+      ion-icon {
+        color: #00d46a;
+        font-size: 1.2em;
+      }
+    }
+  }
+  
+  ion-card-content {
+    padding: 24px;
+    color: #e0e0e0;
+  }
+}
+
+// 📧 SECCIÓN DE EMAILS - Diseño premium
+.email-actions-header {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  
+  ion-button {
+    --border-radius: 25px;
+    --padding-start: 20px;
+    --padding-end: 20px;
+    height: 44px;
+    font-weight: 600;
+    
+    &[fill="outline"] {
+      --border-width: 2px;
+      --border-color: #00d46a;
+      --color: #00d46a;
+      --background: transparent;
+      
+      &:hover {
+        --background: #00d46a;
+        --color: #000000;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0, 212, 106, 0.3);
+      }
+    }
+  }
+}
+
+.emails-container {
+  margin: 24px 0;
+}
+
+.email-input-row {
+  margin-bottom: 16px;
+  animation: slideInEmail 0.4s ease-out;
+
+  .email-item {
+    --border-radius: 15px;
+    --background: linear-gradient(135deg, #2a2a2a 0%, #1e1e1e 100%);
+    --border-color: #444;
+    --border-width: 1px;
+    margin-bottom: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+
+    &:hover, &:focus-within {
+      --border-color: #00d46a;
+      --background: linear-gradient(135deg, #2d2d30 0%, #2a2a2a 100%);
+      box-shadow: 
+        0 4px 12px rgba(0, 212, 106, 0.2),
+        0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    &.error {
+      --border-color: #ff4757;
+      --border-width: 2px;
+      --background: linear-gradient(135deg, #2a1e1e 0%, #1e1a1a 100%);
+    }
+
+    ion-input {
+      --color: #ffffff;
+      --placeholder-color: #888;
+      --padding-start: 20px;
+      --padding-end: 20px;
+      font-size: 1.05em;
+    }
+    
+    ion-button[color="danger"] {
+      --color: #ff4757;
+      --background: transparent;
+      
+      &:hover {
+        --background: rgba(255, 71, 87, 0.1);
+        transform: scale(1.1);
+      }
+    }
+  }
+
+  .error-message {
+    color: #ff4757;
+    font-size: 0.85em;
+    font-weight: 500;
+    margin-left: 20px;
+    margin-top: 6px;
+    text-shadow: 0 0 5px rgba(255, 71, 87, 0.3);
+  }
+}
+
+.email-count {
+  text-align: center;
+  margin-top: 20px;
+  
+  ion-badge {
+    --background: linear-gradient(45deg, #00d46a, #00ff7f);
+    --color: #000000;
+    --padding-start: 16px;
+    --padding-end: 16px;
+    --border-radius: 20px;
+    font-weight: 700;
+    font-size: 0.95em;
+    box-shadow: 0 4px 12px rgba(0, 212, 106, 0.3);
+  }
+}
+
+// ⚙️ CONFIGURACIÓN ADICIONAL
+.additional-options {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid #444;
+
+  ion-item {
+    --border-radius: 15px;
+    --background: linear-gradient(135deg, #2a2a2a 0%, #1e1e1e 100%);
+    --border-color: #444;
+    --border-width: 1px;
+    --color: #ffffff;
+    margin: 12px 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    
+    ion-label {
+      h3 {
+        color: #ffffff;
+        font-weight: 600;
+      }
+      
+      p {
+        color: #b0b0b0;
+        font-size: 0.9em;
+      }
+    }
+    
+    ion-toggle {
+      --background: #444;
+      --background-checked: #00d46a;
+      --handle-background: #ffffff;
+      --handle-background-checked: #000000;
+    }
+  }
+}
+
+// 👁️ VISTA PREVIA DEL ROL
+.preview-card {
+  background: linear-gradient(135deg, #00d46a 0%, #00bb5d 100%);
+  color: #000000;
+  margin-bottom: 24px;
+  border-radius: 20px;
+  box-shadow: 
+    0 8px 32px rgba(0, 212, 106, 0.4),
+    0 4px 16px rgba(0, 0, 0, 0.2);
+  border: 1px solid #00ff7f;
+
+  .role-preview {
+    padding: 4px;
+    
+    h4 {
+      margin: 0 0 12px 0;
+      font-weight: 700;
+      font-size: 1.2em;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    }
+
+    p {
+      margin: 0;
+      opacity: 0.9;
+      font-weight: 500;
+      line-height: 1.5;
+    }
+  }
+}
+
+// 🚀 BOTONES DE ACCIÓN - Estilo Uber
+.action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 32px 0;
+
+  ion-button {
+    --border-radius: 30px;
+    font-weight: 700;
+    height: 56px;
+    font-size: 1.1em;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    position: relative;
+    overflow: hidden;
+    
+    // Efecto de ondas al hacer clic
+    &::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      transition: width 0.6s, height 0.6s;
+    }
+    
+    &:active::before {
+      width: 300px;
+      height: 300px;
+    }
+
+    &[fill="outline"] {
+      --border-width: 2px;
+      --border-color: #00d46a;
+      --color: #00d46a;
+      --background: transparent;
+      box-shadow: 0 4px 15px rgba(0, 212, 106, 0.2);
+      
+      &:hover {
+        --background: #00d46a;
+        --color: #000000;
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(0, 212, 106, 0.4);
+      }
+    }
+
+    // Botón principal de envío - Estilo Uber premium
+    &[color="success"] {
+      --background: linear-gradient(135deg, #00d46a 0%, #00ff7f 100%);
+      --color: #000000;
+      box-shadow: 
+        0 8px 30px rgba(0, 212, 106, 0.4),
+        0 4px 15px rgba(0, 0, 0, 0.2);
+      
+      &:hover {
+        transform: translateY(-4px);
+        box-shadow: 
+          0 12px 40px rgba(0, 212, 106, 0.5),
+          0 6px 20px rgba(0, 0, 0, 0.3);
+      }
+      
+      &:active {
+        transform: translateY(-2px);
+      }
+    }
+  }
+}
+
+// 📊 INDICADOR DE CARGA
+.loading-indicator {
+  text-align: center;
+  margin: 32px 0;
+  padding: 24px;
+  background: linear-gradient(135deg, #1a1a1a 0%, #2d2d30 100%);
+  border-radius: 20px;
+  border: 1px solid #00d46a;
+  box-shadow: 0 6px 20px rgba(0, 212, 106, 0.2);
+
+  p {
+    margin-top: 16px;
+    color: #b0b0b0;
+    font-style: italic;
+    font-size: 1.05em;
+  }
+  
+  ion-progress-bar {
+    --progress-background: linear-gradient(90deg, #00d46a, #00ff7f);
+    --buffer-background: rgba(0, 212, 106, 0.2);
+    height: 6px;
+    border-radius: 3px;
+    margin-bottom: 8px;
+  }
+}
+
+// 📋 INVITACIONES RECIENTES
+.recent-invites {
+  margin-top: 32px;
+
+  ion-accordion-group {
+    border-radius: 20px;
+    background: linear-gradient(135deg, #1a1a1a 0%, #2d2d30 100%);
+    border: 1px solid #333;
+    overflow: hidden;
+  }
+
+  ion-item[slot="header"] {
+    --background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%);
+    --color: #ffffff;
+    --border-color: #333;
+    
+    ion-icon {
+      color: #00d46a;
+      margin-right: 12px;
+    }
+    
+    ion-label h3 {
+      font-weight: 600;
+      color: #ffffff;
+    }
+    
+    ion-label p {
+      color: #b0b0b0;
+    }
+  }
+
+  .accordion-content {
+    padding: 20px;
+    background: linear-gradient(135deg, #2a2a2a 0%, #1e1e1e 100%);
+  }
+
+  .invite-info {
+    flex: 1;
+    color: #e0e0e0;
+
+    h4 {
+      margin: 0 0 8px 0;
+      font-weight: 600;
+      color: #ffffff;
+    }
+
+    p {
+      margin: 2px 0;
+      font-size: 0.9em;
+      color: #b0b0b0;
+    }
+
+    ion-badge {
+      margin-top: 8px;
+      --padding-start: 12px;
+      --padding-end: 12px;
+      --border-radius: 15px;
+      font-weight: 600;
+      
+      &[color="warning"] {
+        --background: #ffa502;
+        --color: #000000;
+      }
+      
+      &[color="success"] {
+        --background: #00d46a;
+        --color: #000000;
+      }
+    }
+  }
+  
+  ion-button[fill="clear"] {
+    --color: #00d46a;
+    
+    &:hover {
+      --background: rgba(0, 212, 106, 0.1);
+      transform: scale(1.1);
+    }
+  }
+}
+
+// 📱 RESPONSIVE DESIGN
+@media (max-width: 768px) {
+  .email-invitation-container {
+    padding: 12px;
+  }
+
+  .email-actions-header {
+    flex-direction: column;
+
+    ion-button {
+      width: 100%;
+      margin: 4px 0;
+    }
+  }
+
+  .org-stats {
+    justify-content: center;
+    
+    ion-chip {
+      margin: 4px;
+    }
+  }
+
+  .action-buttons {
+    gap: 12px;
+    margin: 24px 0;
+    
+    ion-button {
+      height: 50px;
+      font-size: 1em;
+    }
+  }
+  
+  .form-card ion-card-content {
+    padding: 16px;
+  }
+}
+
+// 🎭 ANIMACIONES
+@keyframes slideInEmail {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulseGreen {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(0, 212, 106, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(0, 212, 106, 0);
+  }
+}
+
+// Animación de pulso para elementos importantes
+.action-buttons ion-button[color="success"] {
+  animation: pulseGreen 2s infinite;
+}
+
+// 🔧 PERSONALIZACIÓN DE COMPONENTES IONIC
+ion-select {
+  --border-radius: 15px;
+  --background: linear-gradient(135deg, #2a2a2a 0%, #1e1e1e 100%);
+  --color: #ffffff;
+  --placeholder-color: #888;
+  --padding-start: 20px;
+  --padding-end: 20px;
+  border: 1px solid #444;
+  transition: all 0.3s ease;
+  
+  &:hover, &:focus {
+    border-color: #00d46a;
+    box-shadow: 0 0 10px rgba(0, 212, 106, 0.2);
+  }
+}
+
+ion-textarea {
+  --border-radius: 15px;
+  --background: linear-gradient(135deg, #2a2a2a 0%, #1e1e1e 100%);
+  --color: #ffffff;
+  --placeholder-color: #888;
+  --padding-start: 20px;
+  --padding-top: 16px;
+  border: 1px solid #444;
+  transition: all 0.3s ease;
+  
+  &:hover, &:focus-within {
+    border-color: #00d46a;
+    box-shadow: 0 0 10px rgba(0, 212, 106, 0.2);
+  }
+}
+
+// Estado deshabilitado para botones
+ion-button[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+  
+  &:hover {
+    transform: none !important;
+    box-shadow: none !important;
+  }
+}

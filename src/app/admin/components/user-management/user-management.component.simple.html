@@ -1,0 +1,109 @@
+<ion-header [translucent]="true">
+  <ion-toolbar color="dark">
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/home"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Gestión de Usuarios</ion-title>
+    <ion-buttons slot="end">
+      <ion-button fill="clear" routerLink="/home">
+        <ion-icon name="home" slot="icon-only"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="user-management">
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-container">
+    <div class="loading-content">
+      <ion-spinner name="crescent" color="primary"></ion-spinner>
+      <p>Cargando usuarios...</p>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div *ngIf="!isLoading" class="content-container">
+    <!-- Header Info -->
+    <ion-card>
+      <ion-card-header>
+        <ion-card-title>
+          <ion-icon name="people" color="primary"></ion-icon>
+          Usuarios de la Organización
+        </ion-card-title>
+      </ion-card-header>
+      <ion-card-content>
+        <p>Lista de usuarios y sus roles en la organización actual.</p>
+      </ion-card-content>
+    </ion-card>
+
+    <!-- Users List -->
+    <ion-card>
+      <ion-card-header>
+        <ion-card-title>Miembros Activos</ion-card-title>
+      </ion-card-header>
+      <ion-card-content>
+        <ion-list *ngIf="users$ | async as users">
+          <ion-item *ngFor="let user of users" lines="full">
+            <ion-avatar slot="start">
+              <ion-icon name="person" color="medium"></ion-icon>
+            </ion-avatar>
+
+            <ion-label>
+              <h2>{{ getUserDisplayName(user) }}</h2>
+              <p>{{ user.email }}</p>
+              <p>{{ user.organizationName || 'Sin organización' }}</p>
+              <p *ngIf="user.createdAt">
+                Miembro desde: {{ user.createdAt | date:'dd/MM/yyyy' }}
+              </p>
+            </ion-label>
+
+            <div slot="end" class="user-roles">
+              <!-- Rol de Sistema -->
+              <ion-chip
+                [color]="user.role === 'admin' ? 'danger' : 'medium'"
+                [outline]="user.role !== 'admin'"
+              >
+                <ion-icon
+                  [name]="user.role === 'admin' ? 'shield-checkmark' : 'person'"
+                  slot="start"
+                >
+                </ion-icon>
+                <ion-label
+                  >{{ user.role === 'admin' ? 'Administrador' : 'Usuario'
+                  }}</ion-label
+                >
+              </ion-chip>
+
+              <!-- Rol de Organización -->
+              <ion-chip
+                *ngIf="user.organizationRole"
+                [color]="getOrgRoleColor(user.organizationRole)"
+                outline
+              >
+                <ion-icon
+                  [name]="getOrgRoleIcon(user.organizationRole)"
+                  slot="start"
+                >
+                </ion-icon>
+                <ion-label
+                  >{{ getOrgRoleDisplayName(user.organizationRole) }}</ion-label
+                >
+              </ion-chip>
+            </div>
+          </ion-item>
+        </ion-list>
+
+        <!-- Empty State -->
+        <div *ngIf="(users$ | async)?.length === 0" class="empty-state">
+          <ion-icon
+            name="people-outline"
+            size="large"
+            color="medium"
+          ></ion-icon>
+          <h3>No hay usuarios</h3>
+          <p>No se encontraron usuarios en esta organización.</p>
+        </div>
+      </ion-card-content>
+    </ion-card>
+  </div>
+</ion-content>

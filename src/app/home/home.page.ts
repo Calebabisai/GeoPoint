@@ -38,12 +38,16 @@ import {
   codeSlash,
   shieldCheckmark,
   person,
+  mail,
+  pinOutline,
+  shapesOutline,
 } from 'ionicons/icons';
 import { MapViewComponent } from '../map/components/map-view/map-view.component';
 import { GeolocationService } from '../map/services/geolocation.service';
 import { FirestoreService } from '../services/firestore.service';
 import { AuthService } from '../auth/services/auth.service';
 import { AuthorizationService } from '../auth/services/authorization.service';
+import { MapDataService } from '../shared/services/map-data.service';
 import { User } from '../shared/models/user.model';
 import { AdminPanelComponent } from '../map/components/admin-panel/admin-panel.component';
 import { Subscription, Observable } from 'rxjs';
@@ -77,6 +81,7 @@ export class HomePage implements OnInit, OnDestroy {
   private firestoreService = inject(FirestoreService);
   private authService = inject(AuthService);
   private authorizationService = inject(AuthorizationService);
+  private mapDataService = inject(MapDataService);
   private menuController = inject(MenuController);
   private modalController = inject(ModalController);
   private toastController = inject(ToastController);
@@ -84,12 +89,16 @@ export class HomePage implements OnInit, OnDestroy {
 
   // Propiedades del componente
   isAdmin = false;
-  userRole: 'dev' | 'admin' | 'user' | null = null;
+  userRole: 'admin' | 'user' | null = null;
   currentUserEmail: string | null = null;
   locationWatching = false;
 
+  // Contadores para el dashboard
+  markersCount = 0;
+  zonesCount = 0;
+
   // Observables
-  userRole$!: Observable<'dev' | 'admin' | 'user' | null>;
+  userRole$!: Observable<'admin' | 'user' | null>;
 
   // Suscripciones
   private subscriptions = new Subscription();
@@ -112,6 +121,9 @@ export class HomePage implements OnInit, OnDestroy {
       codeSlash,
       shieldCheckmark,
       person,
+      mail,
+      pinOutline,
+      shapesOutline,
     });
 
     // Inicializar observables
@@ -123,6 +135,7 @@ export class HomePage implements OnInit, OnDestroy {
     this.loadUserData();
     this.initializeLocation();
     this.setupUserRoleSubscription();
+    this.loadDashboardData();
   }
 
   ngOnDestroy() {
@@ -134,7 +147,7 @@ export class HomePage implements OnInit, OnDestroy {
   private setupUserRoleSubscription() {
     const roleSub = this.userRole$.subscribe((role) => {
       this.userRole = role;
-      this.isAdmin = role === 'admin' || role === 'dev';
+      this.isAdmin = role === 'admin';
     });
 
     const userSub = this.authService.getCurrentUser().subscribe((user) => {
@@ -166,22 +179,30 @@ export class HomePage implements OnInit, OnDestroy {
     this.subscriptions.add(watchingSub);
     this.subscriptions.add(locationSub);
 
-    // Iniciar seguimiento automático de ubicación al cargar la app
+    // Auto-centrar mapa en ubicación del usuario al abrir la app
     this.startLocationTracking();
   }
 
   private async startLocationTracking() {
     try {
-      console.log('🚀 Starting automatic location tracking...');
-      await this.geolocationService.startWatching();
+      console.log('🚀 Auto-centering map on user location at startup...');
 
-      // Centrar mapa en ubicación actual
-      setTimeout(() => {
-        this.geolocationService.centerMapOnUserLocation();
-      }, 1000);
+      // Esperar un momento para que el mapa esté completamente cargado
+      setTimeout(async () => {
+        try {
+          // Centrar automáticamente en la ubicación del usuario al abrir la app
+          await this.geolocationService.centerMapOnUserLocation();
+          console.log('✅ App automatically centered on user location');
+
+          // Mostrar notificación de éxito
+          this.showToast('📍 Mapa centrado en tu ubicación', 'success');
+        } catch (error) {
+          console.log('ℹ️ Could not auto-center map - GPS may be disabled');
+          // No mostrar error al usuario para no ser molesto
+        }
+      }, 2000); // Delay de 2 segundos para asegurar que todo esté cargado
     } catch (error) {
-      console.error('❌ Error starting location tracking:', error);
-      this.showLocationError();
+      console.error('❌ Error in auto-location startup:', error);
     }
   }
 
@@ -189,6 +210,35 @@ export class HomePage implements OnInit, OnDestroy {
     this.authService.getCurrentUser().subscribe((user: User | null) => {
       this.isAdmin = !!(user && user.role === 'admin');
     });
+  }
+
+  private loadDashboardData() {
+    console.log('📊 Loading dashboard data...');
+
+    // Cargar contadores de marcadores
+    const markersSub = this.mapDataService.getMarkers().subscribe({
+      next: (markers) => {
+        console.log('📍 Dashboard: Received markers:', markers.length);
+        this.markersCount = markers.length;
+      },
+      error: (error) => {
+        console.error('❌ Dashboard: Error loading markers:', error);
+      },
+    });
+
+    // Cargar contadores de zonas
+    const zonesSub = this.mapDataService.getZones().subscribe({
+      next: (zones) => {
+        console.log('🏗️ Dashboard: Received zones:', zones.length);
+        this.zonesCount = zones.length;
+      },
+      error: (error) => {
+        console.error('❌ Dashboard: Error loading zones:', error);
+      },
+    });
+
+    this.subscriptions.add(markersSub);
+    this.subscriptions.add(zonesSub);
   }
 
   async openAdminPanel() {
@@ -205,14 +255,27 @@ export class HomePage implements OnInit, OnDestroy {
   }
 
   async recenterMap() {
-    console.log('🎯 Recentering map on user location...');
+    console.log('🎯 Recentering map on user location (high precision mode)...');
 
     try {
+      // Mostrar indicador de carga
+      this.showToast('🔍 Obteniendo ubicación precisa...', 'warning');
+
+      // Usar método de alta precisión para respuesta inmediata y precisa
       await this.geolocationService.centerMapOnUserLocation();
-      this.showToast('📍 Mapa centrado en tu ubicación', 'success');
+
+      // Asegurar que el tracking esté activo después de obtener ubicación precisa
+      if (!this.locationWatching) {
+        console.log(
+          '📍 Starting location tracking after high precision fix...'
+        );
+        await this.geolocationService.startWatching();
+      }
+
+      this.showToast('✅ Ubicación actualizada con precisión GPS', 'success');
     } catch (error) {
       console.error('❌ Error recentering map:', error);
-      this.showToast('❌ No se pudo obtener tu ubicación', 'danger');
+      this.showToast('❌ No se pudo obtener ubicación GPS precisa', 'danger');
     }
   }
 
@@ -256,6 +319,11 @@ export class HomePage implements OnInit, OnDestroy {
     this.showToast('Funcionalidad en desarrollo', 'warning');
   }
 
+  async navigateToInvitations() {
+    await this.closeMenu();
+    this.router.navigate(['/admin/invitations']);
+  }
+
   async viewAnalytics() {
     await this.closeMenu();
     this.showToast('Análisis y reportes - Próximamente', 'warning');
@@ -279,7 +347,6 @@ export class HomePage implements OnInit, OnDestroy {
   // Métodos utilitarios
   getRoleDisplayName(role: string): string {
     const roleNames = {
-      dev: 'Desarrollador',
       admin: 'Administrador',
       user: 'Usuario',
     };
@@ -288,9 +355,8 @@ export class HomePage implements OnInit, OnDestroy {
 
   getRoleColor(role: string): string {
     const roleColors = {
-      dev: 'danger',
-      admin: 'warning',
-      user: 'primary',
+      admin: 'primary',
+      user: 'medium',
     };
     return roleColors[role as keyof typeof roleColors] || 'medium';
   }

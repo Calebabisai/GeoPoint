@@ -3,13 +3,4 @@
 
   <!-- Controles del mapa -->
   <app-map-controls></app-map-controls>
-
-  <!-- Debug info (se puede quitar en producción) -->
-  <div class="map-debug" *ngIf="showDebug">
-    <p>
-      Estado del mapa: {{ mapInitialized ? "Inicializado" : "Cargando..." }}
-    </p>
-    <p>Marcadores: {{ markersCount }}</p>
-    <p>Zonas: {{ zonesCount }}</p>
-  </div>
 </div>

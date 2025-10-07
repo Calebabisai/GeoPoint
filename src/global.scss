@@ -615,6 +615,15 @@ ion-fab-button {
   animation: deleteModePulse 3s ease-in-out infinite;
 }
 
+// Reset cursor cuando NO está en delete-mode
+:not(.delete-mode) {
+  &.leaflet-container,
+  &.leaflet-marker-icon,
+  &.leaflet-interactive {
+    cursor: default !important;
+  }
+}
+
 @keyframes deleteModePulse {
   0%, 100% {
     outline-color: rgba(255, 71, 87, 0.4);
@@ -730,5 +739,691 @@ ion-fab-button {
 @media (prefers-color-scheme: dark) {
   .user-location-dot {
     border-color: #1c1c1e;
+  }
+}
+
+/* === ESTILOS MEJORADOS PARA MARCADORES === */
+.marker-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 42px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  
+  &:hover {
+    transform: scale(1.1);
+  }
+}
+
+.marker-background {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 32px;
+  height: 32px;
+  background: var(--marker-color, #3880ff);
+  border-radius: 50% 50% 50% 0;
+  transform-origin: 50% 50%;
+  transform: translateX(-50%) rotate(-45deg);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 
+              0 2px 6px rgba(0, 0, 0, 0.1);
+  border: 2px solid white;
+  
+  &::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 8px;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+  }
+}
+
+.marker-icon {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 16px;
+  color: white;
+  z-index: 2;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* Estilos específicos para cada tipo de marcador */
+.house-marker-icon {
+  .marker-background {
+    background: linear-gradient(135deg, var(--marker-color), color-mix(in srgb, var(--marker-color) 80%, black));
+  }
+  
+  .house-icon {
+    font-size: 18px;
+  }
+}
+
+.poi-marker-icon {
+  .marker-background {
+    background: linear-gradient(135deg, var(--marker-color), color-mix(in srgb, var(--marker-color) 80%, black));
+    animation: pulseGlow 2s ease-in-out infinite;
+  }
+  
+  .poi-icon {
+    font-size: 16px;
+    color: #FFD700;
+    text-shadow: 0 0 8px rgba(255, 215, 0, 0.6);
+  }
+}
+
+.custom-marker-icon {
+  .marker-background {
+    background: linear-gradient(135deg, var(--marker-color), color-mix(in srgb, var(--marker-color) 80%, black));
+  }
+  
+  .default-icon {
+    font-size: 16px;
+  }
+}
+
+/* Animación sutil para POI */
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 
+                0 2px 6px rgba(0, 0, 0, 0.1),
+                0 0 0 0 rgba(255, 215, 0, 0.4);
+  }
+  50% {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 
+                0 2px 6px rgba(0, 0, 0, 0.1),
+                0 0 0 4px rgba(255, 215, 0, 0.1);
+  }
+}
+
+/* Efectos hover mejorados */
+.marker-container:hover {
+  .marker-background {
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25), 
+                0 4px 10px rgba(0, 0, 0, 0.15),
+                0 0 0 3px rgba(255, 255, 255, 0.8);
+  }
+  
+  .marker-icon {
+    transform: translateX(-50%) scale(1.1);
+  }
+}
+
+/* Estilos para modo eliminación de marcadores */
+.marker-container.delete-mode {
+  .marker-background {
+    filter: hue-rotate(340deg) brightness(0.9);
+    animation: deleteModePulse 2s ease-in-out infinite;
+  }
+  
+  .marker-icon {
+    color: #ff4757;
+  }
+}
+
+/* Responsivo para marcadores */
+@media (max-width: 768px) {
+  .marker-container {
+    width: 28px;
+    height: 36px;
+  }
+  
+  .marker-background {
+    width: 28px;
+    height: 28px;
+  }
+  
+  .marker-icon {
+    top: 4px;
+    font-size: 14px;
+  }
+  
+  .house-icon {
+    font-size: 16px !important;
+  }
+}
+
+/* === MARCADOR DE UBICACIÓN DEL USUARIO === */
+.user-location-marker {
+  z-index: 1000 !important;
+  /* Forzar visibilidad en móviles */
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: block !important;
+}
+
+.user-location-container {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  /* Asegurar visibilidad en móviles */
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+/* Anillo de precisión */
+.user-location-accuracy-ring {
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  border: 3px solid rgba(33, 150, 243, 0.4);
+  border-radius: 50%;
+  background: rgba(33, 150, 243, 0.15);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  animation: userAccuracyPulse 3s ease-in-out infinite;
+  /* Mejorar visibilidad */
+  opacity: 0.8;
+}
+
+/* Efecto de pulso principal */
+.user-location-pulse {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(33, 150, 243, 0.7);
+  border-radius: 50%;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  animation: userLocationPulse 2s ease-in-out infinite;
+  /* Asegurar visibilidad */
+  opacity: 0.9;
+}
+
+/* Punto central del usuario - MEJORADO PARA MÓVILES */
+.user-location-dot {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  background: linear-gradient(135deg, #2196F3, #1976D2);
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.5),
+              0 3px 8px rgba(0, 0, 0, 0.4);
+  z-index: 15;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%); /* Centrado perfecto */
+  /* Forzar visibilidad en móviles */
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* Punto interior brillante */
+.user-location-inner-dot {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  background: #ffffff;
+  border-radius: 50%;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  animation: userLocationGlow 2s ease-in-out infinite alternate;
+}
+
+
+
+/* Animaciones */
+@keyframes userLocationPulse {
+  0% {
+    transform: translate(-50%, -50%) scale(0.8);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.4);
+    opacity: 0;
+  }
+}
+
+@keyframes userAccuracyPulse {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.3;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.1);
+    opacity: 0.1;
+  }
+}
+
+@keyframes userLocationGlow {
+  0% {
+    box-shadow: 0 0 3px rgba(255, 255, 255, 0.8);
+    opacity: 0.8;
+  }
+  100% {
+    box-shadow: 0 0 8px rgba(255, 255, 255, 1);
+    opacity: 1;
+  }
+}
+
+
+
+/* Popup de ubicación del usuario */
+.user-location-popup-container {
+  .leaflet-popup-content {
+    background: linear-gradient(135deg, #1a1a1a, #2d2d2d);
+    color: #ffffff;
+    border-radius: 12px;
+    border: 1px solid rgba(33, 150, 243, 0.3);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    padding: 12px;
+    margin: 0;
+    min-width: 180px;
+  }
+  
+  .leaflet-popup-tip {
+    background: linear-gradient(135deg, #1a1a1a, #2d2d2d);
+    border: 1px solid rgba(33, 150, 243, 0.3);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+}
+
+.user-location-popup {
+  text-align: center;
+  
+  strong {
+    color: #2196F3;
+    display: block;
+    margin-bottom: 8px;
+    font-size: 14px;
+  }
+  
+  small {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 11px;
+    line-height: 1.4;
+  }
+}
+
+/* Responsivo para marcador de usuario */
+@media (max-width: 768px) {
+  .user-location-container {
+    width: 50px; /* Más grande en móvil */
+    height: 50px;
+  }
+  
+  .user-location-accuracy-ring {
+    width: 70px; /* Más visible */
+    height: 70px;
+    border-width: 2px; /* Línea más gruesa */
+  }
+  
+  .user-location-pulse {
+    width: 50px;
+    height: 50px;
+    border-width: 3px; /* Línea más gruesa */
+  }
+  
+  .user-location-dot {
+    width: 22px; /* Más grande */
+    height: 22px;
+    border-width: 3px; /* Borde más grueso */
+  }
+  
+  .user-location-inner-dot {
+    width: 10px; /* Proporcionalmente más grande */
+    height: 10px;
+  }
+}
+
+/* Optimización específica para Xiaomi y dispositivos Android */
+@media (max-width: 768px) and (pointer: coarse) {
+  .user-location-marker {
+    /* Compensación de offset en dispositivos táctiles */
+    transform: translateZ(0); /* Forzar aceleración hardware */
+    will-change: transform; /* Optimizar para cambios */
+  }
+  
+  .user-location-container {
+    /* Mejorar precisión en pantallas de alta densidad */
+    transform: translate3d(0, 0, 0); /* Forzar GPU */
+    backface-visibility: hidden; /* Evitar flickering */
+  }
+  
+  /* Hacer el marcador más preciso visualmente */
+  .user-location-dot {
+    /* Usar box-shadow para mejor precisión que border */
+    box-shadow: 
+      0 0 0 3px #ffffff,
+      0 0 0 5px rgba(33, 150, 243, 0.8),
+      0 2px 8px rgba(0, 0, 0, 0.3);
+    border: none; /* Remover border para usar box-shadow */
+  }
+  
+  /* Optimización específica para dispositivos Xiaomi/MIUI */
+  .leaflet-marker-pane {
+    /* Mejorar renderizado en MIUI */
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    /* Forzar precisión subpixel */
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+  }
+  
+  /* Corrección específica para marcador de usuario en Xiaomi */
+  .user-location-marker {
+    /* Compensar offset típico de MIUI */
+    transform: translate3d(-0.5px, -0.5px, 0) !important;
+    -webkit-transform: translate3d(-0.5px, -0.5px, 0) !important;
+  }
+}
+
+/* === MARCADORES POI CON ANIMACIÓN === */
+.poi-marker-icon {
+  z-index: 800 !important;
+}
+
+.poi-pulse-container {
+  position: relative;
+}
+
+.poi-pulse-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 50px;
+  height: 50px;
+  border: 3px solid var(--marker-color, #4ECDC4);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  animation: poiPulse 2s ease-in-out infinite;
+  opacity: 0.6;
+  z-index: -1;
+}
+
+.poi-background {
+  background: linear-gradient(135deg, var(--marker-color, #4ECDC4), #36B8B8) !important;
+  border: 3px solid #ffffff;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3), 
+              0 0 20px rgba(78, 205, 196, 0.4);
+  animation: poiGlow 2.5s ease-in-out infinite alternate;
+  transition: all 0.3s ease;
+}
+
+.poi-icon {
+  color: #ffffff !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  animation: poiIconPulse 2s ease-in-out infinite;
+  font-weight: bold;
+}
+
+/* Animaciones para POI */
+@keyframes poiPulse {
+  0% {
+    transform: translate(-50%, -50%) scale(0.8);
+    opacity: 0.9;
+  }
+  30% {
+    transform: translate(-50%, -50%) scale(1.1);
+    opacity: 0.6;
+  }
+  60% {
+    transform: translate(-50%, -50%) scale(1.4);
+    opacity: 0.3;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.8);
+    opacity: 0;
+  }
+}
+
+@keyframes poiGlow {
+  0% {
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3), 
+                0 0 20px rgba(78, 205, 196, 0.4);
+    transform: scale(1);
+  }
+  33% {
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35), 
+                0 0 30px rgba(78, 205, 196, 0.7);
+    transform: scale(1.05);
+  }
+  66% {
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4), 
+                0 0 40px rgba(78, 205, 196, 0.9);
+    transform: scale(1.1);
+  }
+  100% {
+    box-shadow: 0 6px 25px rgba(0, 0, 0, 0.4), 
+                0 0 35px rgba(78, 205, 196, 0.6);
+    transform: scale(1.02);
+  }
+}
+
+/* === OPTIMIZACIONES MÓVILES PARA ANIMACIONES === */
+
+/* Detección de dispositivos móviles y preferencias de movimiento reducido */
+@media (max-width: 768px) and (pointer: coarse) {
+  /* Animaciones POI más eficientes para móvil */
+  .poi-pulse-ring {
+    animation-duration: 3s; /* Más lenta para menor consumo */
+    animation-timing-function: ease-out; /* Más eficiente */
+  }
+  
+  .poi-background {
+    /* Reducir intensidad de glow en móvil */
+    animation-duration: 4s; /* Más lenta */
+  }
+  
+  .poi-icon {
+    animation-duration: 3.5s; /* Sincronizar mejor */
+  }
+}
+
+/* Para dispositivos con menos potencia (Android de gama baja, iOS más antiguos) */
+@media (max-width: 480px), 
+       (max-device-width: 480px), 
+       (-webkit-max-device-pixel-ratio: 1.5) {
+  
+  /* Desactivar animaciones complejas en dispositivos de baja potencia */
+  .poi-pulse-ring {
+    animation: poiPulseMobile 4s ease-out infinite;
+  }
+  
+  .poi-background {
+    /* Usar solo transformación simple, no box-shadow animado */
+    animation: none;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3) !important;
+  }
+  
+  .poi-icon {
+    animation: poiIconPulseMobile 2.2s ease-in-out infinite;
+    font-weight: bold;
+  }
+}
+
+/* Animaciones optimizadas para móvil */
+@keyframes poiPulseMobile {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(0.9);
+    opacity: 0.7;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.1);
+    opacity: 0.3;
+  }
+}
+
+@keyframes poiIconPulseMobile {
+  0%, 100% {
+    transform: scale(1);
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  }
+  25% {
+    transform: scale(1.1);
+    text-shadow: 0 2px 6px rgba(255, 255, 255, 0.4);
+  }
+  50% {
+    transform: scale(1.2);
+    text-shadow: 0 3px 10px rgba(255, 255, 255, 0.6);
+  }
+  75% {
+    transform: scale(1.1);
+    text-shadow: 0 2px 6px rgba(255, 255, 255, 0.4);
+  }
+}
+
+/* Respeto por la preferencia de movimiento reducido del usuario */
+@media (prefers-reduced-motion: reduce) {
+  .poi-pulse-ring,
+  .poi-background,
+  .poi-icon {
+    animation: none !important;
+  }
+  
+  /* Solo mantener un efecto sutil estático */
+  .poi-background {
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3), 
+                0 0 20px rgba(78, 205, 196, 0.4) !important;
+  }
+}
+
+@keyframes poiIconPulse {
+  0%, 100% {
+    transform: scale(1);
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  }
+  25% {
+    transform: scale(1.15);
+    text-shadow: 0 2px 8px rgba(255, 255, 255, 0.5);
+  }
+  50% {
+    transform: scale(1.3);
+    text-shadow: 0 3px 12px rgba(255, 255, 255, 0.8);
+  }
+  75% {
+    transform: scale(1.15);
+    text-shadow: 0 2px 8px rgba(255, 255, 255, 0.5);
+  }
+}
+
+/* === POPUP POI CON GOOGLE MAPS === */
+.poi-popup {
+  background: linear-gradient(135deg, #1a1a1a, #2d2d2d);
+  border: 2px solid #4ECDC4;
+  border-radius: 12px;
+  padding: 16px;
+  min-width: 250px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  color: #ffffff;
+  font-family: var(--ion-font-family);
+}
+
+.poi-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid rgba(78, 205, 196, 0.3);
+  padding-bottom: 8px;
+}
+
+.poi-popup-icon {
+  color: #4ECDC4;
+  font-size: 20px;
+}
+
+.poi-popup h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.poi-description {
+  margin: 12px 0;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.8);
+  line-height: 1.4;
+}
+
+.poi-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.google-maps-btn {
+  background: linear-gradient(135deg, #4285f4, #34a853);
+  border: none;
+  border-radius: 8px;
+  padding: 12px 16px;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(66, 133, 244, 0.3);
+}
+
+.google-maps-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px rgba(66, 133, 244, 0.4);
+}
+
+.google-maps-btn:active {
+  transform: translateY(0);
+}
+
+.google-maps-btn ion-icon {
+  font-size: 16px;
+}
+
+.poi-coords {
+  text-align: center;
+  padding: 8px 12px;
+  background: rgba(78, 205, 196, 0.1);
+  border-radius: 6px;
+  border: 1px solid rgba(78, 205, 196, 0.2);
+}
+
+.poi-coords small {
+  color: #4ECDC4;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+}
+
+/* Responsive POI styles */
+@media (max-width: 768px) {
+  .poi-popup {
+    min-width: 220px;
+    padding: 14px;
+  }
+  
+  .google-maps-btn {
+    padding: 10px 14px;
+    font-size: 13px;
+  }
+  
+  .poi-popup h4 {
+    font-size: 15px;
+  }
+  
+  .poi-description {
+    font-size: 13px;
   }
 }

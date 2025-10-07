@@ -46,6 +46,20 @@ export const routes: Routes = [
     ...canActivate(redirectUnauthorizedToLogin),
   },
   {
+    path: 'profile',
+    loadComponent: () =>
+      import('./pages/profile/profile.page').then((m) => m.ProfilePage),
+    ...canActivate(redirectUnauthorizedToLogin),
+  },
+  {
+    path: 'email-preview',
+    loadComponent: () =>
+      import('./pages/email-preview/email-preview.page').then(
+        (m) => m.EmailPreviewPage
+      ),
+    ...canActivate(redirectUnauthorizedToLogin),
+  },
+  {
     path: 'admin',
     children: [
       {
@@ -57,9 +71,59 @@ export const routes: Routes = [
         ...canActivate(redirectUnauthorizedToLogin),
       },
       {
+        path: 'user-management',
+        loadComponent: () =>
+          import(
+            './admin/components/user-management/user-management.component'
+          ).then((m) => m.UserManagementComponent),
+        ...canActivate(redirectUnauthorizedToLogin),
+      },
+      {
+        path: 'invitations',
+        loadComponent: () =>
+          import(
+            './admin/components/invitation-manager/invitation-manager.component'
+          ).then((m) => m.InvitationManagerComponent),
+        ...canActivate(redirectUnauthorizedToLogin),
+      },
+      {
+        path: 'email-invitations',
+        loadComponent: () =>
+          import('./pages/email-invitations/email-invitations.page').then(
+            (m) => m.EmailInvitationsPage
+          ),
+        ...canActivate(redirectUnauthorizedToLogin),
+      },
+      {
         path: '',
-        redirectTo: 'users',
+        redirectTo: '/home',
         pathMatch: 'full',
+      },
+    ],
+  },
+  {
+    path: 'join/:token',
+    loadComponent: () =>
+      import('./pages/join-invitation/join-invitation.page').then(
+        (m) => m.JoinInvitationPage
+      ),
+  },
+  {
+    path: 'invitation',
+    children: [
+      {
+        path: 'accept',
+        loadComponent: () =>
+          import('./pages/invitation-accept/invitation-accept.page').then(
+            (m) => m.InvitationAcceptPage
+          ),
+      },
+      {
+        path: 'accept/:code',
+        loadComponent: () =>
+          import('./pages/invitation-accept/invitation-accept.page').then(
+            (m) => m.InvitationAcceptPage
+          ),
       },
     ],
   },
