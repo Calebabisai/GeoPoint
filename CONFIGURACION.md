@@ -17,12 +17,14 @@ src/environments/
 ## 🛠️ Configuración Inicial
 
 ### 1. Clona el repositorio
+
 ```bash
 git clone https://github.com/Calebabisai/GeoPoint.git
 cd GeoPoint/Geo-Point
 ```
 
 ### 2. Instala dependencias
+
 ```bash
 npm install
 ```
@@ -30,7 +32,9 @@ npm install
 ### 3. Crea archivos locales con credenciales reales
 
 #### Para desarrollo:
+
 Crea `src/environments/environment.local.ts`:
+
 ```typescript
 export const environment = {
   production: false,
@@ -40,13 +44,15 @@ export const environment = {
     projectId: "TU_PROJECT_ID",
     storageBucket: "TU_STORAGE_BUCKET",
     messagingSenderId: "TU_MESSAGING_SENDER_ID",
-    appId: "TU_APP_ID"
-  }
+    appId: "TU_APP_ID",
+  },
 };
 ```
 
 #### Para producción:
+
 Crea `src/environments/environment.prod.local.ts`:
+
 ```typescript
 export const environment = {
   production: true,
@@ -56,17 +62,18 @@ export const environment = {
     projectId: "TU_PROJECT_ID_PROD",
     storageBucket: "TU_STORAGE_BUCKET_PROD",
     messagingSenderId: "TU_MESSAGING_SENDER_ID_PROD",
-    appId: "TU_APP_ID_PROD"
-  }
+    appId: "TU_APP_ID_PROD",
+  },
 };
 ```
 
 ### 4. Configura tu app para usar archivos locales
 
 En tu código, importa así:
+
 ```typescript
 // Primero intenta cargar el archivo local, si no existe usa el template
-import { environment } from './environments/environment.local';
+import { environment } from "./environments/environment.local";
 ```
 
 ## 🔒 Archivos Android/iOS Sensibles

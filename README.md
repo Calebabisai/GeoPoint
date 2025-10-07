@@ -26,7 +26,7 @@ GeoPoint es una aplicación móvil híbrida construida con **Ionic + Angular** p
 
 ### Prerrequisitos
 
-- Node.js 18+ 
+- Node.js 18+
 - npm 9+
 - Ionic CLI: `npm install -g @ionic/cli`
 - Angular CLI: `npm install -g @angular/cli`
@@ -34,22 +34,26 @@ GeoPoint es una aplicación móvil híbrida construida con **Ionic + Angular** p
 ### Instalación
 
 1. **Clonar el repositorio**
+
 ```bash
 git clone https://github.com/Calebabisai/GeoPoint.git
 cd GeoPoint/Geo-Point
 ```
 
 2. **Instalar dependencias**
+
 ```bash
 npm install
 ```
 
 3. **Configurar Firebase**
+
    - Crea un proyecto en [Firebase Console](https://console.firebase.google.com/)
    - Copia tus credenciales de Firebase
    - Crea `src/environments/environment.local.ts` con tus credenciales (ver `CONFIGURACION.md`)
 
 4. **Ejecutar en desarrollo**
+
 ```bash
 # Web
 ionic serve
@@ -66,16 +70,19 @@ ionic capacitor run ios
 ## 📱 Builds
 
 ### Web
+
 ```bash
 ng build --configuration production
 ```
 
 ### Android
+
 ```bash
 ionic capacitor build android --prod
 ```
 
 ### iOS
+
 ```bash
 ionic capacitor build ios --prod
 ```
@@ -133,6 +140,7 @@ Geo-Point/
 ## 🔐 Seguridad
 
 ⚠️ **IMPORTANTE**: Nunca subas archivos con credenciales reales a GitHub:
+
 - `environment.local.ts`
 - `*.keystore`
 - `google-services.json`
@@ -143,6 +151,7 @@ Ver [CONFIGURACION.md](./CONFIGURACION.md) para más detalles.
 ## 👥 Gestión de Usuarios
 
 El sistema incluye una interfaz completa de gestión de usuarios con:
+
 - Listado de usuarios de la organización
 - Cambio de roles (Owner/Admin/Moderator/User)
 - Eliminación de usuarios
@@ -153,6 +162,7 @@ Solo los propietarios (Owners) y administradores (Admins) pueden gestionar usuar
 ## 🐛 Debugging
 
 Para habilitar logs detallados en desarrollo:
+
 ```typescript
 // En environment.local.ts
 export const environment = {
@@ -169,6 +179,7 @@ Este proyecto es privado. Todos los derechos reservados.
 ## 👨‍💻 Autor
 
 **Caleb Abisai**
+
 - GitHub: [@Calebabisai](https://github.com/Calebabisai)
 
 ## 🤝 Contribuciones
