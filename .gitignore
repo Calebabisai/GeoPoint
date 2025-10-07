@@ -65,9 +65,9 @@ yarn-error.log
 testem.log
 /typings
 
-# Environment variables - NUNCA subir a GitHub
-/src/environments/environment.ts
-/src/environments/environment.prod.ts
+# Environment variables - Solo ignorar archivos con credenciales REALES
+/src/environments/environment.local.ts
+/src/environments/environment.*.local.ts
 /src/environments/.env
 /src/environments/.env.local
 /src/environments/.env.*.local
@@ -81,6 +81,11 @@ testem.log
 android/app/google-services.json
 ios/App/GoogleService-Info.plist
 android/key.properties
+
+# Carpetas de build de Android/iOS (no subir compilados)
+/android/app/build/
+/android/build/
+/ios/App/build/
 
 # System files
 .DS_Store
