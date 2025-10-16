@@ -9,5 +9,5 @@ export interface MapMarker {
   createdBy: string;
   organizationId: string;
   createdAt: Date;
-  number?: number; // ✅ AGREGAR campo number
+  number?: number;
 }

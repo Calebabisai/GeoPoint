@@ -65,9 +65,10 @@ yarn-error.log
 testem.log
 /typings
 
-# Environment variables - Solo ignorar archivos con credenciales REALES
-/src/environments/environment.local.ts
-/src/environments/environment.*.local.ts
+# Environment variables - IGNORAR ARCHIVOS CON CREDENCIALES REALES
+# ⚠️ CRÍTICO: Estos archivos contienen API Keys reales - NUNCA subir a GitHub
+/src/environments/environment.ts
+/src/environments/environment.prod.ts
 /src/environments/.env
 /src/environments/.env.local
 /src/environments/.env.*.local

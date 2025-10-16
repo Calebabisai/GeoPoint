@@ -44,7 +44,7 @@ export class GeolocationService {
   private lastKnownLocation: UserLocation | null = null;
   private locationBuffer: UserLocation[] = [];
   private readonly BUFFER_SIZE = 5; // Promedio de últimas 5 ubicaciones para mayor estabilidad
-  private readonly MIN_DISTANCE_THRESHOLD = 1; // Metros mínimos para actualizar (Google Maps style)
+  private readonly MIN_DISTANCE_THRESHOLD = 3; // Metros mínimos para actualizar (más sensible)
   private readonly MAX_ACCURACY_THRESHOLD = 30; // Rechazar ubicaciones menos precisas (más estricto)
 
   // Optimizaciones para móvil
@@ -149,8 +149,15 @@ export class GeolocationService {
       return false;
     }
 
-    // Para tracking Google Maps style: NO bloquear por estabilidad
-    // Solo filtrar GPS muy impreciso
+    // Verificar si la ubicación está estable
+    if (
+      this.isLocationStable &&
+      newLocation.accuracy > this.STABLE_ACCURACY_THRESHOLD &&
+      this.consecutiveUpdatesCount > this.MAX_CONSECUTIVE_UPDATES
+    ) {
+      console.log('🔒 Location is stable - ignoring minor updates');
+      return false;
+    }
 
     // Calcular distancia desde la última ubicación conocida
     const distance = this.calculateDistance(
@@ -167,8 +174,24 @@ export class GeolocationService {
     const highAccuracyReading =
       newLocation.accuracy <= this.STABLE_ACCURACY_THRESHOLD;
 
-    // Google Maps style: Solo filtrar micro-movimientos y GPS impreciso
-    if (significantMovement || betterAccuracy || highAccuracyReading) {
+    // Lógica de estabilización
+    if (
+      highAccuracyReading &&
+      !significantMovement &&
+      this.consecutiveUpdatesCount >= 3
+    ) {
+      this.isLocationStable = true;
+      console.log(
+        '✅ GPS location stabilized at accuracy:',
+        newLocation.accuracy + 'm'
+      );
+    }
+
+    if (
+      significantMovement ||
+      betterAccuracy ||
+      (!this.isLocationStable && highAccuracyReading)
+    ) {
       this.consecutiveUpdatesCount++;
       console.log(
         `📍 Location update: moved ${distance.toFixed(1)}m, accuracy: ${
@@ -178,7 +201,7 @@ export class GeolocationService {
       return true;
     }
 
-    console.log(`🔒 Skipping micro-variation: ${distance.toFixed(1)}m`);
+    console.log(`🔒 Skipping minor GPS variation: ${distance.toFixed(1)}m`);
     return false;
   }
 
@@ -186,12 +209,20 @@ export class GeolocationService {
    * Procesar nueva ubicación con filtros y suavizado
    */
   private processLocationUpdate(rawLocation: UserLocation): void {
-    // Verificar si debe actualizarse con filtros inteligentes (Google Maps style)
+    // BLOQUEAR ACTUALIZACIONES si la ubicación está estabilizada
+    if (this.isLocationStable) {
+      console.log(
+        '🔒 Location is stable - ignoring GPS update to prevent marker drift'
+      );
+      return;
+    }
+
+    // Verificar si debe actualizarse
     if (!this.shouldUpdateLocation(rawLocation)) {
       return;
     }
 
-    // Aplicar suavizado para movimiento fluido
+    // Aplicar suavizado
     const smoothedLocation = this.smoothLocation(rawLocation);
 
     // Actualizar estado
@@ -292,38 +323,15 @@ export class GeolocationService {
    * Obtener ubicación de alta precisión inmediata (para botón "marcar mi ubicación")
    */
   async getHighPrecisionLocation(): Promise<LatLng | null> {
-    console.log('🎯 Getting high precision location for mobile device...');
+    console.log('🎯 Getting high precision location...');
 
     try {
       if (this.platform.is('capacitor')) {
-        // Configuración optimizada específicamente para dispositivos móviles Android/Xiaomi
         const position = await Geolocation.getCurrentPosition({
           enableHighAccuracy: true,
-          timeout: 15000, // Más tiempo para permitir GPS preciso en móvil
-          maximumAge: 0, // Forzar nueva lectura GPS siempre
+          timeout: 10000, // Timeout más rápido para respuesta inmediata
+          maximumAge: 0, // Forzar nueva lectura GPS
         });
-
-        console.log('📍 Raw GPS coordinates received:', {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-          accuracy: position.coords.accuracy,
-          timestamp: position.timestamp
-        });
-
-        // Validar que las coordenadas sean válidas
-        if (!position.coords || 
-            typeof position.coords.latitude !== 'number' || 
-            typeof position.coords.longitude !== 'number' ||
-            Math.abs(position.coords.latitude) > 90 ||
-            Math.abs(position.coords.longitude) > 180) {
-          console.error('❌ Invalid GPS coordinates received:', position.coords);
-          throw new Error('Coordenadas GPS inválidas');
-        }
-
-        // Verificar precisión
-        if (position.coords.accuracy > 100) {
-          console.warn('⚠️ Low accuracy GPS reading:', position.coords.accuracy + 'm');
-        }
 
         const location: UserLocation = {
           coords: {
@@ -334,18 +342,16 @@ export class GeolocationService {
           timestamp: position.timestamp,
         };
 
-        console.log('🎯 Validated GPS coordinates:', {
-          lat: location.coords.lat.toFixed(6),
-          lng: location.coords.lng.toFixed(6),
-          accuracy: location.accuracy + 'm'
-        });
-
-        // NO actualizar el marcador aquí - será actualizado por centerMapOnUserLocation
-        // Solo actualizar estado interno
+        // Actualizar directamente sin filtros para respuesta inmediata
         this.currentLocationSubject.next(location);
+        this.mapService.updateUserLocation(location.coords);
         this.lastKnownLocation = location;
 
-        console.log('✅ High precision coordinates obtained - ready for marker update');
+        // Resetear estado de estabilidad para permitir nuevas actualizaciones
+        this.isLocationStable = false;
+        this.consecutiveUpdatesCount = 0;
+
+        console.log('✅ High precision location obtained:', location.coords);
         return location.coords;
       } else {
         // Para navegador
