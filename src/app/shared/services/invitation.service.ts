@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { Observable, BehaviorSubject, from, of } from 'rxjs';
+import { Observable, BehaviorSubject, from, of, firstValueFrom } from 'rxjs';
 import { map, switchMap } from 'rxjs/operators';
 import {
   Firestore,
@@ -46,10 +46,11 @@ export class InvitationService {
     email: string,
     role: 'admin' | 'moderator' | 'user' = 'user'
   ): Promise<OrganizationInvite> {
-    const currentUser = await this.authService.getCurrentUser().toPromise();
-    const currentOrg = await this.organizationService
-      .getCurrentOrganization()
-      .toPromise();
+    // ✅ Reemplazado toPromise() por firstValueFrom()
+    const currentUser = await firstValueFrom(this.authService.getCurrentUser());
+    const currentOrg = await firstValueFrom(
+      this.organizationService.getCurrentOrganization()
+    );
 
     if (!currentUser || !currentOrg) {
       throw new Error('Usuario u organización no encontrados');
@@ -117,7 +118,8 @@ export class InvitationService {
    * Acepta una invitación usando el código
    */
   async acceptInvitation(inviteCode: string): Promise<void> {
-    const currentUser = await this.authService.getCurrentUser().toPromise();
+    // ✅ Reemplazado toPromise() por firstValueFrom()
+    const currentUser = await firstValueFrom(this.authService.getCurrentUser());
     if (!currentUser) {
       throw new Error('Usuario no autenticado');
     }

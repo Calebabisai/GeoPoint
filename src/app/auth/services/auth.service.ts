@@ -1,4 +1,4 @@
-import { Injectable, NgZone } from '@angular/core';
+import { Injectable, NgZone, inject } from '@angular/core';
 import {
   Auth,
   authState,
@@ -17,11 +17,14 @@ import {
 import { map, switchMap } from 'rxjs/operators';
 import { Observable, from, of } from 'rxjs';
 import { User } from '../../shared/models/user.model';
+import { LoggerService } from '../../shared/services/logger.service';
 
 @Injectable({
   providedIn: 'root',
 })
 export class AuthService {
+  private logger = inject(LoggerService);
+
   // Cache de authState para evitar múltiples llamadas
   private authState$: Observable<FirebaseUser | null>;
 
@@ -31,7 +34,7 @@ export class AuthService {
     private ngZone: NgZone
   ) {
     this.authState$ = authState(this.auth);
-    console.log('🔥 AuthService initialized with constructor injection');
+    this.logger.auth('Service initialized');
   }
 
   async login(email: string, password: string) {
@@ -87,13 +90,13 @@ export class AuthService {
     firebaseUser: FirebaseUser
   ): Promise<User> {
     try {
-      console.log('🔥 Getting user data from Firestore for:', firebaseUser.uid);
+      this.logger.firebase('Getting user data for:', firebaseUser.uid);
       const userDoc = doc(this.firestore, `users/${firebaseUser.uid}`);
       const userSnap = await getDoc(userDoc);
 
       if (userSnap.exists()) {
         const userData = userSnap.data() as DocumentData;
-        console.log('✅ User data found in Firestore:', userData);
+        this.logger.firebase('User data found in Firestore');
         return {
           uid: firebaseUser.uid,
           email: firebaseUser.email || '',
@@ -107,7 +110,7 @@ export class AuthService {
         } as User;
       } else {
         // Usuario sin datos en Firestore, usar valores por defecto
-        console.log('⚠️ User not found in Firestore, using defaults');
+        this.logger.warn('User not found in Firestore, using defaults');
         return {
           uid: firebaseUser.uid,
           email: firebaseUser.email || '',
@@ -119,7 +122,7 @@ export class AuthService {
         } as User;
       }
     } catch (error) {
-      console.error('Error fetching user data from Firestore:', error);
+      this.logger.error('Error fetching user data from Firestore:', error);
       // Fallback si no se puede acceder a Firestore
       return {
         uid: firebaseUser.uid,
@@ -141,11 +144,10 @@ export class AuthService {
     displayName?: string
   ): Promise<void> {
     try {
-      console.log('🔥 Saving user data to Firestore:', {
+      this.logger.firebase('Saving user data to Firestore', {
         uid,
         email,
         role,
-        displayName,
       });
       const userDoc = doc(this.firestore, `users/${uid}`);
       const userData: Partial<User> = {
@@ -157,9 +159,9 @@ export class AuthService {
       };
 
       await setDoc(userDoc, userData, { merge: true });
-      console.log('✅ User data saved successfully to Firestore');
+      this.logger.firebase('User data saved successfully');
     } catch (error) {
-      console.error('❌ Error saving user data to Firestore:', error);
+      this.logger.error('Error saving user data to Firestore:', error);
       throw error;
     }
   }
