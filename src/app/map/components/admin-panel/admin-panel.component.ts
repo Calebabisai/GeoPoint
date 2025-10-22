@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
@@ -22,9 +22,11 @@ import {
   colorPaletteOutline,
   navigateOutline,
 } from 'ionicons/icons';
+import { Subscription } from 'rxjs';
 import { FirestoreService } from '../../../services/firestore.service';
 import { MapService } from '../../services/map.service';
 import { AuthService } from '../../../auth/services/auth.service';
+import { ValidationService } from '../../../shared/services/validation.service';
 import { MapMarker } from '../../../shared/models/marker.model';
 import { MapZone } from '../../../shared/models/zone.model';
 import { MapRoute } from '../../../shared/models/route.model';
@@ -50,12 +52,16 @@ import { MapRoute } from '../../../shared/models/route.model';
     IonText,
   ],
 })
-export class AdminPanelComponent {
+export class AdminPanelComponent implements OnDestroy {
   private firestoreService = inject(FirestoreService);
   private mapService = inject(MapService);
   private authService = inject(AuthService);
+  private validationService = inject(ValidationService);
   private modalCtrl = inject(ModalController);
   private toastCtrl = inject(ToastController);
+
+  // ✅ Subscripción para cleanup
+  private subscriptions = new Subscription();
 
   // Contador para números de zona
   private zoneCounter = 1;
@@ -90,17 +96,25 @@ export class AdminPanelComponent {
     this.subscribeToMapClicks();
   }
 
+  // ✅ Cleanup de suscripciones al destruir el componente
+  ngOnDestroy(): void {
+    this.subscriptions.unsubscribe();
+  }
+
   private subscribeToMapClicks() {
-    this.mapService.mapClick$.subscribe((latlng) => {
-      if (this.isAddingMarker && latlng) {
-        this.newMarker.lat = latlng.lat;
-        this.newMarker.lng = latlng.lng;
-      } else if (this.isAddingZone && latlng) {
-        this.newZone.coordinates.push([latlng.lat, latlng.lng]);
-      } else if (this.isAddingRoute && latlng) {
-        this.newRoute.waypoints.push([latlng.lat, latlng.lng]);
-      }
-    });
+    // ✅ Agregar suscripción a la cola para cleanup automático
+    this.subscriptions.add(
+      this.mapService.mapClick$.subscribe((latlng) => {
+        if (this.isAddingMarker && latlng) {
+          this.newMarker.lat = latlng.lat;
+          this.newMarker.lng = latlng.lng;
+        } else if (this.isAddingZone && latlng) {
+          this.newZone.coordinates.push([latlng.lat, latlng.lng]);
+        } else if (this.isAddingRoute && latlng) {
+          this.newRoute.waypoints.push([latlng.lat, latlng.lng]);
+        }
+      })
+    );
   }
 
   startAddingMarker() {
@@ -110,27 +124,44 @@ export class AdminPanelComponent {
   }
 
   async saveMarker() {
-    if (!this.newMarker.title || !this.newMarker.lat || !this.newMarker.lng) {
-      this.showToast(
-        'Completa todos los campos y selecciona una ubicación',
-        'warning'
-      );
+    // ✅ Validar formulario antes de guardar
+    const validation = this.validationService.validateMarkerForm({
+      title: this.newMarker.title,
+      description: this.newMarker.description,
+      lat: this.newMarker.lat,
+      lng: this.newMarker.lng,
+      color: this.newMarker.color,
+    });
+
+    if (!validation.valid) {
+      this.showToast(validation.errors.join('. '), 'warning');
       return;
     }
+
     try {
       const user: any = await this.getCurrentUser();
       if (!user) return;
+
+      // Sanitizar datos antes de guardar
+      const titleValidation = this.validationService.validateTitle(
+        this.newMarker.title
+      );
+      const descValidation = this.validationService.validateDescription(
+        this.newMarker.description
+      );
+
       const marker: Omit<MapMarker, 'id'> = {
-        title: this.newMarker.title,
-        description: this.newMarker.description,
+        title: titleValidation.sanitized!,
+        description: descValidation.sanitized!,
         lat: this.newMarker.lat,
         lng: this.newMarker.lng,
         color: this.newMarker.color,
-        type: 'marker', // Valor por defecto
+        type: 'marker',
         createdBy: user?.uid,
-        organizationId: '', // Se asignará en FirestoreService
+        organizationId: '',
         createdAt: new Date(),
       };
+
       await this.firestoreService.addMarker(marker);
       this.resetMarkerForm();
       this.showToast('Marcador agregado exitosamente', 'success');
@@ -151,16 +182,34 @@ export class AdminPanelComponent {
   }
 
   async saveZone() {
-    if (!this.newZone.name || this.newZone.coordinates.length < 3) {
-      this.showToast('Ingresa un nombre y define al menos 3 puntos', 'warning');
+    // ✅ Validar formulario antes de guardar
+    const validation = this.validationService.validateZoneForm({
+      name: this.newZone.name,
+      description: this.newZone.description,
+      coordinates: this.newZone.coordinates,
+      color: this.newZone.color,
+    });
+
+    if (!validation.valid) {
+      this.showToast(validation.errors.join('. '), 'warning');
       return;
     }
+
     try {
       const user: any = await this.getCurrentUser();
       if (!user) return;
+
+      // Sanitizar datos antes de guardar
+      const nameValidation = this.validationService.validateTitle(
+        this.newZone.name
+      );
+      const descValidation = this.validationService.validateDescription(
+        this.newZone.description
+      );
+
       const zone: Omit<MapZone, 'id'> = {
-        name: this.newZone.name,
-        description: this.newZone.description,
+        name: nameValidation.sanitized!,
+        description: descValidation.sanitized!,
         coordinates: this.newZone.coordinates.map((coord: any) =>
           typeof coord === 'object' && 'lat' in coord && 'lng' in coord
             ? coord
@@ -168,11 +217,12 @@ export class AdminPanelComponent {
         ),
         color: this.newZone.color,
         number: this.getNextZoneNumber(),
-        type: 'zone', // Valor por defecto
+        type: 'zone',
         createdBy: user?.uid,
-        organizationId: '', // Se asignará en FirestoreService
+        organizationId: '',
         createdAt: new Date(),
       };
+
       await this.firestoreService.addZone(zone);
       this.resetZoneForm();
       this.showToast('Zona agregada exitosamente', 'success');
@@ -270,8 +320,10 @@ export class AdminPanelComponent {
 
   private async getCurrentUser() {
     return new Promise((resolve) => {
-      this.authService.getCurrentUser().subscribe((user) => {
+      // ✅ Agregar suscripción temporal al cleanup
+      const sub = this.authService.getCurrentUser().subscribe((user) => {
         resolve(user);
+        sub.unsubscribe(); // Unsubscribe inmediato después de obtener el valor
       });
     });
   }

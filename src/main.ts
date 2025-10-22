@@ -1,4 +1,4 @@
-import { enableProdMode } from '@angular/core';
+import { enableProdMode, ErrorHandler } from '@angular/core';
 import { bootstrapApplication } from '@angular/platform-browser';
 import { RouteReuseStrategy, provideRouter } from '@angular/router';
 import {
@@ -19,6 +19,9 @@ import { getFirestore, provideFirestore } from '@angular/fire/firestore';
 import { addIcons } from 'ionicons';
 import { navigateOutline, star, location } from 'ionicons/icons';
 
+// Manejador global de errores
+import { GlobalErrorHandler } from './app/shared/services/error-handler.service';
+
 if (environment.production) {
   enableProdMode();
 }
@@ -33,6 +36,7 @@ addIcons({
 bootstrapApplication(AppComponent, {
   providers: [
     { provide: RouteReuseStrategy, useClass: IonicRouteStrategy },
+    { provide: ErrorHandler, useClass: GlobalErrorHandler }, // ✅ Manejador global de errores
     provideIonicAngular(),
     provideRouter(routes),
     // Provee las configuraciones de Firebase
