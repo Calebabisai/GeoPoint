@@ -7,6 +7,10 @@ import {
   timeout,
   catchError,
   throwError,
+  from,
+  startWith,
+  interval,
+  mergeMap,
 } from 'rxjs';
 import {
   Firestore,
@@ -15,10 +19,12 @@ import {
   updateDoc,
   deleteDoc,
   doc,
-  collectionData,
   Timestamp,
   query,
   where,
+  getDocs,
+  QuerySnapshot,
+  DocumentData,
 } from '@angular/fire/firestore';
 import { MapMarker } from '../shared/models/marker.model';
 import { MapZone } from '../shared/models/zone.model';
@@ -35,35 +41,58 @@ export class FirestoreService {
   private networkService = inject(NetworkService);
 
   // ✅ Timeout para operaciones de Firestore (en milisegundos)
-  private readonly FIRESTORE_TIMEOUT = 15000; // 15 segundos
+  private readonly FIRESTORE_TIMEOUT = 30000; // 30 segundos
 
   constructor() {
-    this.logger.firebase('Service initialized');
+    this.logger.firebase('FirestoreService initialized - using getDocs() polling instead of real-time listeners');
   }
 
   // Marcadores por organización
+  // ✅ CAMBIADO: Usar getDocs() con polling en lugar de collectionData() real-time listener
   getMarkers(): Observable<MapMarker[]> {
+    this.logger.firebase('🔍 getMarkers() called');
     return this.organizationService.getCurrentOrganization().pipe(
       switchMap((org: Organization | null) => {
-        if (!org) return of([]);
+        if (!org) {
+          this.logger.warn('❌ No organization available - returning empty markers');
+          return of([]);
+        }
+
+        this.logger.firebase(`✅ Organization available: ${org.name} (${org.id})`);
+        this.logger.firebase(`🔍 Querying markers for organization: ${org.id}`);
 
         const markersCollection = collection(this.firestore, 'markers');
         const q = query(
           markersCollection,
           where('organizationId', '==', org.id)
         );
-        return (
-          collectionData(q, { idField: 'id' }) as Observable<MapMarker[]>
-        ).pipe(
-          // ✅ Agregar timeout para evitar esperas indefinidas
+        
+        // ✅ Polling cada 5 segundos usando getDocs() en lugar de listener en tiempo real
+        return interval(5000).pipe(
+          startWith(0), // Ejecutar inmediatamente
+          mergeMap(() => from(getDocs(q))),
           timeout(this.FIRESTORE_TIMEOUT),
           catchError((error) => {
             if (error.name === 'TimeoutError') {
-              this.logger.error('Timeout al cargar marcadores');
+              this.logger.error(`⏱️ TIMEOUT al cargar marcadores para org: ${org.id} después de ${this.FIRESTORE_TIMEOUT}ms`);
+              this.logger.error('🔧 Verifica: 1) Reglas de Firestore, 2) Conexión a internet, 3) Índices de Firestore');
             } else {
-              this.logger.error('Error al cargar marcadores:', error);
+              this.logger.error('❌ Error al cargar marcadores:', error);
             }
-            return of([]); // Retornar array vacío en caso de error
+            return of(null); // Retornar null para que el map siguiente lo maneje
+          }),
+          switchMap((snapshot: QuerySnapshot<DocumentData> | null) => {
+            if (!snapshot) {
+              return of([]);
+            }
+            
+            const markers: MapMarker[] = [];
+            snapshot.forEach((doc) => {
+              markers.push({ id: doc.id, ...doc.data() } as MapMarker);
+            });
+            
+            this.logger.firebase(`✅ Loaded ${markers.length} markers from Firestore`);
+            return of(markers);
           })
         );
       })
@@ -136,25 +165,48 @@ export class FirestoreService {
   }
 
   // Zonas por organización
+  // ✅ CAMBIADO: Usar getDocs() con polling en lugar de collectionData() real-time listener
   getZones(): Observable<MapZone[]> {
+    this.logger.firebase('🔍 getZones() called');
     return this.organizationService.getCurrentOrganization().pipe(
       switchMap((org: Organization | null) => {
-        if (!org) return of([]);
+        if (!org) {
+          this.logger.warn('❌ No organization available - returning empty zones');
+          return of([]);
+        }
+
+        this.logger.firebase(`✅ Organization available: ${org.name} (${org.id})`);
+        this.logger.firebase(`🔍 Querying zones for organization: ${org.id}`);
 
         const zonesCollection = collection(this.firestore, 'zones');
         const q = query(zonesCollection, where('organizationId', '==', org.id));
-        return (
-          collectionData(q, { idField: 'id' }) as Observable<MapZone[]>
-        ).pipe(
-          // ✅ Agregar timeout
+        
+        // ✅ Polling cada 5 segundos usando getDocs() en lugar de listener en tiempo real
+        return interval(5000).pipe(
+          startWith(0), // Ejecutar inmediatamente
+          mergeMap(() => from(getDocs(q))),
           timeout(this.FIRESTORE_TIMEOUT),
           catchError((error) => {
             if (error.name === 'TimeoutError') {
-              this.logger.error('Timeout al cargar zonas');
+              this.logger.error(`⏱️ TIMEOUT al cargar zonas para org: ${org.id} después de ${this.FIRESTORE_TIMEOUT}ms`);
+              this.logger.error('🔧 Verifica: 1) Reglas de Firestore, 2) Conexión a internet, 3) Índices de Firestore');
             } else {
-              this.logger.error('Error al cargar zonas:', error);
+              this.logger.error('❌ Error al cargar zonas:', error);
             }
-            return of([]);
+            return of(null);
+          }),
+          switchMap((snapshot: QuerySnapshot<DocumentData> | null) => {
+            if (!snapshot) {
+              return of([]);
+            }
+            
+            const zones: MapZone[] = [];
+            snapshot.forEach((doc) => {
+              zones.push({ id: doc.id, ...doc.data() } as MapZone);
+            });
+            
+            this.logger.firebase(`✅ Loaded ${zones.length} zones from Firestore`);
+            return of(zones);
           })
         );
       })
@@ -227,6 +279,7 @@ export class FirestoreService {
   }
 
   // Rutas por organización (mantener compatibilidad)
+  // ✅ CAMBIADO: Usar getDocs() con polling en lugar de collectionData() real-time listener
   getRoutes(): Observable<any[]> {
     return this.organizationService.getCurrentOrganization().pipe(
       switchMap((org: Organization | null) => {
@@ -237,7 +290,26 @@ export class FirestoreService {
           routesCollection,
           where('organizationId', '==', org.id)
         );
-        return collectionData(q, { idField: 'id' });
+        
+        // ✅ Polling cada 5 segundos usando getDocs()
+        return interval(5000).pipe(
+          startWith(0),
+          mergeMap(() => from(getDocs(q))),
+          timeout(this.FIRESTORE_TIMEOUT),
+          catchError((error) => {
+            this.logger.error('Error al cargar rutas:', error);
+            return of(null);
+          }),
+          switchMap((snapshot: QuerySnapshot<DocumentData> | null) => {
+            if (!snapshot) return of([]);
+            
+            const routes: any[] = [];
+            snapshot.forEach((doc) => {
+              routes.push({ id: doc.id, ...doc.data() });
+            });
+            return of(routes);
+          })
+        );
       })
     );
   }

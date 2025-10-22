@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { Observable, map, BehaviorSubject, of } from 'rxjs';
+import { Observable, map, BehaviorSubject, of, firstValueFrom } from 'rxjs';
 import { AuthService } from './auth.service';
 import { User } from '../../shared/models/user.model';
 
@@ -199,7 +199,7 @@ export class AuthorizationService {
     // await updateDoc(userDoc, { role });
 
     // Para desarrollo, si es el usuario actual, actualizar el rol temporal
-    const currentUser = await this.getCurrentUser().toPromise();
+    const currentUser = await firstValueFrom(this.getCurrentUser());
     if (currentUser && currentUser.uid === userId) {
       this.setDevelopmentRole(role);
     }

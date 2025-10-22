@@ -55,7 +55,7 @@ import {
   personOutline,
   helpOutline,
 } from 'ionicons/icons';
-import { Observable, Subscription } from 'rxjs';
+import { Observable, Subscription, firstValueFrom } from 'rxjs';
 
 import { AuthorizationService } from '../../../auth/services/authorization.service';
 import { AuthService } from '../../../auth/services/auth.service';
@@ -178,7 +178,7 @@ export class UserManagementComponent implements OnInit, OnDestroy {
       // Obtener usuario actual con timeout
       console.log('📡 Getting current user...');
       const currentUser = await Promise.race([
-        this.authService.getCurrentUser().toPromise(),
+        firstValueFrom(this.authService.getCurrentUser()),
         new Promise<null>((resolve) =>
           setTimeout(() => {
             console.warn('⏱️ getCurrentUser timeout - continuing anyway');
@@ -409,7 +409,7 @@ export class UserManagementComponent implements OnInit, OnDestroy {
       console.log('🔍 Obteniendo usuario actual de Firebase...');
 
       const currentUser = await Promise.race([
-        this.authService.getCurrentUser().toPromise(),
+        firstValueFrom(this.authService.getCurrentUser()),
         new Promise<null>((resolve) => {
           setTimeout(() => {
             console.warn('⏱️ getCurrentUser timeout (2s)');
@@ -562,7 +562,7 @@ export class UserManagementComponent implements OnInit, OnDestroy {
       console.log('🔍 Obteniendo usuario actual de Firebase...');
 
       const currentUser = await Promise.race([
-        this.authService.getCurrentUser().toPromise(),
+        firstValueFrom(this.authService.getCurrentUser()),
         new Promise<null>((resolve) => {
           setTimeout(() => {
             console.warn('⏱️ getCurrentUser timeout (2s)');

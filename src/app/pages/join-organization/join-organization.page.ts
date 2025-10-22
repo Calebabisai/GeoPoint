@@ -31,6 +31,7 @@ import {
 } from 'ionicons/icons';
 import { OrganizationService } from '../../shared/services/organization.service';
 import { AuthService } from '../../auth/services/auth.service';
+import { firstValueFrom } from 'rxjs';
 
 @Component({
   selector: 'app-join-organization',
@@ -90,7 +91,7 @@ export class JoinOrganizationPage {
 
     try {
       // Obtener usuario actual
-      const user = await this.authService.getCurrentUser().toPromise();
+      const user = await firstValueFrom(this.authService.getCurrentUser());
       if (!user) {
         throw new Error('Usuario no autenticado');
       }

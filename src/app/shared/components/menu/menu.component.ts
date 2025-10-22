@@ -45,7 +45,7 @@ import { AuthService } from 'src/app/auth/services/auth';
 import { AuthorizationService } from 'src/app/auth/services/authorization.service';
 import { OrganizationService } from '../../services/organization.service';
 import { Router } from '@angular/router';
-import { Observable, Subscription } from 'rxjs';
+import { Observable, Subscription, firstValueFrom } from 'rxjs';
 import {
   User,
   getUserDisplayName,
@@ -332,7 +332,8 @@ export class MenuComponent implements OnInit, OnDestroy {
    */
   async copyInviteCode() {
     try {
-      const currentOrg = await this.currentOrganization$.pipe().toPromise();
+      // ✅ Reemplazado toPromise() por firstValueFrom()
+      const currentOrg = await firstValueFrom(this.currentOrganization$);
       if (currentOrg) {
         await navigator.clipboard.writeText(currentOrg.code);
 

@@ -35,7 +35,7 @@ import {
   getUserInitials,
 } from '../../shared/models/user.model';
 import { Firestore, doc, updateDoc } from '@angular/fire/firestore';
-import { Observable } from 'rxjs';
+import { Observable, firstValueFrom } from 'rxjs';
 import { addIcons } from 'ionicons';
 import {
   personOutline,
@@ -170,7 +170,7 @@ export class ProfilePage implements OnInit {
 
     try {
       // Obtener usuario actual
-      const currentUser = await this.currentUser$.pipe().toPromise();
+      const currentUser = await firstValueFrom(this.currentUser$);
 
       if (!currentUser?.uid) {
         throw new Error('No se pudo obtener la información del usuario');

@@ -6,6 +6,8 @@ import {
   switchMap,
   of,
   throwError,
+  firstValueFrom,
+  take,
 } from 'rxjs';
 import {
   Firestore,
@@ -43,6 +45,9 @@ export class OrganizationService {
   private currentOrganizationSubject = new BehaviorSubject<Organization | null>(
     null
   );
+
+  // ✅ Flag para evitar múltiples inicializaciones
+  private isInitialized = false;
 
   // Para desarrollo: simular organizaciones
   private developmentOrganizations: Organization[] = [
@@ -164,12 +169,14 @@ export class OrganizationService {
         console.log('🔧 EmailService available:', !!this.emailService);
 
         try {
-          const currentUser = await this.authService
-            .getCurrentUser()
-            .toPromise();
+          const currentUser = await firstValueFrom(
+            this.authService.getCurrentUser()
+          );
           console.log('🔧 Current user:', currentUser?.email);
 
-          const currentOrg = await this.getCurrentOrganization().toPromise();
+          const currentOrg = await firstValueFrom(
+            this.getCurrentOrganization()
+          );
           console.log('🔧 Current organization:', currentOrg?.name);
 
           if (this.firestore && currentOrg) {
@@ -220,61 +227,84 @@ export class OrganizationService {
    * Inicializa la organización del usuario autenticado
    */
   private async initializeUserOrganization(): Promise<void> {
+    // ✅ Evitar múltiples inicializaciones
+    if (this.isInitialized) {
+      console.log('⚠️ OrganizationService already initialized, skipping...');
+      return;
+    }
+
+    this.isInitialized = true;
+    console.log('🚀 Initializing OrganizationService...');
+
     try {
-      // Esperar a que el usuario esté autenticado
-      this.authService.getCurrentUser().subscribe(async (user) => {
-        if (!user) {
-          console.log('❌ No authenticated user - using development fallback');
-          this.currentOrganizationSubject.next(
-            this.developmentOrganizations[0]
-          );
-          return;
-        }
-
-        console.log('👤 User authenticated:', user.email);
-        console.log('🔍 Loading user organization from Firebase...');
-
-        try {
-          // Intentar cargar la organización del usuario desde Firebase
-          const userOrganizations =
-            await this.loadUserOrganizationsFromFirebase(user.uid);
-
-          if (userOrganizations.length > 0) {
-            // Usar la primera organización encontrada (o la más reciente)
-            const currentOrg = userOrganizations[0];
-            console.log(
-              '✅ User organization loaded from Firebase:',
-              currentOrg.name
-            );
-            this.currentOrganizationSubject.next(currentOrg);
-
-            // También agregar a la lista de desarrollo para compatibilidad
-            if (
-              !this.developmentOrganizations.find(
-                (org) => org.id === currentOrg.id
-              )
-            ) {
-              this.developmentOrganizations.push(currentOrg);
-            }
-          } else {
-            console.log(
-              '⚠️ No organizations found for user - using development fallback'
-            );
+      // ✅ CORREGIDO: Usar take(1) para evitar múltiples emisiones
+      // Esperar a que el usuario esté autenticado (solo una vez)
+      this.authService
+        .getCurrentUser()
+        .pipe(take(1))
+        .subscribe(async (user) => {
+          if (!user) {
+            console.log('❌ No authenticated user - using development fallback');
+            console.log('📍 Setting organization to:', this.developmentOrganizations[0].name);
             this.currentOrganizationSubject.next(
               this.developmentOrganizations[0]
             );
+            console.log('✅ Organization set successfully');
+            return;
           }
-        } catch (error) {
-          console.error('❌ Error loading user organization:', error);
-          console.log('🔄 Falling back to development organization');
-          this.currentOrganizationSubject.next(
-            this.developmentOrganizations[0]
-          );
-        }
-      });
+
+          console.log('👤 User authenticated:', user.email);
+          console.log('🔍 Loading user organization from Firebase...');
+
+          try {
+            // Intentar cargar la organización del usuario desde Firebase
+            const userOrganizations =
+              await this.loadUserOrganizationsFromFirebase(user.uid);
+
+            if (userOrganizations.length > 0) {
+              // Usar la primera organización encontrada (o la más reciente)
+              const currentOrg = userOrganizations[0];
+              console.log(
+                '✅ User organization loaded from Firebase:',
+                currentOrg.name
+              );
+              console.log('📍 Setting organization to:', currentOrg.name);
+              this.currentOrganizationSubject.next(currentOrg);
+              console.log('✅ Organization set successfully');
+
+              // También agregar a la lista de desarrollo para compatibilidad
+              if (
+                !this.developmentOrganizations.find(
+                  (org) => org.id === currentOrg.id
+                )
+              ) {
+                this.developmentOrganizations.push(currentOrg);
+              }
+            } else {
+              console.log(
+                '⚠️ No organizations found for user - using development fallback'
+              );
+              console.log('📍 Setting organization to:', this.developmentOrganizations[0].name);
+              this.currentOrganizationSubject.next(
+                this.developmentOrganizations[0]
+              );
+              console.log('✅ Organization set successfully');
+            }
+          } catch (error) {
+            console.error('❌ Error loading user organization:', error);
+            console.log('🔄 Falling back to development organization');
+            console.log('📍 Setting organization to:', this.developmentOrganizations[0].name);
+            this.currentOrganizationSubject.next(
+              this.developmentOrganizations[0]
+            );
+            console.log('✅ Organization set successfully');
+          }
+        });
     } catch (error) {
       console.error('❌ Error in initializeUserOrganization:', error);
+      console.log('📍 Setting organization to:', this.developmentOrganizations[0].name);
       this.currentOrganizationSubject.next(this.developmentOrganizations[0]);
+      console.log('✅ Organization set successfully');
     }
   }
 
@@ -376,6 +406,7 @@ export class OrganizationService {
    * Obtiene la organización actual del usuario logueado
    */
   getCurrentOrganization(): Observable<Organization | null> {
+    console.log('🔍 getCurrentOrganization() called');
     return this.currentOrganizationSubject.asObservable();
   }
 

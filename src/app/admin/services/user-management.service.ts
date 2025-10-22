@@ -1,5 +1,11 @@
 import { Injectable } from '@angular/core';
-import { Observable, BehaviorSubject, map, combineLatest } from 'rxjs';
+import {
+  Observable,
+  BehaviorSubject,
+  map,
+  combineLatest,
+  firstValueFrom,
+} from 'rxjs';
 import {
   Firestore,
   collection,
@@ -131,9 +137,9 @@ export class UserManagementService {
         );
 
         try {
-          const currentUser = await this.authService
-            .getCurrentUser()
-            .toPromise();
+          const currentUser = await firstValueFrom(
+            this.authService.getCurrentUser()
+          );
           console.log(
             '🔧 Current user:',
             currentUser?.email,
@@ -189,9 +195,9 @@ export class UserManagementService {
       console.log('📊 Getting all users...');
 
       // Verificar permisos
-      const hasPermission = await this.authorizationService
-        .hasPermission('manage-users')
-        .toPromise();
+      const hasPermission = await firstValueFrom(
+        this.authorizationService.hasPermission('manage-users')
+      );
 
       if (!hasPermission) {
         throw new Error('No tienes permisos para gestionar usuarios');
@@ -405,7 +411,9 @@ export class UserManagementService {
       }
 
       // Verificar permisos de administrador
-      const currentUser = await this.authService.getCurrentUser().toPromise();
+      const currentUser = await firstValueFrom(
+        this.authService.getCurrentUser()
+      );
       if (!currentUser || currentUser.role !== 'admin') {
         throw new Error(
           'Solo los administradores pueden acceder a la gestión de usuarios'
@@ -526,14 +534,16 @@ export class UserManagementService {
       console.log('🔍 Starting getOrganizationUsers...');
 
       // VERIFICAR PERMISOS DE ADMINISTRADOR PRIMERO
-      const currentUser = await this.authService.getCurrentUser().toPromise();
+      const currentUser = await firstValueFrom(
+        this.authService.getCurrentUser()
+      );
       if (!currentUser) {
         throw new Error('Usuario no autenticado');
       }
 
-      const hasAdminPermission = await this.authorizationService
-        .hasPermission('manage-users')
-        .toPromise();
+      const hasAdminPermission = await firstValueFrom(
+        this.authorizationService.hasPermission('manage-users')
+      );
 
       if (!hasAdminPermission || currentUser.role !== 'admin') {
         throw new Error(
@@ -751,9 +761,9 @@ export class UserManagementService {
 
     try {
       // Obtener información real de la organización
-      const organizations = await this.organizationService
-        .getUserOrganizations()
-        .toPromise();
+      const organizations = await firstValueFrom(
+        this.organizationService.getUserOrganizations()
+      );
 
       const organization = organizations?.find(
         (org) => org.id === user.organizationId
@@ -781,7 +791,9 @@ export class UserManagementService {
       console.log('🔧 DEBUG: Firestore instance:', !!this.firestore);
 
       // Verificar autenticación primero
-      const currentUser = await this.authService.getCurrentUser().toPromise();
+      const currentUser = await firstValueFrom(
+        this.authService.getCurrentUser()
+      );
       console.log('🔧 DEBUG: Current user:', currentUser?.email || 'No user');
       console.log('🔧 DEBUG: User role:', currentUser?.role || 'No role');
 
@@ -830,7 +842,7 @@ export class UserManagementService {
         );
         console.error(
           '🔧 Current user role:',
-          (await this.authService.getCurrentUser().toPromise())?.role
+          (await firstValueFrom(this.authService.getCurrentUser()))?.role
         );
       }
 
@@ -848,7 +860,9 @@ export class UserManagementService {
    */
   private async createDevelopmentUserFromAuth(): Promise<void> {
     try {
-      const currentUser = await this.authService.getCurrentUser().toPromise();
+      const currentUser = await firstValueFrom(
+        this.authService.getCurrentUser()
+      );
 
       if (currentUser) {
         const realUser: UserWithOrganization = {
@@ -940,14 +954,16 @@ export class UserManagementService {
   ): Promise<void> {
     try {
       // Verificar permisos de administrador
-      const currentUser = await this.authService.getCurrentUser().toPromise();
+      const currentUser = await firstValueFrom(
+        this.authService.getCurrentUser()
+      );
       if (!currentUser) {
         throw new Error('Usuario no autenticado');
       }
 
-      const hasPermission = await this.authorizationService
-        .hasPermission('change-roles')
-        .toPromise();
+      const hasPermission = await firstValueFrom(
+        this.authorizationService.hasPermission('change-roles')
+      );
 
       if (!hasPermission || currentUser.role !== 'admin') {
         throw new Error(
@@ -1063,14 +1079,16 @@ export class UserManagementService {
   async removeUserFromOrganization(userId: string): Promise<void> {
     try {
       // Verificar permisos de administrador
-      const currentUser = await this.authService.getCurrentUser().toPromise();
+      const currentUser = await firstValueFrom(
+        this.authService.getCurrentUser()
+      );
       if (!currentUser) {
         throw new Error('Usuario no autenticado');
       }
 
-      const hasPermission = await this.authorizationService
-        .hasPermission('manage-users')
-        .toPromise();
+      const hasPermission = await firstValueFrom(
+        this.authorizationService.hasPermission('manage-users')
+      );
 
       if (!hasPermission || currentUser.role !== 'admin') {
         throw new Error(
@@ -1145,14 +1163,16 @@ export class UserManagementService {
   ): Promise<void> {
     try {
       // Verificar permisos de administrador
-      const currentUser = await this.authService.getCurrentUser().toPromise();
+      const currentUser = await firstValueFrom(
+        this.authService.getCurrentUser()
+      );
       if (!currentUser) {
         throw new Error('Usuario no autenticado');
       }
 
-      const hasPermission = await this.authorizationService
-        .hasPermission('manage-users')
-        .toPromise();
+      const hasPermission = await firstValueFrom(
+        this.authorizationService.hasPermission('manage-users')
+      );
 
       if (!hasPermission || currentUser.role !== 'admin') {
         throw new Error(

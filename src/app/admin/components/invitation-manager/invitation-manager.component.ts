@@ -43,7 +43,7 @@ import {
   statsChartOutline,
   addCircleOutline,
 } from 'ionicons/icons';
-import { Subscription } from 'rxjs';
+import { Subscription, firstValueFrom } from 'rxjs';
 import { InvitationService } from '../../../shared/services/invitation.service';
 import { OrganizationService } from '../../../shared/services/organization.service';
 import { AuthService } from '../../../auth/services/auth.service';
@@ -149,9 +149,9 @@ export class InvitationManagerComponent implements OnInit, OnDestroy {
    */
   private async loadPendingInvites() {
     try {
-      const currentOrg = await this.organizationService
-        .getCurrentOrganization()
-        .toPromise();
+      const currentOrg = await firstValueFrom(
+        this.organizationService.getCurrentOrganization()
+      );
 
       if (currentOrg) {
         this.subscriptions.add(
@@ -174,9 +174,9 @@ export class InvitationManagerComponent implements OnInit, OnDestroy {
    */
   private async loadOrganizationCode() {
     try {
-      const currentOrg = await this.organizationService
-        .getCurrentOrganization()
-        .toPromise();
+      const currentOrg = await firstValueFrom(
+        this.organizationService.getCurrentOrganization()
+      );
 
       if (currentOrg) {
         this.organizationCode = currentOrg.code;
@@ -193,9 +193,9 @@ export class InvitationManagerComponent implements OnInit, OnDestroy {
    */
   private async loadAvailableDepartments() {
     try {
-      const currentOrg = await this.organizationService
-        .getCurrentOrganization()
-        .toPromise();
+      const currentOrg = await firstValueFrom(
+        this.organizationService.getCurrentOrganization()
+      );
 
       if (currentOrg && currentOrg.settings.departments) {
         this.availableDepartments = currentOrg.settings.departments;
