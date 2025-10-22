@@ -18,6 +18,7 @@ export class MapService {
   private markers: Map<string, L.Marker> = new Map();
   private markerData: Map<string, MapMarker> = new Map(); // Almacenar datos originales
   private zones: Map<string, L.Polygon> = new Map();
+  private zoneData: Map<string, MapZone> = new Map(); // Almacenar datos originales de zonas
 
   mapClick$ = new Subject<LatLng>();
   markerClick$ = new Subject<MapMarker>();
@@ -360,6 +361,17 @@ export class MapService {
       weight: 2,
     }).addTo(this.map);
 
+    // Marcar el elemento DOM del polígono con el id de zona para facilitar hit-testing
+    try {
+      const el = polygon.getElement() as HTMLElement | null;
+      if (el) {
+        el.setAttribute('data-zone-id', zoneId);
+      }
+    } catch (err) {
+      // Si por alguna razón el elemento no está disponible aún, lo ignoramos
+      console.warn('Could not set data-zone-id on polygon element', err);
+    }
+
     // NO bindear popup automáticamente - lo manejaremos manualmente
     const popupContent = this.createZonePopup(zone);
     // Guardar el contenido del popup en el polígono para uso posterior
@@ -379,12 +391,25 @@ export class MapService {
 
       // Guardar la etiqueta junto con el polígono
       (polygon as any).zoneLabel = zoneLabel;
+      // Marcar la etiqueta con el id de zona para permitir hit-testing
+      try {
+        const labelEl = zoneLabel.getElement() as HTMLElement | null;
+        if (labelEl) {
+          labelEl.setAttribute('data-zone-id', zoneId);
+          // Asegurar que la etiqueta permite pointer events
+          labelEl.style.pointerEvents = 'auto';
+        }
+      } catch (err) {
+        console.warn('Could not set data-zone-id on zone label', err);
+      }
     }
 
     // Manejar click en zona
     this.configureZoneEvents(polygon, zoneId, zone);
 
     this.zones.set(zoneId, polygon);
+    // Guardar también los datos originales de la zona
+    this.zoneData.set(zoneId, zone);
 
     // Actualizar contador y verificar límites de memoria
     this.zonesLoadedCount++;
@@ -415,6 +440,8 @@ export class MapService {
       // Remover el polígono
       this.map.removeLayer(zone);
       this.zones.delete(id);
+      // Remover los datos asociados
+      this.zoneData.delete(id);
 
       // Decrementar contador
       this.zonesLoadedCount = Math.max(0, this.zonesLoadedCount - 1);
@@ -636,28 +663,87 @@ export class MapService {
     } else {
       // Configurar eventos normales
       polygon.on('click', (e: L.LeafletMouseEvent) => {
-        if (this.isCreatingMarker) {
-          // Si estamos creando un marcador, NO procesar el click de zona y permitir propagación
-          console.log(
-            '📍 Zone clicked but marker creation mode active - allowing marker placement'
-          );
-          // NO llamar ningún método, solo dejar que el evento se propague al mapa
-        } else {
-          // Solo mostrar popup de zona si no estamos creando marcadores
-          console.log(
-            '🏗️ Zone clicked (normal mode) - showing zone info:',
-            zoneId
+        // Mejor manejo de clicks en zonas solapadas: usar elementsFromPoint
+        try {
+          const original = e.originalEvent as MouseEvent;
+          const clientX = original.clientX;
+          const clientY = original.clientY;
+
+          // elementsFromPoint devuelve elementos ordenados del más cercano al más lejano
+          const elements = document.elementsFromPoint(
+            clientX,
+            clientY
+          ) as HTMLElement[];
+
+          // Buscar el primer elemento que tenga data-zone-id y que no sea el mismo
+          const zoneElements = elements.filter(
+            (el) => el.hasAttribute && el.hasAttribute('data-zone-id')
           );
 
-          // Mostrar popup manualmente
-          const popupContent = (polygon as any).popupContent;
-          if (popupContent) {
-            polygon.bindPopup(popupContent).openPopup();
+          let targetZoneId: string | null = null;
+          if (zoneElements.length > 0) {
+            // Si hay múltiples, elegir el más cercano que no sea el que disparó si el usuario mantiene Shift
+            if (original.shiftKey && zoneElements.length > 1) {
+              // Elegir el siguiente elemento debajo (segundo en la lista)
+              targetZoneId = zoneElements[1].getAttribute('data-zone-id');
+            } else {
+              // Por defecto tomar el primero (el que está encima)
+              targetZoneId = zoneElements[0].getAttribute('data-zone-id');
+            }
           }
 
-          this.zoneClick$.next({ ...zone, id: zoneId });
-          // Detener propagación solo cuando queremos mostrar info de zona
-          e.originalEvent?.stopPropagation();
+          // Si targetZoneId existe y no es el actual, delegar el manejo a la zona correspondiente
+          if (targetZoneId && targetZoneId !== zoneId) {
+            const underlyingZone = this.zones.get(targetZoneId!);
+            if (underlyingZone) {
+              const popupContent = (underlyingZone as any).popupContent;
+              if (popupContent) {
+                underlyingZone.bindPopup(popupContent).openPopup();
+              }
+              this.zoneClick$.next({ ...(zone as any), id: targetZoneId });
+              e.originalEvent?.stopPropagation();
+              return;
+            }
+          }
+
+          if (this.isCreatingMarker) {
+            // Si estamos creando un marcador, NO procesar el click de zona y permitir propagación
+            console.log(
+              '📍 Zone clicked but marker creation mode active - allowing marker placement'
+            );
+            // NO llamar ningún método, solo dejar que el evento se propague al mapa
+          } else {
+            // Solo mostrar popup de zona si no estamos creando marcadores
+            console.log(
+              '🏗️ Zone clicked (normal mode) - showing zone info:',
+              zoneId
+            );
+
+            // Mostrar popup manualmente
+            const popupContent = (polygon as any).popupContent;
+            if (popupContent) {
+              polygon.bindPopup(popupContent).openPopup();
+            }
+
+            this.zoneClick$.next({ ...zone, id: zoneId });
+            // Detener propagación solo cuando queremos mostrar info de zona
+            e.originalEvent?.stopPropagation();
+          }
+        } catch (err) {
+          console.warn('Error handling polygon click overlap detection', err);
+          // Fallback al comportamiento original
+          if (this.isCreatingMarker) {
+            console.log(
+              '📍 Zone clicked but marker creation mode active - allowing marker placement'
+            );
+          } else {
+            const popupContent = (polygon as any).popupContent;
+            if (popupContent) {
+              polygon.bindPopup(popupContent).openPopup();
+            }
+            this.zoneClick$.next({ ...zone, id: zoneId });
+            e.originalEvent?.stopPropagation();
+          }
         }
       });
     }
@@ -722,6 +808,10 @@ export class MapService {
       // Reconfigurar eventos y estilos
       if (this.deleteMode) {
         zoneElement?.classList.add('delete-mode');
+        // Evitar que el polígono bloquee completamente clicks de elementos superiores
+        if (zoneElement) {
+          zoneElement.style.pointerEvents = 'auto';
+        }
         zone.on('click', (e: L.LeafletMouseEvent) => {
           e.originalEvent.stopPropagation();
           console.log('🗑️ Zone clicked for deletion:', id);
@@ -734,6 +824,7 @@ export class MapService {
         // Restaurar cursor del elemento específico
         if (zoneElement) {
           zoneElement.style.cursor = '';
+          zoneElement.style.pointerEvents = 'auto';
         }
 
         // Reconfigurar evento normal de click

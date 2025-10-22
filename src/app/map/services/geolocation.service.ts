@@ -354,7 +354,10 @@ export class GeolocationService {
         this.isLocationStable = false;
         this.consecutiveUpdatesCount = 0;
 
-        this.logger.geo('✅ High precision location obtained:', location.coords);
+        this.logger.geo(
+          '✅ High precision location obtained:',
+          location.coords
+        );
         return location.coords;
       } else {
         // Para navegador
@@ -411,7 +414,9 @@ export class GeolocationService {
     try {
       // 1. DETENER cualquier tracking activo primero
       if (this.watchingLocationSubject.value) {
-        this.logger.geo('🛑 Stopping continuous tracking for precise location...');
+        this.logger.geo(
+          '🛑 Stopping continuous tracking for precise location...'
+        );
         await this.stopWatching();
       }
 
