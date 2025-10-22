@@ -1453,6 +1453,32 @@ export class OrganizationService {
       );
       await addDoc(membersRef, newMember);
 
+      // 🔑 CRÍTICO: Actualizar el perfil del usuario con la organización
+      const userRef = doc(this.firestore, 'users', userData.userId);
+      const userDoc = await getDoc(userRef);
+
+      if (userDoc.exists()) {
+        // Actualizar usuario existente
+        await updateDoc(userRef, {
+          organizationId: organizationId,
+          organizationRole: userData.role,
+          updatedAt: new Date(),
+        });
+        console.log('✅ User profile updated with organization');
+      } else {
+        // Crear perfil de usuario si no existe
+        await setDoc(userRef, {
+          email: userData.email,
+          displayName: userData.email,
+          organizationId: organizationId,
+          organizationRole: userData.role,
+          role: 'user',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+        console.log('✅ User profile created with organization');
+      }
+
       console.log('✅ Member added to organization successfully');
     } catch (error) {
       console.error('❌ Error adding member to organization:', error);

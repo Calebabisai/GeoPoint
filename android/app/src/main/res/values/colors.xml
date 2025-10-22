@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Colores principales de GeoPoint -->
+    <color name="colorPrimary">#3880ff</color>
+    <color name="colorPrimaryDark">#2d5fc1</color>
+    <color name="colorAccent">#5260ff</color>
+    
+    <!-- Color de fondo para splash screen (NEGRO) -->
+    <color name="splashBackground">#000000</color>
+</resources>

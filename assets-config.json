@@ -1,0 +1,16 @@
+{
+  "assets": [
+    {
+      "kind": "splash",
+      "src": "resources/splash.png",
+      "background": "#000000",
+      "fit": "contain"
+    },
+    {
+      "kind": "icon",
+      "src": "resources/icon.png",
+      "background": "#000000",
+      "fit": "contain"
+    }
+  ]
+}

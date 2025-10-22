@@ -45,6 +45,17 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* === SAFE AREA PARA NOTCH/CÁMARA Y BARRA DE ESTADO === */
+ion-app {
+  /* Padding superior para evitar notch/cámara */
+  padding-top: env(safe-area-inset-top);
+  /* Padding inferior para botones de navegación */
+  padding-bottom: env(safe-area-inset-bottom);
+  /* Padding lateral para pantallas curvas */
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
 /* === TIPOGRAFÍA === */
 .text-uber-title {
   font-size: 2rem;
@@ -1179,4 +1190,92 @@ ion-toast.custom-toast.toast-warning {
 
 .custom-toast {
   animation: toastSlideIn 0.3s ease-out;
+}
+
+/* === TOAST CENTRADOS (NO TAPA NADA) === */
+.custom-toast-centered {
+  --border-radius: 16px;
+  --box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --min-width: 280px;
+  --max-width: 400px;
+  
+  &::part(message) {
+    font-size: 16px;
+    font-weight: 500;
+    padding: 20px;
+    line-height: 1.5;
+    text-align: center;
+  }
+  
+  &::part(container) {
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  
+  &::part(button) {
+    font-size: 20px;
+    font-weight: bold;
+    padding: 0 12px;
+  }
+}
+
+/* Animación fade in para centrados */
+@keyframes toastFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.custom-toast-centered {
+  animation: toastFadeIn 0.3s ease-out;
+}
+
+/* Toast Bottom (parte inferior) */
+.custom-toast-bottom {
+  --border-radius: 12px 12px 0 0;
+  --box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.3);
+  --min-width: 100%;
+  
+  &::part(message) {
+    font-size: 15px;
+    font-weight: 500;
+    padding: 16px;
+    text-align: center;
+  }
+}
+
+/* Alert centrado */
+.custom-alert-centered {
+  --backdrop-opacity: 0.6;
+  
+  .alert-wrapper {
+    border-radius: 16px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  }
+  
+  .alert-head {
+    padding: 20px 20px 16px;
+  }
+  
+  .alert-message {
+    padding: 0 20px 20px;
+    text-align: center;
+    line-height: 1.5;
+  }
+}
+
+/* Loading centrado */
+.custom-loading-centered {
+  --backdrop-opacity: 0.7;
+  
+  .loading-wrapper {
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  }
 }

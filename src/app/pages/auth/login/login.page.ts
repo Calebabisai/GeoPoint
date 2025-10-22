@@ -17,6 +17,7 @@ import {
 import { addIcons } from 'ionicons';
 import { location } from 'ionicons/icons';
 import { AuthService } from 'src/app/auth/services/auth.service';
+import { UiService } from 'src/app/shared/services/ui.service';
 
 @Component({
   selector: 'app-login',
@@ -40,7 +41,8 @@ export class LoginPage {
   constructor(
     private authService: AuthService,
     private router: Router,
-    private toastController: ToastController
+    private toastController: ToastController,
+    private uiService: UiService
   ) {
     addIcons({ location });
   }
@@ -83,13 +85,13 @@ export class LoginPage {
     message: string,
     color: 'success' | 'danger' | 'warning'
   ) {
-    const toast = await this.toastController.create({
-      message,
-      duration: 3000,
-      position: 'top',
-      color,
-      cssClass: 'custom-toast',
-    });
-    await toast.present();
+    // Usar servicio UI con toasts centrados
+    if (color === 'success') {
+      await this.uiService.showSuccess(message);
+    } else if (color === 'danger') {
+      await this.uiService.showError(message);
+    } else {
+      await this.uiService.showWarning(message);
+    }
   }
 }

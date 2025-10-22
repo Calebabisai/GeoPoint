@@ -1,4 +1,4 @@
-package com.geopoint.app;
+package com.imaginetz.geopoint;
 
 import com.getcapacitor.BridgeActivity;
 

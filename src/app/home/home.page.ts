@@ -44,6 +44,7 @@ import {
 } from 'ionicons/icons';
 import { MapViewComponent } from '../map/components/map-view/map-view.component';
 import { GeolocationService } from '../map/services/geolocation.service';
+import { UiService } from '../shared/services/ui.service';
 import { FirestoreService } from '../services/firestore.service';
 import { AuthService } from '../auth/services/auth.service';
 import { AuthorizationService } from '../auth/services/authorization.service';
@@ -85,6 +86,7 @@ export class HomePage implements OnInit, OnDestroy {
   private menuController = inject(MenuController);
   private modalController = inject(ModalController);
   private toastController = inject(ToastController);
+  private uiService = inject(UiService);
   private router = inject(Router);
 
   // Propiedades del componente
@@ -283,14 +285,14 @@ export class HomePage implements OnInit, OnDestroy {
     message: string,
     color: 'success' | 'danger' | 'warning' = 'success'
   ) {
-    const toast = await this.toastController.create({
-      message,
-      duration: 2000,
-      position: 'top',
-      color,
-      cssClass: 'custom-toast',
-    });
-    await toast.present();
+    // Usar el nuevo servicio UI con toasts centrados
+    if (color === 'success') {
+      await this.uiService.showSuccess(message);
+    } else if (color === 'danger') {
+      await this.uiService.showError(message);
+    } else {
+      await this.uiService.showWarning(message);
+    }
   }
 
   private async showLocationError() {

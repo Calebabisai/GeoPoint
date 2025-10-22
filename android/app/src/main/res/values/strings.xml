@@ -2,6 +2,6 @@
 <resources>
     <string name="app_name">GeoPoint</string>
     <string name="title_activity_main">GeoPoint</string>
-    <string name="package_name">com.geopoint.app</string>
-    <string name="custom_url_scheme">com.geopoint.app</string>
+    <string name="package_name">com.imaginetz.geopoint</string>
+    <string name="custom_url_scheme">com.imaginetz.geopoint</string>
 </resources>

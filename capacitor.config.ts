@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig & { bundledWebRuntime?: boolean } = {
-  appId: 'com.geopoint.app',
+  appId: 'com.imaginetz.geopoint',
   appName: 'GeoPoint',
   webDir: 'www',
   bundledWebRuntime: false,
@@ -14,19 +14,15 @@ const config: CapacitorConfig & { bundledWebRuntime?: boolean } = {
     StatusBar: {
       style: 'dark',
       backgroundColor: '#000000',
+      overlaysWebView: false, // La barra NO se superpone al contenido
     },
     SplashScreen: {
-      launchShowDuration: 2000,
-      launchAutoHide: true,
-      backgroundColor: '#ffffffff',
-      androidSplashResourceName: 'splash',
-      androidScaleType: 'CENTER_CROP',
-      showSpinner: false,
-      androidSpinnerStyle: 'large',
-      iosSpinnerStyle: 'small',
-      spinnerColor: '#999999',
-      splashFullScreen: true,
-      splashImmersive: true,
+      launchShowDuration: 1500, // Duración en milisegundos (reducido a 1.5s)
+      launchAutoHide: true, // Se oculta automáticamente
+      backgroundColor: '#000000', // Fondo NEGRO sin imagen
+      showSpinner: false, // No mostrar spinner de carga
+      splashFullScreen: true, // Pantalla completa
+      splashImmersive: true, // Modo inmersivo (oculta barra de navegación)
     },
     Network: {
       allowedHostnames: ['firebaseapp.com', 'googleapis.com', 'emailjs.com'],
