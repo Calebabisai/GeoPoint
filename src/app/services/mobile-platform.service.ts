@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { Capacitor } from '@capacitor/core';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { SplashScreen } from '@capacitor/splash-screen';
@@ -6,6 +6,7 @@ import { Network } from '@capacitor/network';
 import { Device } from '@capacitor/device';
 import { Geolocation } from '@capacitor/geolocation';
 import { Platform } from '@ionic/angular';
+import { LoggerService } from '../shared/services/logger.service';
 
 export interface DeviceInfo {
   platform: string;
@@ -35,6 +36,8 @@ export class MobilePlatformService {
     connectionType: 'wifi',
   };
 
+  private logger = inject(LoggerService);
+
   constructor(private platform: Platform) {
     this.initializePlatform();
   }
@@ -47,7 +50,7 @@ export class MobilePlatformService {
     await this.platform.ready();
 
     if (Capacitor.isNativePlatform()) {
-      console.log('🏃‍♂️ Running on native platform');
+      this.logger.log('🏃‍♂️ Running on native platform');
 
       // Configurar status bar
       await this.setupStatusBar();
@@ -64,7 +67,7 @@ export class MobilePlatformService {
       // Solicitar permisos de ubicación
       await this.requestLocationPermissions();
     } else {
-      console.log('🌐 Running on web platform');
+      this.logger.log('🌐 Running on web platform');
       this.deviceInfo = {
         platform: 'web',
         isNative: false,
@@ -92,9 +95,9 @@ export class MobilePlatformService {
         await StatusBar.setStyle({ style: Style.Dark });
         await StatusBar.setBackgroundColor({ color: '#1976d2' });
       }
-      console.log('📱 Status bar configured');
+      this.logger.log('📱 Status bar configured');
     } catch (error) {
-      console.error('❌ Error configuring status bar:', error);
+      this.logger.error('❌ Error configuring status bar:', error);
     }
   }
 
@@ -104,9 +107,9 @@ export class MobilePlatformService {
   private async hideSplashScreen(): Promise<void> {
     try {
       await SplashScreen.hide();
-      console.log('🚀 Splash screen hidden');
+      this.logger.log('🚀 Splash screen hidden');
     } catch (error) {
-      console.error('❌ Error hiding splash screen:', error);
+      this.logger.error('❌ Error hiding splash screen:', error);
     }
   }
 
@@ -128,9 +131,9 @@ export class MobilePlatformService {
         manufacturer: info.manufacturer,
         isVirtual: info.isVirtual,
       };
-      console.log('📱 Device info:', this.deviceInfo);
+      this.logger.log('📱 Device info:', this.deviceInfo);
     } catch (error) {
-      console.error('❌ Error getting device info:', error);
+      this.logger.error('❌ Error getting device info:', error);
     }
   }
 
@@ -142,7 +145,7 @@ export class MobilePlatformService {
       const id = await Device.getId();
       return id.identifier;
     } catch (error) {
-      console.error('❌ Error getting device ID:', error);
+      this.logger.error('❌ Error getting device ID:', error);
       return 'unknown';
     }
   }
@@ -165,7 +168,7 @@ export class MobilePlatformService {
           connected: status.connected,
           connectionType: status.connectionType,
         };
-        console.log('🌐 Network status changed:', this.networkStatus);
+        this.logger.log('🌐 Network status changed:', this.networkStatus);
 
         // Emitir evento personalizado para que otros servicios puedan reaccionar
         if (typeof window !== 'undefined') {
@@ -177,9 +180,9 @@ export class MobilePlatformService {
         }
       });
 
-      console.log('🌐 Network listeners configured');
+      this.logger.log('🌐 Network listeners configured');
     } catch (error) {
-      console.error('❌ Error setting up network listeners:', error);
+      this.logger.error('❌ Error setting up network listeners:', error);
     }
   }
 
@@ -189,15 +192,15 @@ export class MobilePlatformService {
   private async requestLocationPermissions(): Promise<void> {
     try {
       const permissions = await Geolocation.requestPermissions();
-      console.log('📍 Location permissions:', permissions);
+      this.logger.log('📍 Location permissions:', permissions);
 
       if (permissions.location === 'granted') {
-        console.log('✅ Location permissions granted');
+        this.logger.log('✅ Location permissions granted');
       } else {
-        console.warn('⚠️ Location permissions denied');
+        this.logger.warn('⚠️ Location permissions denied');
       }
     } catch (error) {
-      console.error('❌ Error requesting location permissions:', error);
+      this.logger.error('❌ Error requesting location permissions:', error);
     }
   }
 
@@ -216,7 +219,7 @@ export class MobilePlatformService {
         lng: position.coords.longitude,
       };
     } catch (error) {
-      console.error('❌ Error getting current position:', error);
+      this.logger.error('❌ Error getting current position:', error);
       return null;
     }
   }

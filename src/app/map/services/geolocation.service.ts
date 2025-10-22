@@ -1,9 +1,10 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { Observable, BehaviorSubject, from, of, EMPTY } from 'rxjs';
 import { catchError, map, tap } from 'rxjs/operators';
 import { Platform } from '@ionic/angular';
 import { Geolocation } from '@capacitor/geolocation';
 import { LatLng, MapService } from './map.service';
+import { LoggerService } from '../../shared/services/logger.service';
 
 export interface LocationPermissionStatus {
   granted: boolean;
@@ -53,8 +54,10 @@ export class GeolocationService {
   private consecutiveUpdatesCount = 0;
   private isLocationStable = false;
 
+  private logger = inject(LoggerService);
+
   constructor(private platform: Platform, private mapService: MapService) {
-    console.log('📍 GeolocationService initialized with constructor injection');
+    this.logger.geo('📍 GeolocationService initialized');
     this.checkPermissions();
   }
 
@@ -133,13 +136,13 @@ export class GeolocationService {
   private shouldUpdateLocation(newLocation: UserLocation): boolean {
     // Siempre actualizar si es la primera ubicación
     if (!this.lastKnownLocation) {
-      console.log('🎯 First location - updating immediately');
+      this.logger.geo('🎯 First location - updating immediately');
       return true;
     }
 
     // Rechazar si la precisión es muy mala
     if (newLocation.accuracy > this.MAX_ACCURACY_THRESHOLD) {
-      console.log(
+      this.logger.geo(
         '⚠️ Skipping location update - poor accuracy:',
         newLocation.accuracy +
           'm (threshold: ' +
@@ -155,7 +158,7 @@ export class GeolocationService {
       newLocation.accuracy > this.STABLE_ACCURACY_THRESHOLD &&
       this.consecutiveUpdatesCount > this.MAX_CONSECUTIVE_UPDATES
     ) {
-      console.log('🔒 Location is stable - ignoring minor updates');
+      this.logger.geo('🔒 Location is stable - ignoring minor updates');
       return false;
     }
 
@@ -181,7 +184,7 @@ export class GeolocationService {
       this.consecutiveUpdatesCount >= 3
     ) {
       this.isLocationStable = true;
-      console.log(
+      this.logger.geo(
         '✅ GPS location stabilized at accuracy:',
         newLocation.accuracy + 'm'
       );
@@ -193,7 +196,7 @@ export class GeolocationService {
       (!this.isLocationStable && highAccuracyReading)
     ) {
       this.consecutiveUpdatesCount++;
-      console.log(
+      this.logger.geo(
         `📍 Location update: moved ${distance.toFixed(1)}m, accuracy: ${
           newLocation.accuracy
         }m, updates: ${this.consecutiveUpdatesCount}`
@@ -201,7 +204,7 @@ export class GeolocationService {
       return true;
     }
 
-    console.log(`🔒 Skipping minor GPS variation: ${distance.toFixed(1)}m`);
+    this.logger.geo(`🔒 Skipping minor GPS variation: ${distance.toFixed(1)}m`);
     return false;
   }
 
@@ -211,7 +214,7 @@ export class GeolocationService {
   private processLocationUpdate(rawLocation: UserLocation): void {
     // BLOQUEAR ACTUALIZACIONES si la ubicación está estabilizada
     if (this.isLocationStable) {
-      console.log(
+      this.logger.geo(
         '🔒 Location is stable - ignoring GPS update to prevent marker drift'
       );
       return;
@@ -229,14 +232,14 @@ export class GeolocationService {
     this.currentLocationSubject.next(smoothedLocation);
 
     // Actualizar marcador en el mapa SOLO si no está estabilizado
-    console.log(
+    this.logger.geo(
       '🎯 Calling mapService.updateUserLocation with:',
       smoothedLocation.coords
     );
     this.mapService.updateUserLocation(smoothedLocation.coords);
     this.lastKnownLocation = smoothedLocation;
 
-    console.log('📍 Location processed and updated:', {
+    this.logger.geo('📍 Location processed and updated:', {
       coords: smoothedLocation.coords,
       accuracy: `${smoothedLocation.accuracy}m`,
       smoothed: this.locationBuffer.length > 1,
@@ -248,7 +251,7 @@ export class GeolocationService {
    * Obtener la ubicación actual una sola vez
    */
   getCurrentLocation(): Observable<LatLng | null> {
-    console.log('📍 Getting current location...');
+    this.logger.geo('📍 Getting current location...');
 
     if (!this.platform.is('capacitor')) {
       // En el navegador, usar HTML5 Geolocation API
@@ -263,10 +266,10 @@ export class GeolocationService {
    * Iniciar seguimiento de ubicación en tiempo real
    */
   async startWatching(): Promise<void> {
-    console.log('🔄 Starting location watching...');
+    this.logger.geo('🔄 Starting location watching...');
 
     if (this.watchingLocationSubject.value) {
-      console.log('⚠️ Already watching location');
+      this.logger.warn('⚠️ Already watching location');
       return;
     }
 
@@ -274,7 +277,7 @@ export class GeolocationService {
       // Verificar permisos primero
       const permissions = await this.requestPermissions();
       if (!permissions.granted) {
-        console.error('❌ Location permissions not granted');
+        this.logger.error('❌ Location permissions not granted');
         return;
       }
 
@@ -286,7 +289,7 @@ export class GeolocationService {
         this.startBrowserWatch();
       }
     } catch (error) {
-      console.error('❌ Error starting location watch:', error);
+      this.logger.error('❌ Error starting location watch:', error);
       this.watchingLocationSubject.next(false);
     }
   }
@@ -295,7 +298,7 @@ export class GeolocationService {
    * Detener seguimiento de ubicación
    */
   async stopWatching(): Promise<void> {
-    console.log('🛑 Stopping location watching...');
+    this.logger.geo('🛑 Stopping location watching...');
 
     if (this.watchId) {
       if (this.platform.is('capacitor')) {
@@ -313,7 +316,7 @@ export class GeolocationService {
    * Reiniciar estado de ubicación para permitir nuevas actualizaciones
    */
   resetLocationState(): void {
-    console.log('🔄 Resetting location state for new precise reading...');
+    this.logger.geo('🔄 Resetting location state for new precise reading...');
     this.isLocationStable = false;
     this.consecutiveUpdatesCount = 0;
     this.locationBuffer = [];
@@ -323,7 +326,7 @@ export class GeolocationService {
    * Obtener ubicación de alta precisión inmediata (para botón "marcar mi ubicación")
    */
   async getHighPrecisionLocation(): Promise<LatLng | null> {
-    console.log('🎯 Getting high precision location...');
+    this.logger.geo('🎯 Getting high precision location...');
 
     try {
       if (this.platform.is('capacitor')) {
@@ -351,7 +354,7 @@ export class GeolocationService {
         this.isLocationStable = false;
         this.consecutiveUpdatesCount = 0;
 
-        console.log('✅ High precision location obtained:', location.coords);
+        this.logger.geo('✅ High precision location obtained:', location.coords);
         return location.coords;
       } else {
         // Para navegador
@@ -392,7 +395,7 @@ export class GeolocationService {
         });
       }
     } catch (error) {
-      console.error('❌ Error getting high precision location:', error);
+      this.logger.error('❌ Error getting high precision location:', error);
       return null;
     }
   }
@@ -401,14 +404,14 @@ export class GeolocationService {
    * Centrar mapa en ubicación actual (modo fijo - sin tracking continuo)
    */
   async centerMapOnUserLocation(): Promise<void> {
-    console.log(
+    this.logger.geo(
       '🎯 Getting single precise location (no continuous tracking)...'
     );
 
     try {
       // 1. DETENER cualquier tracking activo primero
       if (this.watchingLocationSubject.value) {
-        console.log('🛑 Stopping continuous tracking for precise location...');
+        this.logger.geo('🛑 Stopping continuous tracking for precise location...');
         await this.stopWatching();
       }
 
@@ -419,7 +422,7 @@ export class GeolocationService {
       const coords = await this.getHighPrecisionLocation();
 
       if (coords) {
-        console.log(
+        this.logger.geo(
           '✅ Precise location obtained - updating marker and stopping'
         );
 

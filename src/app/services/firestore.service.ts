@@ -44,7 +44,9 @@ export class FirestoreService {
   private readonly FIRESTORE_TIMEOUT = 30000; // 30 segundos
 
   constructor() {
-    this.logger.firebase('FirestoreService initialized - using getDocs() polling instead of real-time listeners');
+    this.logger.firebase(
+      'FirestoreService initialized - using getDocs() polling instead of real-time listeners'
+    );
   }
 
   // Marcadores por organización
@@ -54,11 +56,15 @@ export class FirestoreService {
     return this.organizationService.getCurrentOrganization().pipe(
       switchMap((org: Organization | null) => {
         if (!org) {
-          this.logger.warn('❌ No organization available - returning empty markers');
+          this.logger.warn(
+            '❌ No organization available - returning empty markers'
+          );
           return of([]);
         }
 
-        this.logger.firebase(`✅ Organization available: ${org.name} (${org.id})`);
+        this.logger.firebase(
+          `✅ Organization available: ${org.name} (${org.id})`
+        );
         this.logger.firebase(`🔍 Querying markers for organization: ${org.id}`);
 
         const markersCollection = collection(this.firestore, 'markers');
@@ -66,7 +72,7 @@ export class FirestoreService {
           markersCollection,
           where('organizationId', '==', org.id)
         );
-        
+
         // ✅ Polling cada 5 segundos usando getDocs() en lugar de listener en tiempo real
         return interval(5000).pipe(
           startWith(0), // Ejecutar inmediatamente
@@ -74,8 +80,12 @@ export class FirestoreService {
           timeout(this.FIRESTORE_TIMEOUT),
           catchError((error) => {
             if (error.name === 'TimeoutError') {
-              this.logger.error(`⏱️ TIMEOUT al cargar marcadores para org: ${org.id} después de ${this.FIRESTORE_TIMEOUT}ms`);
-              this.logger.error('🔧 Verifica: 1) Reglas de Firestore, 2) Conexión a internet, 3) Índices de Firestore');
+              this.logger.error(
+                `⏱️ TIMEOUT al cargar marcadores para org: ${org.id} después de ${this.FIRESTORE_TIMEOUT}ms`
+              );
+              this.logger.error(
+                '🔧 Verifica: 1) Reglas de Firestore, 2) Conexión a internet, 3) Índices de Firestore'
+              );
             } else {
               this.logger.error('❌ Error al cargar marcadores:', error);
             }
@@ -85,13 +95,15 @@ export class FirestoreService {
             if (!snapshot) {
               return of([]);
             }
-            
+
             const markers: MapMarker[] = [];
             snapshot.forEach((doc) => {
               markers.push({ id: doc.id, ...doc.data() } as MapMarker);
             });
-            
-            this.logger.firebase(`✅ Loaded ${markers.length} markers from Firestore`);
+
+            this.logger.firebase(
+              `✅ Loaded ${markers.length} markers from Firestore`
+            );
             return of(markers);
           })
         );
@@ -171,16 +183,20 @@ export class FirestoreService {
     return this.organizationService.getCurrentOrganization().pipe(
       switchMap((org: Organization | null) => {
         if (!org) {
-          this.logger.warn('❌ No organization available - returning empty zones');
+          this.logger.warn(
+            '❌ No organization available - returning empty zones'
+          );
           return of([]);
         }
 
-        this.logger.firebase(`✅ Organization available: ${org.name} (${org.id})`);
+        this.logger.firebase(
+          `✅ Organization available: ${org.name} (${org.id})`
+        );
         this.logger.firebase(`🔍 Querying zones for organization: ${org.id}`);
 
         const zonesCollection = collection(this.firestore, 'zones');
         const q = query(zonesCollection, where('organizationId', '==', org.id));
-        
+
         // ✅ Polling cada 5 segundos usando getDocs() en lugar de listener en tiempo real
         return interval(5000).pipe(
           startWith(0), // Ejecutar inmediatamente
@@ -188,8 +204,12 @@ export class FirestoreService {
           timeout(this.FIRESTORE_TIMEOUT),
           catchError((error) => {
             if (error.name === 'TimeoutError') {
-              this.logger.error(`⏱️ TIMEOUT al cargar zonas para org: ${org.id} después de ${this.FIRESTORE_TIMEOUT}ms`);
-              this.logger.error('🔧 Verifica: 1) Reglas de Firestore, 2) Conexión a internet, 3) Índices de Firestore');
+              this.logger.error(
+                `⏱️ TIMEOUT al cargar zonas para org: ${org.id} después de ${this.FIRESTORE_TIMEOUT}ms`
+              );
+              this.logger.error(
+                '🔧 Verifica: 1) Reglas de Firestore, 2) Conexión a internet, 3) Índices de Firestore'
+              );
             } else {
               this.logger.error('❌ Error al cargar zonas:', error);
             }
@@ -199,13 +219,15 @@ export class FirestoreService {
             if (!snapshot) {
               return of([]);
             }
-            
+
             const zones: MapZone[] = [];
             snapshot.forEach((doc) => {
               zones.push({ id: doc.id, ...doc.data() } as MapZone);
             });
-            
-            this.logger.firebase(`✅ Loaded ${zones.length} zones from Firestore`);
+
+            this.logger.firebase(
+              `✅ Loaded ${zones.length} zones from Firestore`
+            );
             return of(zones);
           })
         );
@@ -290,7 +312,7 @@ export class FirestoreService {
           routesCollection,
           where('organizationId', '==', org.id)
         );
-        
+
         // ✅ Polling cada 5 segundos usando getDocs()
         return interval(5000).pipe(
           startWith(0),
@@ -302,7 +324,7 @@ export class FirestoreService {
           }),
           switchMap((snapshot: QuerySnapshot<DocumentData> | null) => {
             if (!snapshot) return of([]);
-            
+
             const routes: any[] = [];
             snapshot.forEach((doc) => {
               routes.push({ id: doc.id, ...doc.data() });

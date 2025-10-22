@@ -244,8 +244,13 @@ export class OrganizationService {
         .pipe(take(1))
         .subscribe(async (user) => {
           if (!user) {
-            console.log('❌ No authenticated user - using development fallback');
-            console.log('📍 Setting organization to:', this.developmentOrganizations[0].name);
+            console.log(
+              '❌ No authenticated user - using development fallback'
+            );
+            console.log(
+              '📍 Setting organization to:',
+              this.developmentOrganizations[0].name
+            );
             this.currentOrganizationSubject.next(
               this.developmentOrganizations[0]
             );
@@ -284,7 +289,10 @@ export class OrganizationService {
               console.log(
                 '⚠️ No organizations found for user - using development fallback'
               );
-              console.log('📍 Setting organization to:', this.developmentOrganizations[0].name);
+              console.log(
+                '📍 Setting organization to:',
+                this.developmentOrganizations[0].name
+              );
               this.currentOrganizationSubject.next(
                 this.developmentOrganizations[0]
               );
@@ -293,7 +301,10 @@ export class OrganizationService {
           } catch (error) {
             console.error('❌ Error loading user organization:', error);
             console.log('🔄 Falling back to development organization');
-            console.log('📍 Setting organization to:', this.developmentOrganizations[0].name);
+            console.log(
+              '📍 Setting organization to:',
+              this.developmentOrganizations[0].name
+            );
             this.currentOrganizationSubject.next(
               this.developmentOrganizations[0]
             );
@@ -302,7 +313,10 @@ export class OrganizationService {
         });
     } catch (error) {
       console.error('❌ Error in initializeUserOrganization:', error);
-      console.log('📍 Setting organization to:', this.developmentOrganizations[0].name);
+      console.log(
+        '📍 Setting organization to:',
+        this.developmentOrganizations[0].name
+      );
       this.currentOrganizationSubject.next(this.developmentOrganizations[0]);
       console.log('✅ Organization set successfully');
     }
