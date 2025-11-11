@@ -20,6 +20,29 @@ import { MapZone as LegacyZone } from '../../../shared/models/zone.model';
 import { CommonModule } from '@angular/common';
 import * as L from 'leaflet';
 
+/**
+ * @component MapViewComponent
+ * @description
+ * Componente principal para la visualización y gestión del mapa interactivo.
+ *
+ * Este componente es responsable de:
+ * - Inicializar el mapa usando Leaflet
+ * - Gestionar la sincronización en tiempo real de marcadores y zonas desde Firebase
+ * - Convertir entre modelos de datos (nuevo formato vs legacy)
+ * - Mantener el estado de elementos cargados en el mapa
+ * - Limpiar recursos y subscripciones al destruirse
+ *
+ * @example
+ * ```html
+ * <app-map-view></app-map-view>
+ * ```
+ *
+ * @standalone true
+ * @imports CommonModule, MapControlsComponent
+ *
+ * @author GeoPoint Team
+ * @version 1.0.0
+ */
 @Component({
   selector: 'app-map-view',
   templateUrl: './map-view.component.html',
@@ -28,24 +51,64 @@ import * as L from 'leaflet';
   imports: [CommonModule, MapControlsComponent],
 })
 export class MapViewComponent implements OnInit, OnDestroy {
+  /** Servicio para operaciones del mapa (Leaflet) */
   private mapService = inject(MapService);
+
+  /** Servicio para sincronización de datos con Firebase */
   private mapDataService = inject(MapDataService);
 
-  // Subscripciones para cleanup
+  /** Subscripción a cambios en marcadores desde Firestore */
   private markersSubscription: Subscription = new Subscription();
+
+  /** Subscripción a cambios en zonas desde Firestore */
   private zonesSubscription: Subscription = new Subscription();
 
-  // Propiedades para el estado
+  /** Indica si el mapa ha sido inicializado correctamente */
   mapInitialized = false;
+
+  /** Contador de marcadores cargados en el mapa */
   markersCount = 0;
+
+  /** Contador de zonas cargadas en el mapa */
   zonesCount = 0;
 
-  // Maps para trackear elementos existentes
+  /**
+   * Set de IDs de marcadores ya cargados en el mapa.
+   * Previene duplicados y ayuda a detectar eliminaciones.
+   */
   private loadedMarkers = new Set<string>();
+
+  /**
+   * Set de IDs de zonas ya cargadas en el mapa.
+   * Previene duplicados y ayuda a detectar eliminaciones.
+   */
   private loadedZones = new Set<string>();
 
   /**
-   * Convierte un MapMarker del nuevo modelo al modelo legacy
+   * @method convertToLegacyMarker
+   * @description
+   * Convierte un marcador del nuevo modelo de datos (MapDataMarker) al formato legacy
+   * que utiliza el servicio de mapas basado en Leaflet.
+   *
+   * Mapeo de tipos:
+   * - 'info' → 'house'
+   * - 'success' → 'poi'
+   * - 'default' | 'warning' | 'danger' → 'marker'
+   *
+   * @param {MapDataMarker} newMarker - Marcador en formato nuevo desde Firestore
+   * @returns {LegacyMarker} Marcador en formato legacy compatible con MapService
+   *
+   * @private
+   * @example
+   * ```typescript
+   * const legacy = this.convertToLegacyMarker({
+   *   id: '123',
+   *   title: 'Oficina Central',
+   *   type: 'info',
+   *   latitude: 19.4326,
+   *   longitude: -99.1332
+   * });
+   * ```
    */
   private convertToLegacyMarker(newMarker: MapDataMarker): LegacyMarker {
     // Mapear tipos del nuevo sistema al legacy
@@ -74,13 +137,36 @@ export class MapViewComponent implements OnInit, OnDestroy {
       color: newMarker.color || '#3880ff',
       type: legacyType,
       createdBy: newMarker.createdBy,
-      organizationId: newMarker.organizationId || '', // Mapear organizationId
+      organizationId: newMarker.organizationId || '',
       createdAt: newMarker.createdAt,
     };
   }
 
   /**
-   * Convierte un MapZone del nuevo modelo al modelo legacy
+   * @method convertToLegacyZone
+   * @description
+   * Convierte una zona del nuevo modelo de datos (MapDataZone) al formato legacy.
+   *
+   * Soporta tres tipos de geometrías:
+   * - **Polygon**: Array de coordenadas [lat, lng]
+   * - **Circle**: Centro + radio → Convertido a polígono de 16 puntos
+   * - **Rectangle**: Southwest + Northeast → Convertido a polígono de 4 esquinas
+   *
+   * @param {MapDataZone} newZone - Zona en formato nuevo desde Firestore
+   * @returns {LegacyZone} Zona en formato legacy compatible con MapService
+   *
+   * @private
+   * @example
+   * ```typescript
+   * const legacy = this.convertToLegacyZone({
+   *   id: '456',
+   *   name: 'Zona Norte',
+   *   type: 'circle',
+   *   coordinates: {
+   *     circle: { center: [19.4326, -99.1332], radius: 500 }
+   *   }
+   * });
+   * ```
    */
   private convertToLegacyZone(newZone: MapDataZone): LegacyZone {
     // Convertir coordenadas según el tipo
@@ -92,14 +178,14 @@ export class MapViewComponent implements OnInit, OnDestroy {
         lng: point[1],
       }));
     } else if (newZone.type === 'circle' && newZone.coordinates.circle) {
-      // Para círculos, creamos un polígono aproximado
+      // Para círculos, creamos un polígono aproximado de 16 puntos
       const center = newZone.coordinates.circle.center;
       const radius = newZone.coordinates.circle.radius;
       const numPoints = 16;
 
       for (let i = 0; i < numPoints; i++) {
         const angle = (i * 2 * Math.PI) / numPoints;
-        const lat = center[0] + (radius / 111000) * Math.cos(angle); // Aproximación
+        const lat = center[0] + (radius / 111000) * Math.cos(angle); // Aproximación: 1 grado ≈ 111km
         const lng =
           center[1] +
           (radius / (111000 * Math.cos((center[0] * Math.PI) / 180))) *
@@ -124,14 +210,29 @@ export class MapViewComponent implements OnInit, OnDestroy {
       description: newZone.description || '',
       coordinates,
       color: newZone.style.fillColor || '#3880ff',
-      number: newZone.metadata?.customFields?.['number'] || 1, // ✅ USAR el número real de metadata
-      type: 'zone', // Mapear a tipo legacy
+      number: newZone.metadata?.customFields?.['number'] || 1,
+      type: 'zone',
       createdBy: newZone.createdBy,
-      organizationId: newZone.organizationId || '', // Mapear organizationId
+      organizationId: newZone.organizationId || '',
       createdAt: newZone.createdAt,
     };
   }
 
+  /**
+   * @method ngOnInit
+   * @description
+   * Hook del ciclo de vida de Angular que se ejecuta al inicializar el componente.
+   *
+   * Flujo de inicialización:
+   * 1. Espera 200ms para que el DOM esté completamente renderizado
+   * 2. Inicializa el mapa de Leaflet
+   * 3. Espera 500ms adicionales para que el mapa esté listo
+   * 4. Carga datos existentes desde Firebase
+   * 5. Configura listeners para eventos del mapa (clicks en markers, zones, mapa)
+   *
+   * @lifecycle
+   * @public
+   */
   ngOnInit() {
     // Esperar a que el DOM esté listo antes de inicializar el mapa
     setTimeout(() => {
@@ -159,6 +260,18 @@ export class MapViewComponent implements OnInit, OnDestroy {
     });
   }
 
+  /**
+   * @method ngOnDestroy
+   * @description
+   * Hook del ciclo de vida de Angular que se ejecuta al destruir el componente.
+   *
+   * Limpia todas las subscripciones activas para prevenir memory leaks:
+   * - Unsubscribe de marcadores
+   * - Unsubscribe de zonas
+   *
+   * @lifecycle
+   * @public
+   */
   ngOnDestroy() {
     // Cleanup de subscripciones
     this.markersSubscription.unsubscribe();
@@ -166,6 +279,20 @@ export class MapViewComponent implements OnInit, OnDestroy {
     console.log('🧹 MapViewComponent subscriptions cleaned up');
   }
 
+  /**
+   * @method initializeMap
+   * @description
+   * Inicializa el mapa de Leaflet en el contenedor DOM especificado.
+   *
+   * Proceso:
+   * 1. Busca el contenedor con ID 'map-container'
+   * 2. Valida que exista el elemento DOM
+   * 3. Llama a MapService.initMap() para crear la instancia de Leaflet
+   * 4. Marca mapInitialized como true si tiene éxito
+   *
+   * @private
+   * @throws {Error} Si el contenedor del mapa no se encuentra en el DOM
+   */
   private initializeMap() {
     console.log('Intentando inicializar mapa...');
     const mapContainer = document.getElementById('map-container');
@@ -184,6 +311,30 @@ export class MapViewComponent implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * @method loadExistingData
+   * @description
+   * Establece subscripciones en tiempo real a Firestore para marcadores y zonas.
+   *
+   * **Características clave:**
+   * - Sincronización bidireccional: Agregar/Eliminar/Actualizar
+   * - Detección automática de elementos eliminados en Firestore
+   * - Prevención de duplicados usando Sets (loadedMarkers, loadedZones)
+   * - Manejo de reintentos si el mapa no está listo
+   *
+   * **Flujo de marcadores:**
+   * 1. Recibe array actualizado desde Firestore
+   * 2. Identifica marcadores eliminados (en Set pero no en array)
+   * 3. Elimina del mapa los marcadores borrados
+   * 4. Agrega nuevos marcadores que no estén en el Set
+   * 5. Actualiza contador de marcadores
+   *
+   * **Flujo de zonas:**
+   * - Mismo proceso que marcadores pero para zonas geográficas
+   *
+   * @private
+   * @requires mapInitialized === true
+   */
   private loadExistingData() {
     console.log('🔄 Setting up real-time data subscriptions...');
     console.log('🗺️ Map initialized?', this.mapInitialized);

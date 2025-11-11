@@ -31,6 +31,41 @@ import { MapMarker } from '../../../shared/models/marker.model';
 import { MapZone } from '../../../shared/models/zone.model';
 import { MapRoute } from '../../../shared/models/route.model';
 
+/**
+ * @component AdminPanelComponent
+ * @description
+ * Panel de administración para crear y gestionar elementos del mapa.
+ *
+ * **Funcionalidades principales:**
+ * - ✅ Crear marcadores mediante clicks en el mapa
+ * - ✅ Crear zonas poligonales con múltiples puntos
+ * - ✅ Crear rutas con waypoints
+ * - ✅ Validación de formularios antes de guardar
+ * - ✅ Sanitización de datos para prevenir XSS
+ * - ✅ Gestión de estados de modo (agregar marker, zona, ruta)
+ * - ✅ Cleanup automático de subscripciones
+ *
+ * **Flujo de trabajo:**
+ * 1. Usuario hace click en "Agregar Marcador/Zona/Ruta"
+ * 2. Componente entra en modo de captura de clicks
+ * 3. Usuario hace clicks en el mapa
+ * 4. Coordenadas se agregan al formulario
+ * 5. Usuario completa datos y guarda
+ * 6. Datos se validan y sanitizan
+ * 7. Se persisten en Firestore
+ * 8. Formulario se resetea
+ *
+ * @example
+ * ```html
+ * <app-admin-panel></app-admin-panel>
+ * ```
+ *
+ * @standalone true
+ * @imports CommonModule, FormsModule, Ionic Components
+ *
+ * @author GeoPoint Team
+ * @version 1.0.0
+ */
 @Component({
   selector: 'app-admin-panel',
   templateUrl: './admin-panel.component.html',
@@ -53,19 +88,34 @@ import { MapRoute } from '../../../shared/models/route.model';
   ],
 })
 export class AdminPanelComponent implements OnDestroy {
+  /** Servicio para operaciones CRUD en Firestore */
   private firestoreService = inject(FirestoreService);
+
+  /** Servicio del mapa para capturar clicks y agregar elementos */
   private mapService = inject(MapService);
+
+  /** Servicio de autenticación para obtener usuario actual */
   private authService = inject(AuthService);
+
+  /** Servicio de validación y sanitización de datos */
   private validationService = inject(ValidationService);
+
+  /** Controlador de modales de Ionic */
   private modalCtrl = inject(ModalController);
+
+  /** Controlador de mensajes toast de Ionic */
   private toastCtrl = inject(ToastController);
 
-  // ✅ Subscripción para cleanup
+  /** Contenedor de subscripciones para cleanup automático en ngOnDestroy */
   private subscriptions = new Subscription();
 
-  // Contador para números de zona
+  /** Contador autoincremental para números de zona */
   private zoneCounter = 1;
 
+  /**
+   * Formulario para nuevo marcador.
+   * Se actualiza cuando el usuario hace click en el mapa (si isAddingMarker === true)
+   */
   newMarker = {
     title: '',
     description: '',
@@ -73,6 +123,11 @@ export class AdminPanelComponent implements OnDestroy {
     lng: 0,
     color: '#FF0000',
   };
+
+  /**
+   * Formulario para nueva zona.
+   * Las coordenadas se agregan mediante clicks consecutivos en el mapa
+   */
   newZone = {
     name: '',
     description: '',
@@ -80,6 +135,11 @@ export class AdminPanelComponent implements OnDestroy {
     fillOpacity: 0.3,
     coordinates: [] as [number, number][],
   };
+
+  /**
+   * Formulario para nueva ruta.
+   * Los waypoints se agregan mediante clicks consecutivos en el mapa
+   */
   newRoute = {
     name: '',
     description: '',
@@ -87,8 +147,14 @@ export class AdminPanelComponent implements OnDestroy {
     width: 3,
     waypoints: [] as [number, number][],
   };
+
+  /** Indica si el componente está en modo de agregar marcador */
   isAddingMarker = false;
+
+  /** Indica si el componente está en modo de agregar zona */
   isAddingZone = false;
+
+  /** Indica si el componente está en modo de agregar ruta */
   isAddingRoute = false;
 
   constructor() {
