@@ -24,7 +24,6 @@ import {
   AlertController,
   ToastController,
   ActionSheetController,
-  RefresherCustomEvent,
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import {
@@ -116,7 +115,6 @@ export class UserManagementComponent implements OnInit, OnDestroy {
   currentUserId: string | null = null;
 
   constructor() {
-    console.log('👤 UserManagementComponent constructor called');
     this.subscriptions = new Subscription();
 
     addIcons({
@@ -157,12 +155,9 @@ export class UserManagementComponent implements OnInit, OnDestroy {
   }
 
   async ngOnInit() {
-    console.log('🚀 UserManagement ngOnInit started');
-
     // FORZAR detener loading inmediatamente
     setTimeout(() => {
       if (this.isLoading) {
-        console.warn('⚠️ TIMEOUT: Forcing isLoading = false after 2 seconds');
         this.isLoading = false;
       }
     }, 2000);
@@ -170,36 +165,28 @@ export class UserManagementComponent implements OnInit, OnDestroy {
     this.isLoading = true;
 
     try {
-      console.log('⚡ Starting quick initialization...');
 
       // Configurar observables primero
       this.users$ = this.userManagementService.users$;
 
       // Obtener usuario actual con timeout
-      console.log('📡 Getting current user...');
       const currentUser = await Promise.race([
         firstValueFrom(this.authService.getCurrentUser()),
         new Promise<null>((resolve) =>
           setTimeout(() => {
-            console.warn('⏱️ getCurrentUser timeout - continuing anyway');
             resolve(null);
           }, 1000)
         ),
       ]);
 
-      console.log('👤 Current user:', currentUser?.email, currentUser?.role);
 
       // Guardar UID del usuario actual
       this.currentUserId = currentUser?.uid || null;
-      console.log('💾 Current user ID stored:', this.currentUserId);
 
       // Cargar usuarios REALES de Firebase
-      console.log('📦 Calling loadDevelopmentData...');
       await this.loadDevelopmentData();
 
-      console.log('✅ ngOnInit completed successfully');
     } catch (error) {
-      console.error('❌ Error in ngOnInit:', error);
       this.isLoading = false;
       await this.showToast('Error de inicialización', 'danger');
     }
