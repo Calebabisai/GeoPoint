@@ -1,7 +1,6 @@
-import { Component, OnInit, OnDestroy, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
 import {
   IonContent,
   IonHeader,
@@ -29,40 +28,21 @@ import { addIcons } from 'ionicons';
 import {
   person,
   shield,
-  shieldCheckmark,
-  business,
-  search,
-  filter,
-  add,
   ellipsisVertical,
-  create,
   trash,
-  checkmark,
   close,
-  time,
-  globe,
-  settings,
-  analytics,
   people,
-  personAdd,
   swapHorizontal,
-  eye,
-  refresh,
-  home,
   ribbonOutline,
   shieldCheckmarkOutline,
   personOutline,
   helpOutline,
 } from 'ionicons/icons';
-import { Observable, Subscription, firstValueFrom } from 'rxjs';
-
-import { AuthorizationService } from '../../../auth/services/authorization.service';
 import { AuthService } from '../../../auth/services/auth.service';
 import {
   UserManagementService,
   UserWithOrganization,
 } from '../../services/user-management.service';
-import { OrganizationService } from '../../../shared/services/organization.service';
 import {
   getUserDisplayName,
   getUserShortName,
@@ -96,52 +76,33 @@ import {
     IonSpinner,
   ],
 })
-export class UserManagementComponent implements OnInit, OnDestroy {
+export class UserManagementComponent {
   private userManagementService = inject(UserManagementService);
-  private authorizationService = inject(AuthorizationService);
   private authService = inject(AuthService);
-  private organizationService = inject(OrganizationService);
   private alertController = inject(AlertController);
   private toastController = inject(ToastController);
   private actionSheetController = inject(ActionSheetController);
-  private router = inject(Router);
 
-  // Observables
-  users$!: Observable<UserWithOrganization[]>;
-  isLoading = true;
-  private subscriptions = new Subscription();
+  // Signals
+  users = signal<UserWithOrganization[]>([]);
+  isLoading = signal(true);
+  currentUserId = signal<string | null>(null);
 
-  // UID del usuario actual para comparaciones en template
-  currentUserId: string | null = null;
 
   constructor() {
-    this.subscriptions = new Subscription();
+    console.log('👤 UserManagementComponent constructor called');
+    this.initializeIcons();
+    this.initializeComponent();
+  }
 
+  private initializeIcons() {
     addIcons({
       person,
       shield,
-      shieldCheckmark,
-      business,
-      search,
-      filter,
-      add,
       ellipsisVertical,
       'ellipsis-vertical': ellipsisVertical,
-      create,
       trash,
-      checkmark,
       close,
-      time,
-      globe,
-      settings,
-      analytics,
-      people,
-      personAdd,
-      swapHorizontal,
-      'swap-horizontal': swapHorizontal,
-      eye,
-      refresh,
-      home,
       ribbonOutline,
       'ribbon-outline': ribbonOutline,
       shieldCheckmarkOutline,
@@ -151,53 +112,49 @@ export class UserManagementComponent implements OnInit, OnDestroy {
       'person-outline': personOutline,
       helpOutline,
       'help-outline': helpOutline,
+      swapHorizontal,
+      'swap-horizontal': swapHorizontal,
+      people,
     });
   }
 
-  async ngOnInit() {
-    // FORZAR detener loading inmediatamente
-    setTimeout(() => {
-      if (this.isLoading) {
-        this.isLoading = false;
+  private async initializeComponent() {
+
+    const timeoutId = setTimeout(() => {
+      if (this.isLoading()) {
+        this.isLoading.set(false);
       }
     }, 2000);
 
-    this.isLoading = true;
-
     try {
+      console.log('⚡ Starting quick initialization...');
 
-      // Configurar observables primero
-      this.users$ = this.userManagementService.users$;
+      const currentUser = await this.getCurrentUserWithTimeout();
+      this.currentUserId.set(currentUser?.uid || null);
 
-      // Obtener usuario actual con timeout
-      const currentUser = await Promise.race([
-        firstValueFrom(this.authService.getCurrentUser()),
-        new Promise<null>((resolve) =>
-          setTimeout(() => {
-            resolve(null);
-          }, 1000)
-        ),
-      ]);
-
-
-      // Guardar UID del usuario actual
-      this.currentUserId = currentUser?.uid || null;
-
-      // Cargar usuarios REALES de Firebase
       await this.loadDevelopmentData();
 
     } catch (error) {
-      this.isLoading = false;
+      console.error('Error during initialization:', error);
+      this.isLoading.set(false);
       await this.showToast('Error de inicialización', 'danger');
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 
-  ngOnDestroy() {
-    this.subscriptions.unsubscribe();
+  private async getCurrentUserWithTimeout(timeout = 1000) {
+    return Promise.race([
+      this.authService.getCurrentUser().toPromise(),
+      new Promise<null>((resolve) => {
+        setTimeout(() => {
+          resolve(null);
+        }, timeout);
+      }),
+    ]);
   }
 
   private loadTestData() {
-    console.log('📥 loadTestData() called');
 
     const testUsers: UserWithOrganization[] = [
       {
@@ -238,18 +195,12 @@ export class UserManagementComponent implements OnInit, OnDestroy {
       },
     ];
 
-    console.log('📥 Setting test users:', testUsers.length, 'users');
     this.userManagementService.setUsers(testUsers);
-    console.log('✅ Test users loaded successfully');
+    this.users.set(testUsers);
   }
 
-  /**
-   * Carga usuarios REALES desde Firebase
-   */
   private async loadDevelopmentData() {
-    console.log('📦 Loading development data directly...');
 
-    // Timeout de seguridad de 10 segundos
     const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(
         () => reject(new Error('Timeout: La carga tardó más de 10 segundos')),
@@ -258,15 +209,13 @@ export class UserManagementComponent implements OnInit, OnDestroy {
     });
 
     try {
-      console.log('📞 Calling getSimpleOrganizationUsers...');
 
-      // Race entre la carga y el timeout
       const users = await Promise.race([
         this.userManagementService.getSimpleOrganizationUsers(),
         timeoutPromise,
       ]);
 
-      console.log(`✅ Development data loaded: ${users.length} users`);
+      this.users.set(users);
 
       if (users.length > 0) {
         await this.showToast(`Cargados ${users.length} usuarios`, 'success');
@@ -274,70 +223,48 @@ export class UserManagementComponent implements OnInit, OnDestroy {
         await this.showToast('No se encontraron usuarios', 'warning');
       }
 
-      this.isLoading = false;
-      console.log('✅ isLoading set to false');
+      this.isLoading.set(false);
     } catch (error) {
-      console.error('❌ Error loading development data:', error);
       await this.showToast(
         error instanceof Error ? error.message : 'Error cargando datos',
         'danger'
       );
-      this.isLoading = false;
-      console.log('✅ isLoading set to false (error path)');
+      this.isLoading.set(false);
     }
   }
 
-  // Métodos para el template
   getOrgRoleColor(role: string): string {
-    switch (role) {
-      case 'owner':
-        return 'warning';
-      case 'admin':
-        return 'danger';
-      case 'moderator':
-        return 'secondary';
-      case 'user':
-        return 'primary';
-      default:
-        return 'medium';
-    }
+    const colors: Record<string, string> = {
+      owner: 'warning',
+      admin: 'danger',
+      moderator: 'secondary',
+      user: 'primary',
+    };
+    return colors[role] || 'medium';
   }
 
   getOrgRoleIcon(role: string): string {
-    switch (role) {
-      case 'owner':
-        return 'ribbon-outline';
-      case 'admin':
-        return 'shield-checkmark-outline';
-      case 'moderator':
-        return 'shield-outline';
-      case 'user':
-        return 'person-outline';
-      default:
-        return 'help-outline';
-    }
+    const icons: Record<string, string> = {
+      owner: 'ribbon-outline',
+      admin: 'shield-checkmark-outline',
+      moderator: 'shield-outline',
+      user: 'person-outline',
+    };
+    return icons[role] || 'help-outline';
   }
 
   getOrgRoleDisplayName(role: string): string {
-    switch (role) {
-      case 'owner':
-        return 'Propietario';
-      case 'admin':
-        return 'Admin';
-      case 'moderator':
-        return 'Moderador';
-      case 'user':
-        return 'Miembro';
-      default:
-        return 'Sin rol';
-    }
+    const names: Record<string, string> = {
+      owner: 'Propietario',
+      admin: 'Admin',
+      moderator: 'Moderador',
+      user: 'Miembro',
+    };
+    return names[role] || 'Sin rol';
   }
 
-  /**
-   * Verifica si el usuario dado es el usuario actual logueado
-   */
   isCurrentUser(user: UserWithOrganization): boolean {
-    return this.currentUserId === user.uid;
+    return this.currentUserId() === user.uid;
   }
 
   private async showToast(
@@ -354,7 +281,6 @@ export class UserManagementComponent implements OnInit, OnDestroy {
     await toast.present();
   }
 
-  // Métodos utilitarios para obtener nombres de usuario
   getUserDisplayName(user: UserWithOrganization): string {
     return getUserDisplayName(user);
   }
@@ -363,7 +289,6 @@ export class UserManagementComponent implements OnInit, OnDestroy {
     return getUserShortName(user);
   }
 
-  // Obtener las iniciales del nombre para el avatar
   getUserInitials(user: UserWithOrganization): string {
     const displayName = this.getUserDisplayName(user);
     const words = displayName.split(' ').filter((word) => word.length > 0);
@@ -372,40 +297,14 @@ export class UserManagementComponent implements OnInit, OnDestroy {
       return `${words[0][0]}${words[1][0]}`.toUpperCase();
     } else if (words.length === 1) {
       return words[0][0].toUpperCase();
-    } else {
-      return 'U';
     }
+    return 'U';
   }
 
-  /**
-   * Método de prueba para verificar clicks
-   */
-  testClick(user: UserWithOrganization, source: string) {
-    console.log('🔥 TEST CLICK from:', source, 'User:', user.email);
-    alert(`Click detectado en ${source} para ${user.email}`);
-  }
-
-  /**
-   * Abre el selector de roles para cambiar el rol del usuario
-   */
   async openRoleSelector(user: UserWithOrganization) {
-    console.log('🎯 openRoleSelector para:', user.email);
 
     try {
-      // Obtener usuario actual de Firebase con timeout de 2 segundos
-      console.log('🔍 Obteniendo usuario actual de Firebase...');
-
-      const currentUser = await Promise.race([
-        firstValueFrom(this.authService.getCurrentUser()),
-        new Promise<null>((resolve) => {
-          setTimeout(() => {
-            console.warn('⏱️ getCurrentUser timeout (2s)');
-            resolve(null);
-          }, 2000);
-        }),
-      ]);
-
-      console.log('📦 Usuario recibido:', currentUser?.email);
+      const currentUser = await this.getCurrentUserWithTimeout(2000);
 
       if (!currentUser) {
         console.error('❌ No se pudo obtener el usuario actual');
@@ -413,25 +312,12 @@ export class UserManagementComponent implements OnInit, OnDestroy {
         return;
       }
 
-      console.log('👤 Datos del usuario:', {
-        email: currentUser.email,
-        globalRole: currentUser.role,
-        orgRole: currentUser.organizationRole,
-      });
-
-      // Verificar permisos: owner, admin de org, o admin global
       const hasPermission =
         currentUser.organizationRole === 'owner' ||
         currentUser.organizationRole === 'admin' ||
         currentUser.role === 'admin';
 
       if (!hasPermission) {
-        console.log(
-          '❌ Access denied. OrgRole:',
-          currentUser.organizationRole,
-          'GlobalRole:',
-          currentUser.role
-        );
         await this.showToast(
           'Solo los propietarios y administradores pueden cambiar roles',
           'warning'
@@ -439,18 +325,14 @@ export class UserManagementComponent implements OnInit, OnDestroy {
         return;
       }
 
-      // No permitir cambiar el rol propio
       if (currentUser.uid === user.uid) {
-        console.log('❌ Cannot change own role');
         await this.showToast('No puedes cambiar tu propio rol', 'warning');
         return;
       }
 
-      console.log('✅ Opening role selector alert...');
-
       const alert = await this.alertController.create({
         header: 'Cambiar Rol de Usuario',
-        subHeader: `${this.getUserDisplayName(user)}`,
+        subHeader: this.getUserDisplayName(user),
         message: 'Selecciona el nuevo rol para este usuario:',
         inputs: [
           {
@@ -482,44 +364,31 @@ export class UserManagementComponent implements OnInit, OnDestroy {
           {
             text: 'Cancelar',
             role: 'cancel',
-            handler: () => {
-              console.log('❌ User cancelled role change');
-            },
           },
           {
             text: 'Cambiar',
             handler: async (newRole) => {
-              console.log('✅ User selected new role:', newRole);
               if (newRole && newRole !== user.organizationRole) {
                 await this.changeUserRole(user, newRole);
-              } else {
-                console.log('⚠️ Same role selected, no change needed');
               }
             },
           },
         ],
       });
 
-      console.log('📱 Alert created, presenting...');
       await alert.present();
-      console.log('✅ Alert presented successfully');
     } catch (error) {
-      console.error('❌ Error creating/presenting alert:', error);
+      console.error('Error opening role selector:', error);
       await this.showToast('Error al abrir selector de roles', 'danger');
     }
   }
 
-  /**
-   * Cambia el rol de un usuario en la organización
-   */
   private async changeUserRole(
     user: UserWithOrganization,
     newRole: 'owner' | 'admin' | 'moderator' | 'user'
   ) {
     try {
-      console.log(`🔄 Changing role for ${user.email} to ${newRole}`);
 
-      // Actualizar en Firebase
       await this.userManagementService.updateUserOrganizationRole(
         user.uid,
         newRole
@@ -530,61 +399,28 @@ export class UserManagementComponent implements OnInit, OnDestroy {
         'success'
       );
 
-      // Recargar usuarios
       this.loadTestData();
     } catch (error) {
-      console.error('❌ Error changing user role:', error);
       await this.showToast('Error al cambiar el rol del usuario', 'danger');
     }
   }
 
-  /**
-   * Abre el menú de opciones del usuario (eliminar, etc.)
-   */
   async openUserOptions(user: UserWithOrganization) {
-    console.log('⚙️ openUserOptions para:', user.email);
 
     try {
-      // Obtener usuario actual de Firebase con timeout de 2 segundos
-      console.log('🔍 Obteniendo usuario actual de Firebase...');
-
-      const currentUser = await Promise.race([
-        firstValueFrom(this.authService.getCurrentUser()),
-        new Promise<null>((resolve) => {
-          setTimeout(() => {
-            console.warn('⏱️ getCurrentUser timeout (2s)');
-            resolve(null);
-          }, 2000);
-        }),
-      ]);
-
-      console.log('📦 Usuario recibido:', currentUser?.email);
+      const currentUser = await this.getCurrentUserWithTimeout(2000);
 
       if (!currentUser) {
-        console.error('❌ No se pudo obtener el usuario actual');
         await this.showToast('Error al verificar permisos', 'danger');
         return;
       }
 
-      console.log('👤 Datos del usuario:', {
-        email: currentUser.email,
-        globalRole: currentUser.role,
-        orgRole: currentUser.organizationRole,
-      });
-
-      // Verificar permisos: owner, admin de org, o admin global
       const hasPermission =
         currentUser.organizationRole === 'owner' ||
         currentUser.organizationRole === 'admin' ||
         currentUser.role === 'admin';
 
       if (!hasPermission) {
-        console.log(
-          '❌ Access denied. OrgRole:',
-          currentUser.organizationRole,
-          'GlobalRole:',
-          currentUser.role
-        );
         await this.showToast(
           'Solo los propietarios y administradores pueden gestionar usuarios',
           'warning'
@@ -592,17 +428,13 @@ export class UserManagementComponent implements OnInit, OnDestroy {
         return;
       }
 
-      // No permitir eliminar el propio usuario
       if (currentUser.uid === user.uid) {
-        console.log('❌ Cannot remove self from organization');
         await this.showToast(
           'No puedes eliminarte a ti mismo de la organización',
           'warning'
         );
         return;
       }
-
-      console.log('✅ Opening action sheet...');
 
       const actionSheet = await this.actionSheetController.create({
         header: this.getUserDisplayName(user),
@@ -612,7 +444,6 @@ export class UserManagementComponent implements OnInit, OnDestroy {
             text: 'Cambiar Rol',
             icon: 'swap-horizontal',
             handler: () => {
-              console.log('🔄 User selected: Change Role');
               this.openRoleSelector(user);
             },
           },
@@ -621,7 +452,6 @@ export class UserManagementComponent implements OnInit, OnDestroy {
             icon: 'trash',
             role: 'destructive',
             handler: () => {
-              console.log('🗑️ User selected: Remove from organization');
               this.confirmRemoveUser(user);
             },
           },
@@ -629,25 +459,16 @@ export class UserManagementComponent implements OnInit, OnDestroy {
             text: 'Cancelar',
             icon: 'close',
             role: 'cancel',
-            handler: () => {
-              console.log('❌ User cancelled action sheet');
-            },
           },
         ],
       });
 
-      console.log('📱 Action sheet created, presenting...');
       await actionSheet.present();
-      console.log('✅ Action sheet presented successfully');
     } catch (error) {
-      console.error('❌ Error en openUserOptions:', error);
       await this.showToast('Error al abrir menú de opciones', 'danger');
     }
   }
 
-  /**
-   * Confirma la eliminación de un usuario
-   */
   private async confirmRemoveUser(user: UserWithOrganization) {
     const alert = await this.alertController.create({
       header: '¿Eliminar Usuario?',
@@ -671,12 +492,8 @@ export class UserManagementComponent implements OnInit, OnDestroy {
     await alert.present();
   }
 
-  /**
-   * Elimina un usuario de la organización
-   */
   private async removeUser(user: UserWithOrganization) {
     try {
-      console.log(`🗑️ Removing user ${user.email} from organization`);
 
       await this.userManagementService.removeUserFromOrganization(user.uid);
 
@@ -685,10 +502,8 @@ export class UserManagementComponent implements OnInit, OnDestroy {
         'success'
       );
 
-      // Recargar usuarios
       this.loadTestData();
     } catch (error) {
-      console.error('❌ Error removing user:', error);
       await this.showToast('Error al eliminar el usuario', 'danger');
     }
   }
