@@ -90,7 +90,6 @@ export class UserManagementComponent {
 
 
   constructor() {
-    console.log('👤 UserManagementComponent constructor called');
     this.initializeIcons();
     this.initializeComponent();
   }
