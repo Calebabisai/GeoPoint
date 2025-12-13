@@ -1,5 +1,5 @@
-import { Component, inject, ChangeDetectorRef } from '@angular/core';
-import { AsyncPipe, TitleCasePipe } from '@angular/common';
+import { Component, inject, signal, computed, effect } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import {
   IonIcon,
   IonChip,
@@ -12,22 +12,19 @@ import {
 import { addIcons } from 'ionicons';
 import { person, shieldCheckmark, settings } from 'ionicons/icons';
 import { AuthorizationService } from '../../../auth/services/authorization.service';
-import { Observable } from 'rxjs';
 
 @Component({
   selector: 'app-role-selector',
   template: `
     <ion-chip
       id="role-trigger"
-      [color]="(currentRole$ | async) === 'admin' ? 'primary' : 'medium'"
+      [color]="currentRole() === 'admin' ? 'primary' : 'medium'"
       style="position: fixed; top: 10px; right: 10px; z-index: 1000;"
     >
       <ion-icon
-        [name]="
-          (currentRole$ | async) === 'admin' ? 'shield-checkmark' : 'person'
-        "
+        [name]="currentRole() === 'admin' ? 'shield-checkmark' : 'person'"
       ></ion-icon>
-      <ion-label>{{ currentRole$ | async | titlecase }} Mode</ion-label>
+      <ion-label>{{ currentRole() | titlecase }} Mode</ion-label>
     </ion-chip>
 
     <ion-popover trigger="role-trigger" triggerAction="click">
@@ -51,8 +48,7 @@ import { Observable } from 'rxjs';
   `,
   standalone: true,
   imports: [
-    AsyncPipe,
-    TitleCasePipe,
+    CommonModule,
     IonIcon,
     IonChip,
     IonLabel,
@@ -64,33 +60,44 @@ import { Observable } from 'rxjs';
 })
 export class RoleSelectorComponent {
   private authorizationService = inject(AuthorizationService);
-  private cdr = inject(ChangeDetectorRef);
 
-  currentRole$: Observable<'admin' | 'user' | null>;
+  // Signals
+  private currentRoleSignal = signal<'admin' | 'user' | null>(null);
+
+  // Readonly exports
+  readonly currentRole = this.currentRoleSignal.asReadonly();
+
+  // Computed signals
+  readonly isAdmin = computed(() => this.currentRoleSignal() === 'admin');
+  readonly isUser = computed(() => this.currentRoleSignal() === 'user');
+  readonly roleIcon = computed(() =>
+    this.currentRoleSignal() === 'admin' ? 'shield-checkmark' : 'person'
+  );
+  readonly roleColor = computed(() =>
+    this.currentRoleSignal() === 'admin' ? 'primary' : 'medium'
+  );
 
   constructor() {
     addIcons({ person, shieldCheckmark, settings });
-    this.currentRole$ = this.authorizationService.getCurrentUserRole();
+
+    // Effect para sincronizar el rol desde AuthorizationService
+    effect(() => {
+      const role = this.authorizationService.currentUserRole();
+      if (role) {
+        this.currentRoleSignal.set(role);
+      }
+    });
   }
 
-  setRole(role: 'admin' | 'user') {
-    // Cambio de rol temporal para desarrollo
-    console.log(`🔐 Switching to ${role} mode`);
-
+  /**
+   * Cambia el rol de desarrollo
+   */
+  setRole(role: 'admin' | 'user'): void {
     try {
-      // Usar el método de desarrollo del AuthorizationService
       this.authorizationService.setDevelopmentRole(role);
-
-      // Forzar actualización del observable y detección de cambios
-      setTimeout(() => {
-        console.log('🔄 Forcing role check after setDevelopmentRole');
-        this.currentRole$ = this.authorizationService.getCurrentUserRole();
-        this.cdr.detectChanges();
-      }, 100);
-
-      console.log(`✅ Role changed to ${role} mode for development`);
+      this.currentRoleSignal.set(role);
     } catch (error) {
-      console.error('❌ Error changing role:', error);
+      console.error('Error changing role', error);
     }
   }
 }

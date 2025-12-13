@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonChip, IonIcon, IonLabel } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
@@ -7,9 +7,7 @@ import {
   cloudDoneOutline,
   syncOutline,
 } from 'ionicons/icons';
-import { NetworkService, NetworkStatus } from '../../services/network.service';
-import { Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { NetworkService } from '../../services/network.service';
 
 /**
  * Componente para mostrar el estado de la conexión de red
@@ -20,28 +18,26 @@ import { map } from 'rxjs/operators';
   standalone: true,
   imports: [CommonModule, IonChip, IonIcon, IonLabel],
   template: `
-    <ion-chip
-      *ngIf="showStatus$ | async"
-      [color]="(networkStatus$ | async)?.isOnline ? 'success' : 'danger'"
-      class="network-status-chip"
-    >
-      <ion-icon
-        [name]="
-          (networkStatus$ | async)?.isOnline
-            ? 'cloud-done-outline'
-            : 'cloud-offline-outline'
-        "
-      ></ion-icon>
-      <ion-label>
-        {{ (networkStatus$ | async)?.isOnline ? 'Conectado' : 'Sin conexión' }}
-        <span
-          *ngIf="pendingOperations$ | async as pending"
-          class="pending-count"
-        >
-          ({{ pending }} pendiente{{ pending > 1 ? 's' : '' }})
-        </span>
-      </ion-label>
-    </ion-chip>
+    @if (showStatus()) {
+      <ion-chip
+        [color]="isOnline() ? 'success' : 'danger'"
+        class="network-status-chip"
+      >
+        <ion-icon
+          [name]="isOnline() ? 'cloud-done-outline' : 'cloud-offline-outline'"
+        ></ion-icon>
+        <ion-label>
+          {{ isOnline() ? 'Conectado' : 'Sin conexión' }}
+          @if (pendingOperationsCount() > 0) {
+            <span class="pending-count">
+              ({{ pendingOperationsCount() }} pendiente{{
+                pendingOperationsCount() > 1 ? 's' : ''
+              }})
+            </span>
+          }
+        </ion-label>
+      </ion-chip>
+    }
   `,
   styles: [
     `
@@ -71,7 +67,6 @@ import { map } from 'rxjs/operators';
         opacity: 0.8;
       }
 
-      /* Responsive */
       @media (max-width: 768px) {
         .network-status-chip {
           top: 50px;
@@ -85,27 +80,20 @@ import { map } from 'rxjs/operators';
 export class NetworkStatusComponent {
   private networkService = inject(NetworkService);
 
-  networkStatus$: Observable<NetworkStatus>;
-  showStatus$: Observable<boolean>;
-  pendingOperations$: Observable<number>;
+  // Computed signals derivados del servicio
+  readonly isOnline = computed(() => this.networkService.isOnlineComputed());
+  readonly pendingOperationsCount = computed(
+    () => this.networkService.pendingOperationsCount()
+  );
+
+  // Mostrar chip solo cuando NO hay conexión o hay operaciones pendientes
+  readonly showStatus = computed(
+    () =>
+      !this.networkService.isOnlineComputed() ||
+      this.networkService.pendingOperationsCount() > 0
+  );
 
   constructor() {
     addIcons({ cloudOfflineOutline, cloudDoneOutline, syncOutline });
-
-    this.networkStatus$ = this.networkService.networkStatus$;
-
-    // Mostrar el chip solo cuando NO hay conexión o hay operaciones pendientes
-    this.showStatus$ = this.networkStatus$.pipe(
-      map(
-        (status) =>
-          !status.isOnline ||
-          this.networkService.getPendingOperationsCount() > 0
-      )
-    );
-
-    // Observar cantidad de operaciones pendientes
-    this.pendingOperations$ = this.networkStatus$.pipe(
-      map(() => this.networkService.getPendingOperationsCount())
-    );
   }
 }
