@@ -1,4 +1,4 @@
-import { Injectable, inject, signal, computed } from '@angular/core';
+import { Injectable, inject, signal, computed, Signal } from '@angular/core';
 import { Observable, combineLatest } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { Firestore } from '@angular/fire/firestore';
@@ -202,27 +202,27 @@ export class MapDataService {
     );
   }
 
-/**
- * Obtiene los permisos del usuario actual para mapas
- */
-getMapPermissions(): Observable<MapPermissions> {
-  return this.organizationService.getCurrentOrganizationRole().pipe(
-    map((orgRole) => {
-      const isAdmin = orgRole === 'owner' || orgRole === 'admin';
-      const isModerator = orgRole === 'moderator';
-      const isUser = orgRole === 'user';
+  /**
+   * Obtiene los permisos del usuario actual para mapas
+   */
+  getMapPermissions(): Observable<MapPermissions> {
+    return this.organizationService.getCurrentOrganizationRole().pipe(
+      map((orgRole) => {
+        const isAdmin = orgRole === 'owner' || orgRole === 'admin';
+        const isModerator = orgRole === 'moderator';
+        const isUser = orgRole === 'user';
 
-      return {
-        canView: true,
-        canCreate: isAdmin || isModerator || isUser,
-        canEdit: isAdmin || isModerator,
-        canDelete: isAdmin || isModerator,
-        canEditOwn: true,
-        canDeleteOwn: true,
-      };
-    })
-  );
-}
+        return {
+          canView: true,
+          canCreate: isAdmin || isModerator || isUser,
+          canEdit: isAdmin || isModerator,
+          canDelete: isAdmin || isModerator,
+          canEditOwn: true,
+          canDeleteOwn: true,
+        };
+      })
+    );
+  }
 
   /**
    * Crea un nuevo marcador en Firebase
@@ -238,8 +238,7 @@ getMapPermissions(): Observable<MapPermissions> {
 
     try {
       const currentUser = this.authService.getCurrentUser()();
-      const currentOrg = await this.organizationService
-        .getCurrentOrganization();
+      const currentOrg = this.organizationService.currentOrganization();
 
       if (!currentUser || !currentOrg) {
         throw new Error('Usuario u organización no encontrados');
@@ -295,8 +294,7 @@ getMapPermissions(): Observable<MapPermissions> {
 
     try {
       const currentUser = this.authService.getCurrentUser()();
-      const currentOrg = await this.organizationService
-        .getCurrentOrganization();
+      const currentOrg = this.organizationService.currentOrganization();
 
       if (!currentUser || !currentOrg) {
         throw new Error('Usuario u organización no encontrados');

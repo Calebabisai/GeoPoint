@@ -1,6 +1,4 @@
-import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable, fromEvent, merge, of } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { Injectable, inject, signal, computed } from '@angular/core';
 import { Network } from '@capacitor/network';
 import { Platform } from '@ionic/angular/standalone';
 import { LoggerService } from './logger.service';
@@ -27,25 +25,42 @@ export interface QueuedOperation {
   providedIn: 'root',
 })
 export class NetworkService {
-  private networkStatusSubject = new BehaviorSubject<NetworkStatus>({
+  private platform = inject(Platform);
+  private logger = inject(LoggerService);
+
+  // Signals
+  private networkStatusSignal = signal<NetworkStatus>({
     connected: true,
     connectionType: 'unknown',
     isOnline: true,
   });
 
-  private operationsQueue: QueuedOperation[] = [];
+  private operationsQueueSignal = signal<QueuedOperation[]>([]);
+
+  // Readonly exports
+  readonly networkStatus = this.networkStatusSignal.asReadonly();
+  readonly operationsQueue = this.operationsQueueSignal.asReadonly();
+
+  // Computed signals
+  readonly isOnlineComputed = computed(() => this.networkStatusSignal().isOnline);
+  readonly isOfflineComputed = computed(() => !this.networkStatusSignal().isOnline);
+  readonly pendingOperationsCount = computed(
+    () => this.operationsQueueSignal().length
+  );
+  readonly hasOfflineOperations = computed(
+    () => this.operationsQueueSignal().length > 0
+  );
+
   private readonly QUEUE_KEY = 'geopoint_offline_queue';
 
-  public networkStatus$ = this.networkStatusSubject.asObservable();
-
-  constructor(private platform: Platform, private logger: LoggerService) {
+  constructor() {
     this.initializeNetworkMonitoring();
     this.loadQueueFromStorage();
 
     // Exponer para debugging
     if (typeof window !== 'undefined') {
       (window as any).networkService = this;
-      this.logger.log('🌐 NetworkService exposed globally');
+      this.logger.log('Network Service exposed globally');
     }
   }
 
@@ -54,14 +69,12 @@ export class NetworkService {
    */
   private async initializeNetworkMonitoring(): Promise<void> {
     if (this.platform.is('capacitor')) {
-      // En dispositivo móvil, usar Capacitor Network Plugin
       await this.initializeCapacitorNetwork();
     } else {
-      // En navegador, usar Navigator API
       this.initializeBrowserNetwork();
     }
 
-    this.logger.log('🌐 Network monitoring initialized');
+    this.logger.log('Network monitoring initialized');
   }
 
   /**
@@ -69,7 +82,6 @@ export class NetworkService {
    */
   private async initializeCapacitorNetwork(): Promise<void> {
     try {
-      // Obtener estado inicial
       const status = await Network.getStatus();
       this.updateNetworkStatus({
         connected: status.connected,
@@ -77,9 +89,8 @@ export class NetworkService {
         isOnline: status.connected,
       });
 
-      // Escuchar cambios en el estado de la red
       Network.addListener('networkStatusChange', (status) => {
-        this.logger.log('🌐 Network status changed:', status);
+        this.logger.log('Network status changed');
 
         this.updateNetworkStatus({
           connected: status.connected,
@@ -87,16 +98,14 @@ export class NetworkService {
           isOnline: status.connected,
         });
 
-        // Si volvió la conexión, procesar cola
         if (status.connected) {
           this.processOfflineQueue();
         }
       });
 
-      this.logger.log('✅ Capacitor Network monitoring enabled');
+      this.logger.log('Capacitor Network monitoring enabled');
     } catch (error) {
-      this.logger.error('❌ Error initializing Capacitor Network:', error);
-      // Fallback a navegador
+      this.logger.error('Error initializing Capacitor Network', error);
       this.initializeBrowserNetwork();
     }
   }
@@ -105,16 +114,14 @@ export class NetworkService {
    * Inicializa monitoreo en navegador
    */
   private initializeBrowserNetwork(): void {
-    // Estado inicial
     this.updateNetworkStatus({
       connected: navigator.onLine,
       connectionType: navigator.onLine ? 'unknown' : 'none',
       isOnline: navigator.onLine,
     });
 
-    // Escuchar eventos online/offline
-    fromEvent(window, 'online').subscribe(() => {
-      this.logger.log('🌐 Browser went online');
+    window.addEventListener('online', () => {
+      this.logger.log('Browser went online');
       this.updateNetworkStatus({
         connected: true,
         connectionType: 'unknown',
@@ -123,8 +130,8 @@ export class NetworkService {
       this.processOfflineQueue();
     });
 
-    fromEvent(window, 'offline').subscribe(() => {
-      this.logger.warn('⚠️ Browser went offline');
+    window.addEventListener('offline', () => {
+      this.logger.log('Browser went offline');
       this.updateNetworkStatus({
         connected: false,
         connectionType: 'none',
@@ -132,22 +139,21 @@ export class NetworkService {
       });
     });
 
-    this.logger.log('✅ Browser Network monitoring enabled');
+    this.logger.log('Browser Network monitoring enabled');
   }
 
   /**
    * Actualiza el estado de la red
    */
   private updateNetworkStatus(status: NetworkStatus): void {
-    this.networkStatusSubject.next(status);
+    const currentStatus = this.networkStatusSignal();
+    this.networkStatusSignal.set(status);
 
-    // Mostrar notificación al usuario si cambió el estado
-    const currentStatus = this.networkStatusSubject.value;
     if (currentStatus.isOnline !== status.isOnline) {
       if (status.isOnline) {
-        this.logger.log('✅ Conexión restaurada');
+        this.logger.log('Connection restored');
       } else {
-        this.logger.warn('⚠️ Sin conexión a internet');
+        this.logger.log('No internet connection');
       }
     }
   }
@@ -156,21 +162,21 @@ export class NetworkService {
    * Obtiene el estado actual de la red
    */
   getNetworkStatus(): NetworkStatus {
-    return this.networkStatusSubject.value;
+    return this.networkStatusSignal();
   }
 
   /**
-   * Verifica si hay conexión
+   * Verifica si hay conexión (método legacy)
    */
   isOnline(): boolean {
-    return this.networkStatusSubject.value.isOnline;
+    return this.networkStatusSignal().isOnline;
   }
 
   /**
-   * Verifica si está offline
+   * Verifica si está offline (método legacy)
    */
   isOffline(): boolean {
-    return !this.networkStatusSubject.value.isOnline;
+    return !this.networkStatusSignal().isOnline;
   }
 
   /**
@@ -183,32 +189,32 @@ export class NetworkService {
       timestamp: Date.now(),
     };
 
-    this.operationsQueue.push(queuedOp);
+    this.operationsQueueSignal.update((queue) => [...queue, queuedOp]);
     this.saveQueueToStorage();
 
-    this.logger.log('📥 Operation queued for offline processing:', queuedOp);
+    this.logger.log('Operation queued for offline processing');
   }
 
   /**
    * Procesa la cola de operaciones pendientes
    */
   async processOfflineQueue(): Promise<void> {
-    if (this.operationsQueue.length === 0) {
-      this.logger.log('✅ No pending operations in queue');
+    const queue = this.operationsQueueSignal();
+
+    if (queue.length === 0) {
+      this.logger.log('No pending operations in queue');
       return;
     }
 
     if (this.isOffline()) {
-      this.logger.warn('⚠️ Still offline, cannot process queue');
+      this.logger.log('Still offline, cannot process queue');
       return;
     }
 
-    this.logger.log(
-      `🔄 Processing ${this.operationsQueue.length} queued operations...`
-    );
+    this.logger.log(`Processing ${queue.length} queued operations`);
 
-    const operations = [...this.operationsQueue];
-    this.operationsQueue = [];
+    const operations = [...queue];
+    this.operationsQueueSignal.set([]);
 
     let successCount = 0;
     let failCount = 0;
@@ -217,43 +223,27 @@ export class NetworkService {
       try {
         await this.executeQueuedOperation(operation);
         successCount++;
-        this.logger.log('✅ Operation processed:', operation.id);
+        this.logger.log('Operation processed successfully');
       } catch (error) {
         failCount++;
-        this.logger.error(
-          '❌ Failed to process operation:',
-          operation.id,
-          error
-        );
-        // Volver a agregar a la cola si falla
-        this.operationsQueue.push(operation);
+        this.logger.error('Failed to process operation', error);
+        this.operationsQueueSignal.update((q) => [...q, operation]);
       }
     }
 
     this.saveQueueToStorage();
 
-    this.logger.log(
-      `✅ Queue processing complete: ${successCount} success, ${failCount} failed`
-    );
+    this.logger.log(`Queue processing complete: ${successCount} success, ${failCount} failed`);
   }
 
   /**
    * Ejecuta una operación de la cola
-   * TODO: Implementar lógica específica según la operación
    */
   private async executeQueuedOperation(
     operation: QueuedOperation
   ): Promise<void> {
-    this.logger.log('🔄 Executing queued operation:', operation);
+    this.logger.log('Executing queued operation');
 
-    // Aquí deberías llamar a los servicios correspondientes
-    // según el tipo de operación y colección
-    // Ejemplo:
-    // if (operation.collection === 'markers') {
-    //   await this.firestoreService.addMarker(operation.data);
-    // }
-
-    // Por ahora solo simulamos
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
 
@@ -261,16 +251,16 @@ export class NetworkService {
    * Obtiene el número de operaciones pendientes
    */
   getPendingOperationsCount(): number {
-    return this.operationsQueue.length;
+    return this.operationsQueueSignal().length;
   }
 
   /**
    * Limpia la cola de operaciones
    */
   clearQueue(): void {
-    this.operationsQueue = [];
+    this.operationsQueueSignal.set([]);
     this.saveQueueToStorage();
-    this.logger.log('🗑️ Operation queue cleared');
+    this.logger.log('Operation queue cleared');
   }
 
   /**
@@ -280,10 +270,10 @@ export class NetworkService {
     try {
       localStorage.setItem(
         this.QUEUE_KEY,
-        JSON.stringify(this.operationsQueue)
+        JSON.stringify(this.operationsQueueSignal())
       );
     } catch (error) {
-      this.logger.error('❌ Error saving queue to storage:', error);
+      this.logger.error('Error saving queue to storage', error);
     }
   }
 
@@ -294,14 +284,13 @@ export class NetworkService {
     try {
       const stored = localStorage.getItem(this.QUEUE_KEY);
       if (stored) {
-        this.operationsQueue = JSON.parse(stored);
-        this.logger.log(
-          `📥 Loaded ${this.operationsQueue.length} operations from storage`
-        );
+        const queue = JSON.parse(stored) as QueuedOperation[];
+        this.operationsQueueSignal.set(queue);
+        this.logger.log(`Loaded ${queue.length} operations from storage`);
       }
     } catch (error) {
-      this.logger.error('❌ Error loading queue from storage:', error);
-      this.operationsQueue = [];
+      this.logger.error('Error loading queue from storage', error);
+      this.operationsQueueSignal.set([]);
     }
   }
 
@@ -313,23 +302,22 @@ export class NetworkService {
       return true;
     }
 
-    this.logger.log(`⏳ Waiting for connection (timeout: ${timeoutMs}ms)...`);
+    this.logger.log(`Waiting for connection (timeout: ${timeoutMs}ms)`);
 
     return new Promise((resolve) => {
       const timeout = setTimeout(() => {
-        subscription.unsubscribe();
-        this.logger.warn('⏱️ Connection timeout reached');
+        this.logger.log('Connection timeout reached');
         resolve(false);
       }, timeoutMs);
 
-      const subscription = this.networkStatus$.subscribe((status) => {
-        if (status.isOnline) {
+      const checkConnection = setInterval(() => {
+        if (this.isOnline()) {
           clearTimeout(timeout);
-          subscription.unsubscribe();
-          this.logger.log('✅ Connection established');
+          clearInterval(checkConnection);
+          this.logger.log('Connection established');
           resolve(true);
         }
-      });
+      }, 100);
     });
   }
 
@@ -346,7 +334,7 @@ export class NetworkService {
           isOnline: status.connected,
         };
       } catch (error) {
-        this.logger.error('Error checking network status:', error);
+        this.logger.error('Error checking network status', error);
         return this.getNetworkStatus();
       }
     } else {
