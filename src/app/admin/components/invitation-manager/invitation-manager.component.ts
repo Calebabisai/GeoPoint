@@ -220,15 +220,14 @@ export class InvitationManagerComponent {
    */
   private loadOrganizationStats(): void {
     try {
-      console.log('📊 Loading organization stats...');
 
       const orgId = this.organization()?.id || 'org-1';
       this.organizationService.getOrganizationStats(orgId).subscribe((stats) => {
         this.organizationStats.set(stats);
-        console.log('✅ Organization stats loaded');
+        console.log('Organization stats loaded');
       });
     } catch (error) {
-      console.error('❌ Error loading organization stats:', error);
+      console.error('Error loading organization stats:', error);
     }
   }
 
@@ -244,14 +243,13 @@ export class InvitationManagerComponent {
     this.isLoading.set(true);
 
     try {
-      console.log(`📧 Sending invitation to ${this.inviteEmail()}`);
+      console.log(`Sending invitation to ${this.inviteEmail()}`);
 
       const invite = await this.invitationService.sendInvitation(
         this.inviteEmail(),
         this.inviteRole()
       );
 
-      console.log('✅ Invitation sent successfully');
 
       // Mostrar modal de éxito
       await this.showSuccessInviteModal(invite);
@@ -263,7 +261,7 @@ export class InvitationManagerComponent {
       // Recargar invitaciones
       this.loadPendingInvites();
     } catch (error: any) {
-      console.error('❌ Error sending invitation:', error);
+      console.error('Error sending invitation:', error);
       await this.showToast(
         error.message || 'Error al enviar la invitación',
         'danger'
@@ -284,7 +282,6 @@ export class InvitationManagerComponent {
     this.isLoading.set(true);
 
     try {
-      console.log('📧 Processing bulk invites...');
 
       // Separar emails por líneas o comas
       const emails = this.bulkInviteEmails()
@@ -302,7 +299,6 @@ export class InvitationManagerComponent {
         return;
       }
 
-      console.log(`📧 Processing ${emails.length} invitations`);
 
       // Preparar invitaciones
       const invites = emails.map((email) => ({
@@ -324,10 +320,6 @@ export class InvitationManagerComponent {
         bulkRequest
       );
 
-      console.log(
-        `✅ Bulk invites processed: ${result.sent.length} sent, ${result.failed.length} failed`
-      );
-
       await this.showToast(
         `${result.sent.length} invitaciones enviadas exitosamente`,
         'success'
@@ -343,7 +335,7 @@ export class InvitationManagerComponent {
       this.loadPendingInvites();
       this.loadOrganizationStats();
     } catch (error: any) {
-      console.error('❌ Error processing bulk invites:', error);
+      console.error('Error processing bulk invites:', error);
       await this.showToast(
         error.message || 'Error al procesar invitaciones',
         'danger'
@@ -368,15 +360,14 @@ export class InvitationManagerComponent {
           text: 'Sí, Cancelar',
           handler: async () => {
             try {
-              console.log(`🚫 Canceling invitation ${invite.id}`);
 
               await this.invitationService.cancelInvitation(invite.id);
               await this.showToast('Invitación cancelada', 'success');
               this.loadPendingInvites();
 
-              console.log('✅ Invitation canceled successfully');
+              console.log('Invitation canceled successfully');
             } catch (error: any) {
-              console.error('❌ Error canceling invitation:', error);
+              console.error('Error canceling invitation:', error);
               await this.showToast('Error al cancelar la invitación', 'danger');
             }
           },
@@ -410,7 +401,7 @@ export class InvitationManagerComponent {
     try {
       await navigator.clipboard.writeText(text);
     } catch (error) {
-      console.error('❌ Error copying to clipboard:', error);
+      console.error('Error copying to clipboard:', error);
       // Fallback para navegadores que no soportan clipboard API
       const textArea = document.createElement('textarea');
       textArea.value = text;
@@ -509,7 +500,7 @@ export class InvitationManagerComponent {
   invite: OrganizationInvite
 ): Promise<void> {
   const alert = await this.alertController.create({
-    header: '✅ Invitación Enviada',
+    header: 'Invitación Enviada',
     subHeader: `Para: ${invite.invitedEmail}`,
     cssClass: 'custom-alert success-alert',
     message: INVITATION_MODAL_TEMPLATES.successModal(invite.code),
@@ -540,10 +531,10 @@ export class InvitationManagerComponent {
     const successCount = result.sent.length;
     const failCount = result.failed.length;
 
-    let message = `✅ ${successCount} invitaciones enviadas\n`;
+    let message = ` ${successCount} invitaciones enviadas\n`;
 
     if (failCount > 0) {
-      message += `❌ ${failCount} fallaron:\n`;
+      message += ` ${failCount} fallaron:\n`;
       result.failed.slice(0, 5).forEach((fail: any) => {
         message += `• ${fail.email}: ${fail.error}\n`;
       });

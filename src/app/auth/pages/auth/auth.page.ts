@@ -1,8 +1,7 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, inject, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonContent, IonButton, IonIcon } from '@ionic/angular/standalone';
 import { RouterModule, Router } from '@angular/router';
-import { take } from 'rxjs/operators';
 import { AuthService } from '../../services/auth.service';
 import { addIcons } from 'ionicons';
 import {
@@ -20,7 +19,7 @@ import {
   templateUrl: './auth.page.html',
   styleUrls: ['./auth.page.scss'],
 })
-export class AuthPage implements OnInit {
+export class AuthPage {
   private authService = inject(AuthService);
   private router = inject(Router);
 
@@ -32,17 +31,12 @@ export class AuthPage implements OnInit {
       mapOutline,
       navigateOutline,
     });
-  }
 
-  ngOnInit() {
-    // Redirigir automáticamente si el usuario ya está autenticado
-    this.authService
-      .getCurrentUser()
-      .pipe(take(1))
-      .subscribe((u) => {
-        if (u) {
-          this.router.navigate(['/map']);
-        }
-      });
+    effect(() => {
+      const user = this.authService.getCurrentUser();
+      if(user) {
+        this.router.navigate(['/map'])
+      }
+    })
   }
 }
