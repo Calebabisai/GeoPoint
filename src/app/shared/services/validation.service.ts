@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, signal, computed } from '@angular/core';
 
 /**
  * Servicio de validación centralizado para inputs del usuario
@@ -8,6 +8,22 @@ import { Injectable } from '@angular/core';
   providedIn: 'root',
 })
 export class ValidationService {
+  // Signals para tracking de validaciones
+  private lastValidationErrorSignal = signal<string | null>(null);
+  private validationHistorySignal = signal<string[]>([]);
+
+  // Readonly exports
+  readonly lastValidationError = this.lastValidationErrorSignal.asReadonly();
+  readonly validationHistory = this.validationHistorySignal.asReadonly();
+
+  // Computed signals
+  readonly hasValidationErrors = computed(
+    () => this.lastValidationErrorSignal() !== null
+  );
+  readonly validationErrorCount = computed(
+    () => this.validationHistorySignal().length
+  );
+
   /**
    * Valida y sanitiza un título
    */
@@ -17,28 +33,26 @@ export class ValidationService {
     sanitized?: string;
   } {
     if (!title || !title.trim()) {
-      return { valid: false, error: 'El título es requerido' };
+      const error = 'El título es requerido';
+      this.recordValidationError(error);
+      return { valid: false, error };
     }
 
     const trimmed = title.trim();
 
     if (trimmed.length < 3) {
-      return {
-        valid: false,
-        error: 'El título debe tener al menos 3 caracteres',
-      };
+      const error = 'El título debe tener al menos 3 caracteres';
+      this.recordValidationError(error);
+      return { valid: false, error };
     }
 
     if (trimmed.length > 100) {
-      return {
-        valid: false,
-        error: 'El título no puede exceder 100 caracteres',
-      };
+      const error = 'El título no puede exceder 100 caracteres';
+      this.recordValidationError(error);
+      return { valid: false, error };
     }
 
-    // Sanitizar caracteres especiales peligrosos
     const sanitized = this.sanitizeString(trimmed);
-
     return { valid: true, sanitized };
   }
 
@@ -51,7 +65,9 @@ export class ValidationService {
   ): { valid: boolean; error?: string; sanitized?: string } {
     if (!description || !description.trim()) {
       if (required) {
-        return { valid: false, error: 'La descripción es requerida' };
+        const error = 'La descripción es requerida';
+        this.recordValidationError(error);
+        return { valid: false, error };
       }
       return { valid: true, sanitized: '' };
     }
@@ -59,14 +75,12 @@ export class ValidationService {
     const trimmed = description.trim();
 
     if (trimmed.length > 500) {
-      return {
-        valid: false,
-        error: 'La descripción no puede exceder 500 caracteres',
-      };
+      const error = 'La descripción no puede exceder 500 caracteres';
+      this.recordValidationError(error);
+      return { valid: false, error };
     }
 
     const sanitized = this.sanitizeString(trimmed);
-
     return { valid: true, sanitized };
   }
 
@@ -79,21 +93,24 @@ export class ValidationService {
     sanitized?: string;
   } {
     if (!email || !email.trim()) {
-      return { valid: false, error: 'El email es requerido' };
+      const error = 'El email es requerido';
+      this.recordValidationError(error);
+      return { valid: false, error };
     }
 
     const trimmed = email.trim().toLowerCase();
-
-    // Regex simple pero efectiva para emails
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     if (!emailRegex.test(trimmed)) {
-      return { valid: false, error: 'Email inválido' };
+      const error = 'Email inválido';
+      this.recordValidationError(error);
+      return { valid: false, error };
     }
 
     if (trimmed.length > 254) {
-      // Límite estándar de email
-      return { valid: false, error: 'Email demasiado largo' };
+      const error = 'Email demasiado largo';
+      this.recordValidationError(error);
+      return { valid: false, error };
     }
 
     return { valid: true, sanitized: trimmed };
@@ -108,19 +125,27 @@ export class ValidationService {
     max: number = 9999
   ): { valid: boolean; error?: string; value?: number } {
     if (num === undefined || num === null) {
-      return { valid: false, error: 'El número es requerido' };
+      const error = 'El número es requerido';
+      this.recordValidationError(error);
+      return { valid: false, error };
     }
 
     if (isNaN(num)) {
-      return { valid: false, error: 'Debe ser un número válido' };
+      const error = 'Debe ser un número válido';
+      this.recordValidationError(error);
+      return { valid: false, error };
     }
 
     if (num < min) {
-      return { valid: false, error: `El número debe ser al menos ${min}` };
+      const error = `El número debe ser al menos ${min}`;
+      this.recordValidationError(error);
+      return { valid: false, error };
     }
 
     if (num > max) {
-      return { valid: false, error: `El número no puede exceder ${max}` };
+      const error = `El número no puede exceder ${max}`;
+      this.recordValidationError(error);
+      return { valid: false, error };
     }
 
     return { valid: true, value: num };
@@ -137,26 +162,33 @@ export class ValidationService {
     error?: string;
   } {
     if (lat === undefined || lat === null || isNaN(lat)) {
-      return { valid: false, error: 'Latitud inválida' };
+      const error = 'Latitud inválida';
+      this.recordValidationError(error);
+      return { valid: false, error };
     }
 
     if (lng === undefined || lng === null || isNaN(lng)) {
-      return { valid: false, error: 'Longitud inválida' };
+      const error = 'Longitud inválida';
+      this.recordValidationError(error);
+      return { valid: false, error };
     }
 
     if (lat < -90 || lat > 90) {
-      return { valid: false, error: 'Latitud debe estar entre -90 y 90' };
+      const error = 'Latitud debe estar entre -90 y 90';
+      this.recordValidationError(error);
+      return { valid: false, error };
     }
 
     if (lng < -180 || lng > 180) {
-      return { valid: false, error: 'Longitud debe estar entre -180 y 180' };
+      const error = 'Longitud debe estar entre -180 y 180';
+      this.recordValidationError(error);
+      return { valid: false, error };
     }
 
     if (lat === 0 && lng === 0) {
-      return {
-        valid: false,
-        error: 'Las coordenadas no pueden ser ambas cero',
-      };
+      const error = 'Las coordenadas no pueden ser ambas cero';
+      this.recordValidationError(error);
+      return { valid: false, error };
     }
 
     return { valid: true };
@@ -171,19 +203,18 @@ export class ValidationService {
     sanitized?: string;
   } {
     if (!color || !color.trim()) {
-      return { valid: false, error: 'El color es requerido' };
+      const error = 'El color es requerido';
+      this.recordValidationError(error);
+      return { valid: false, error };
     }
 
     const trimmed = color.trim().toUpperCase();
-
-    // Validar formato hexadecimal (#RGB o #RRGGBB)
     const hexRegex = /^#([A-F0-9]{3}|[A-F0-9]{6})$/i;
 
     if (!hexRegex.test(trimmed)) {
-      return {
-        valid: false,
-        error: 'Color inválido (usa formato #RRGGBB)',
-      };
+      const error = 'Color inválido (usa formato #RRGGBB)';
+      this.recordValidationError(error);
+      return { valid: false, error };
     }
 
     return { valid: true, sanitized: trimmed };
@@ -197,41 +228,37 @@ export class ValidationService {
     minPoints: number = 3
   ): { valid: boolean; error?: string } {
     if (!Array.isArray(coordinates)) {
-      return { valid: false, error: 'Las coordenadas deben ser un array' };
+      const error = 'Las coordenadas deben ser un array';
+      this.recordValidationError(error);
+      return { valid: false, error };
     }
 
     if (coordinates.length < minPoints) {
-      return {
-        valid: false,
-        error: `Se requieren al menos ${minPoints} puntos`,
-      };
+      const error = `Se requieren al menos ${minPoints} puntos`;
+      this.recordValidationError(error);
+      return { valid: false, error };
     }
 
-    // Validar cada punto
     for (let i = 0; i < coordinates.length; i++) {
       const point = coordinates[i];
-
       let lat: number, lng: number;
 
-      // Soportar diferentes formatos: [lat, lng] o {lat, lng}
       if (Array.isArray(point)) {
         [lat, lng] = point;
       } else if (point && typeof point === 'object') {
         lat = point.lat;
         lng = point.lng;
       } else {
-        return {
-          valid: false,
-          error: `Punto ${i + 1} tiene formato inválido`,
-        };
+        const error = `Punto ${i + 1} tiene formato inválido`;
+        this.recordValidationError(error);
+        return { valid: false, error };
       }
 
       const coordValidation = this.validateCoordinates(lat, lng);
       if (!coordValidation.valid) {
-        return {
-          valid: false,
-          error: `Punto ${i + 1}: ${coordValidation.error}`,
-        };
+        const error = `Punto ${i + 1}: ${coordValidation.error}`;
+        this.recordValidationError(error);
+        return { valid: false, error };
       }
     }
 
@@ -246,34 +273,22 @@ export class ValidationService {
     error?: string;
   } {
     if (!password) {
-      return { valid: false, error: 'La contraseña es requerida' };
+      const error = 'La contraseña es requerida';
+      this.recordValidationError(error);
+      return { valid: false, error };
     }
 
     if (password.length < 6) {
-      return {
-        valid: false,
-        error: 'La contraseña debe tener al menos 6 caracteres',
-      };
+      const error = 'La contraseña debe tener al menos 6 caracteres';
+      this.recordValidationError(error);
+      return { valid: false, error };
     }
 
     if (password.length > 128) {
-      return {
-        valid: false,
-        error: 'La contraseña es demasiado larga',
-      };
+      const error = 'La contraseña es demasiado larga';
+      this.recordValidationError(error);
+      return { valid: false, error };
     }
-
-    // Opcional: Validar complejidad
-    // const hasUpperCase = /[A-Z]/.test(password);
-    // const hasLowerCase = /[a-z]/.test(password);
-    // const hasNumber = /[0-9]/.test(password);
-    //
-    // if (!hasUpperCase || !hasLowerCase || !hasNumber) {
-    //   return {
-    //     valid: false,
-    //     error: 'La contraseña debe contener mayúsculas, minúsculas y números'
-    //   };
-    // }
 
     return { valid: true };
   }
@@ -284,7 +299,6 @@ export class ValidationService {
   private sanitizeString(str: string): string {
     if (!str) return '';
 
-    // Remover caracteres peligrosos
     let sanitized = str
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
@@ -292,13 +306,11 @@ export class ValidationService {
       .replace(/'/g, '&#x27;')
       .replace(/\//g, '&#x2F;');
 
-    // Remover scripts potenciales
     sanitized = sanitized.replace(
       /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
       ''
     );
 
-    // Remover event handlers
     sanitized = sanitized.replace(/on\w+\s*=\s*["'][^"']*["']/gi, '');
 
     return sanitized.trim();
@@ -327,7 +339,10 @@ export class ValidationService {
     }
 
     if (marker.lat !== undefined && marker.lng !== undefined) {
-      const coordValidation = this.validateCoordinates(marker.lat, marker.lng);
+      const coordValidation = this.validateCoordinates(
+        marker.lat,
+        marker.lng
+      );
       if (!coordValidation.valid) {
         errors.push(coordValidation.error!);
       }
@@ -340,6 +355,10 @@ export class ValidationService {
       if (!colorValidation.valid) {
         errors.push(colorValidation.error!);
       }
+    }
+
+    if (errors.length > 0) {
+      this.lastValidationErrorSignal.set(errors[0]);
     }
 
     return {
@@ -396,9 +415,38 @@ export class ValidationService {
       }
     }
 
+    if (errors.length > 0) {
+      this.lastValidationErrorSignal.set(errors[0]);
+    }
+
     return {
       valid: errors.length === 0,
       errors,
     };
+  }
+
+  /**
+   * Registra un error de validación en el historial
+   */
+  private recordValidationError(error: string): void {
+    this.lastValidationErrorSignal.set(error);
+    this.validationHistorySignal.update((history) => [
+      ...history.slice(-9),
+      error,
+    ]);
+  }
+
+  /**
+   * Limpia los errores de validación
+   */
+  clearValidationErrors(): void {
+    this.lastValidationErrorSignal.set(null);
+  }
+
+  /**
+   * Limpia el historial de validaciones
+   */
+  clearValidationHistory(): void {
+    this.validationHistorySignal.set([]);
   }
 }
