@@ -11,18 +11,13 @@
           <h3 class="user-name">{{ getUserDisplayName(user) }}</h3>
           <p class="user-email">{{ user.email }}</p>
           <!-- Mostrar organizationRole -->
-          @if (organizationRole$ | async; as orgRole) {
-            <div
-              class="user-role-badge"
-              [class]="getRoleClass(orgRole || 'user')"
-            >
+          @if (organizationRole(); as orgRole) {
+            <div class="user-role-badge" [class]="getRoleClass(orgRole || 'user')">
               <ion-icon
                 [name]="getOrganizationRoleIcon(orgRole)"
                 class="role-icon"
               ></ion-icon>
-              <span class="role-text">{{
-                getOrganizationRoleDisplayName(orgRole)
-              }}</span>
+              <span class="role-text">{{ getOrganizationRoleDisplayName(orgRole) }}</span>
             </div>
           } @else {
             <div class="user-role-badge role-user">
@@ -40,7 +35,7 @@
     @if (currentUser(); as user) {
       <div class="menu-sections">
         <!-- Organization Section -->
-        @if (currentOrganization$ | async; as organization) {
+        @if (currentOrganization(); as organization) {
           <div class="menu-section">
             <div class="section-header">
               <h4 class="section-title">
@@ -60,12 +55,8 @@
                 <div class="item-content">
                   <div class="item-title">{{ organization.name }}</div>
                   <div class="item-subtitle">
-                    {{
-                      getOrganizationRoleDisplayName(
-                        (organizationRole$ | async) || ''
-                      )
-                    }}
-                    • {{ organization.members.length }} miembros
+                    {{ getOrganizationRoleDisplayName(organizationRole()) }} •
+                    {{ organization.members.length }} miembros
                   </div>
                 </div>
                 <div class="item-actions">
@@ -76,9 +67,9 @@
 
             <!-- Organization Management (Solo para Owner/Admin/Moderator) -->
             @if (
-              (organizationRole$ | async) === 'owner' ||
-              (organizationRole$ | async) === 'admin' ||
-              (organizationRole$ | async) === 'moderator'
+              organizationRole() === 'owner' ||
+              organizationRole() === 'admin' ||
+              organizationRole() === 'moderator'
             ) {
               <ion-accordion-group>
                 <ion-accordion value="org-management">
@@ -161,7 +152,7 @@
         </div>
 
         <!-- Panel de Desarrollo (Solo para Admins) -->
-        @if (isDev$ | async) {
+        @if (isDev()) {
           <div class="menu-section">
             <div class="section-header">
               <h4 class="section-title">

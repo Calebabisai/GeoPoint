@@ -5,6 +5,7 @@ import {
   OnDestroy,
   signal,
   computed,
+  effect,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {
@@ -38,7 +39,9 @@ import {
   addOutline,
   shareOutline,
   copyOutline,
-  personAddOutline, helpOutline } from 'ionicons/icons';
+  personAddOutline,
+  helpOutline,
+} from 'ionicons/icons';
 import { AuthService } from 'src/app/auth/services/auth.service';
 import { AuthorizationService } from 'src/app/auth/services/authorization.service';
 import { OrganizationService } from '../../services/organization.service';
@@ -48,7 +51,6 @@ import {
   getUserDisplayName,
   getUserShortName,
 } from '../../models/user.model';
-import { firstValueFrom } from 'rxjs';
 
 @Component({
   selector: 'app-menu',
@@ -80,27 +82,48 @@ export class MenuComponent implements OnInit, OnDestroy {
 
   // Signals
   readonly currentUser = computed(() => this.authService.getCurrentUser()());
-readonly currentOrganization$ = this.organizationService.getCurrentOrganization();
-  readonly organizationRole = computed(() =>
-    this.organizationService.getCurrentOrganizationRole()
+  readonly currentOrganization = computed(() =>
+    this.organizationService.currentOrganization()
   );
-
-  // Observables (que aún dependen de services que retornan Observables)
-  userOrganizations$ = this.organizationService.getUserOrganizations();
+  readonly organizationRole = computed(() =>
+    this.organizationService.organizationRole()
+  );
+  readonly userOrganizations = computed(() =>
+    this.organizationService.userOrganizations()
+  );
+  readonly isDev = computed(() => {
+    return (typeof window !== 'undefined' &&
+      (window as any).forceDevelopmentMode) ||
+      false;
+  });
 
   constructor() {
-    addIcons({personOutline,helpOutline,businessOutline,settingsOutline,personAddOutline,peopleOutline,copyOutline,mailOutline,swapHorizontalOutline,ribbonOutline,addOutline,logOutOutline,shieldCheckmarkOutline,keyOutline,codeSlashOutline,shareOutline,});
+    addIcons({
+      personOutline,
+      helpOutline,
+      businessOutline,
+      settingsOutline,
+      personAddOutline,
+      peopleOutline,
+      copyOutline,
+      mailOutline,
+      swapHorizontalOutline,
+      ribbonOutline,
+      addOutline,
+      logOutOutline,
+      shieldCheckmarkOutline,
+      keyOutline,
+      codeSlashOutline,
+      shareOutline,
+    });
   }
 
   ngOnInit() {
-    // Escuchar eventos de cambio de rol
     window.addEventListener('roleChanged', this.onRoleChanged.bind(this));
-    // Escuchar eventos de cambio de organización
     window.addEventListener(
       'organizationChanged',
       this.onOrganizationChanged.bind(this)
     );
-    // Escuchar eventos de creación de organización
     window.addEventListener(
       'organizationCreated',
       this.onOrganizationChanged.bind(this)
@@ -108,7 +131,6 @@ readonly currentOrganization$ = this.organizationService.getCurrentOrganization(
   }
 
   ngOnDestroy() {
-    // Limpiar listeners
     window.removeEventListener('roleChanged', this.onRoleChanged.bind(this));
     window.removeEventListener(
       'organizationChanged',
@@ -121,14 +143,11 @@ readonly currentOrganization$ = this.organizationService.getCurrentOrganization(
   }
 
   private onRoleChanged(event: any) {
-    console.log('Menu: Role change detected', event.detail);
-    // Los computed signals se actualizan automáticamente
+    console.log('Menu: Role change detected');
   }
 
   private onOrganizationChanged(event: any) {
-    console.log('Menu: Organization change detected', event.detail);
-    // Los computed signals se actualizan automáticamente
-    console.log('Menu: Signals updated automatically');
+    console.log('Menu: Organization change detected');
   }
 
   getRoleDisplayName(role: string): string {
@@ -175,7 +194,6 @@ readonly currentOrganization$ = this.organizationService.getCurrentOrganization(
    */
   async changeRole(newRole: 'admin' | 'user') {
     try {
-      console.log(` Changing role to: ${newRole}`);
       this.authorizationService.setDevelopmentRole(newRole);
 
       const toast = await this.toastCtrl.create({
@@ -186,7 +204,7 @@ readonly currentOrganization$ = this.organizationService.getCurrentOrganization(
       });
       await toast.present();
     } catch (error) {
-      console.error(' Error changing role:', error);
+      console.error('Error changing role', error);
 
       const toast = await this.toastCtrl.create({
         message: 'Error al cambiar el rol',
@@ -239,7 +257,7 @@ readonly currentOrganization$ = this.organizationService.getCurrentOrganization(
                     description: data.description?.trim(),
                   });
 
-                this.organizationService.setCurrentOrganization(newOrg.id);
+                await this.organizationService.setCurrentOrganization(newOrg.id);
 
                 const toast = await this.toastCtrl.create({
                   message: `Organización "${newOrg.name}" creada exitosamente`,
@@ -249,7 +267,7 @@ readonly currentOrganization$ = this.organizationService.getCurrentOrganization(
                 });
                 await toast.present();
               } catch (error) {
-                console.error(' Error creating organization:', error);
+                console.error('Error creating organization', error);
 
                 const toast = await this.toastCtrl.create({
                   message: 'Error al crear la organización',
@@ -280,7 +298,6 @@ readonly currentOrganization$ = this.organizationService.getCurrentOrganization(
    * Invitar usuario a la organización
    */
   async inviteUser() {
-    console.log('🎯 Navegando al panel de gestión de invitaciones...');
     await this.menuCtrl.close();
     this.router.navigate(['/admin/email-invitations']);
   }
@@ -288,35 +305,44 @@ readonly currentOrganization$ = this.organizationService.getCurrentOrganization(
   /**
    * Copiar código de invitación
    */
-async copyInviteCode() {
-  try {
-    const currentOrg = await firstValueFrom(this.currentOrganization$);
-    if (currentOrg) {
-      await navigator.clipboard.writeText(currentOrg.code);
+  async copyInviteCode() {
+    try {
+      const currentOrg = this.currentOrganization();
+      if (currentOrg) {
+        await navigator.clipboard.writeText(currentOrg.code);
 
+        const toast = await this.toastCtrl.create({
+          message: `Código copiado: ${currentOrg.code}`,
+          duration: 2000,
+          position: 'bottom',
+          color: 'success',
+        });
+        await toast.present();
+      }
+    } catch (error) {
+      console.error('Error copying code', error);
       const toast = await this.toastCtrl.create({
-        message: `Código copiado: ${currentOrg.code}`,
-        duration: 2000,
+        message: 'Error al copiar el código',
+        duration: 3000,
         position: 'bottom',
-        color: 'success',
+        color: 'danger',
       });
       await toast.present();
     }
-  } catch (error) {
-    console.error('❌ Error copying code:', error);
-    // ... error toast
   }
-}
 
   /**
    * Obtener el nombre del rol de organización
    */
-  getOrganizationRoleDisplayName(role: string): string {
-    switch (role?.toLowerCase()) {
+  getOrganizationRoleDisplayName(role: string | null): string {
+    if (!role) return 'Miembro';
+    switch (role.toLowerCase()) {
       case 'owner':
         return 'Propietario';
       case 'admin':
         return 'Administrador';
+      case 'moderator':
+        return 'Moderador';
       case 'user':
         return 'Miembro';
       default:
@@ -327,11 +353,14 @@ async copyInviteCode() {
   /**
    * Obtener el icono del rol de organización
    */
-  getOrganizationRoleIcon(role: string): string {
-    switch (role?.toLowerCase()) {
+  getOrganizationRoleIcon(role: string | null): string {
+    if (!role) return 'people-outline';
+    switch (role.toLowerCase()) {
       case 'owner':
         return 'ribbon-outline';
       case 'admin':
+        return 'shield-checkmark-outline';
+      case 'moderator':
         return 'shield-checkmark-outline';
       case 'user':
         return 'people-outline';
@@ -350,14 +379,6 @@ async copyInviteCode() {
   }
 
   /**
-   * Abrir el gestor de invitaciones por email
-   */
-  openEmailInvitations() {
-    this.menuCtrl.close();
-    this.router.navigate(['/admin/email-invitations']);
-  }
-
-  /**
    * Abrir la gestión de usuarios
    */
   openUserManagement() {
@@ -365,7 +386,6 @@ async copyInviteCode() {
     this.router.navigate(['/admin/user-management']);
   }
 
-  // Métodos utilitarios para mostrar nombres de usuario
   getUserDisplayName(user: User | null): string {
     return getUserDisplayName(user);
   }
