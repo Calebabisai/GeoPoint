@@ -1,6 +1,4 @@
-import { Component, OnInit, OnDestroy, inject, signal, computed, effect } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { Component, inject, signal, computed} from '@angular/core';
 import {
   IonContent,
   IonHeader,
@@ -43,11 +41,12 @@ import {
   statsChartOutline,
   addCircleOutline,
 } from 'ionicons/icons';
-import { Subscription, firstValueFrom } from 'rxjs';
+import { firstValueFrom } from 'rxjs';
 import { InvitationService } from '../../../shared/services/invitation.service';
 import { OrganizationService } from '../../../shared/services/organization.service';
-import { AuthService } from '../../../auth/services/auth.service';
 import { OrganizationInvite } from '../../../shared/models/organization.model';
+import { INVITATION_MODAL_TEMPLATES } from './invitation-modal-templates';
+import { NgModel, FormsModule } from '@angular/forms';
 
 @Component({
   selector: 'app-invitation-manager',
@@ -55,7 +54,6 @@ import { OrganizationInvite } from '../../../shared/models/organization.model';
   styleUrls: ['./invitation-manager.component.scss'],
   standalone: true,
   imports: [
-    CommonModule,
     FormsModule,
     IonContent,
     IonHeader,
@@ -80,39 +78,48 @@ import { OrganizationInvite } from '../../../shared/models/organization.model';
     IonTextarea,
   ],
 })
-export class InvitationManagerComponent implements OnInit, OnDestroy {
+export class InvitationManagerComponent {
   private invitationService = inject(InvitationService);
   private organizationService = inject(OrganizationService);
   private toastController = inject(ToastController);
   private alertController = inject(AlertController);
 
-  // Estado del componente
-  inviteEmail = '';
-  inviteRole: 'admin' | 'moderator' | 'user' = 'user';
-  inviteDepartment = '';
-  inviteMessage = '';
-  loading = false;
-  pendingInvites: OrganizationInvite[] = [];
-  organizationCode = '';
-  organization: any;
+  //Signals - Formulario individual
+  inviteEmail = signal('');
+  inviteRole = signal<'admin' | 'moderator' | 'user'>('user');
+  inviteDepartment = signal('');
+  inviteMessage = signal('');
 
-  // Para invitaciones masivas
-  showBulkInvite = false;
-  bulkInviteEmails = '';
-  bulkInviteRole: 'admin' | 'moderator' | 'user' = 'user';
-  bulkInviteDepartment = '';
-  bulkInviteMessage = '';
+  // Signals - Estado general
+  isLoading = signal(false);
+  pendingInvites = signal<OrganizationInvite[]>([]);
+  organizationCode = signal('');
+  organization = signal<any>(null);
+  organizationStats = signal<any>(null);
 
-  // Estadísticas
-  organizationStats: any = null;
+    // Signals - Formulario masivo
+  showBulkInvite = signal(false);
+  bulkInviteEmails = signal('');
+  bulkInviteRole = signal<'admin' | 'moderator' | 'user'>('user');
+  bulkInviteDepartment = signal('');
+  bulkInviteMessage = signal('');
 
-  // Configuración
-  availableDepartments: string[] = [];
-  maxMembers = 100;
+  // Signals - Configuración
+  availableDepartments = signal<string[]>([]);
+  maxMembers = signal(100);
 
-  private subscriptions = new Subscription();
+  // Computed signals
+  hasPendingInvites = computed(() => this.pendingInvites().length > 0);
+  pendingInvitesCount = computed(() => this.pendingInvites().length);
+  isFormValid = computed(() => this.inviteEmail().trim().length > 0);
+  isBulkFormValid = computed(() => this.bulkInviteEmails().trim().length > 0);
 
   constructor() {
+    this.setupIcons();
+    this.initialize();
+  }
+
+  private setupIcons(): void {
     addIcons({
       personAddOutline,
       mailOutline,
@@ -131,16 +138,11 @@ export class InvitationManagerComponent implements OnInit, OnDestroy {
     });
   }
 
-  ngOnInit() {
-    console.log('📧 InvitationManager initialized');
+  private initialize(): void {
     this.loadPendingInvites();
     this.loadOrganizationCode();
     this.loadOrganizationStats();
     this.loadAvailableDepartments();
-  }
-
-  ngOnDestroy() {
-    this.subscriptions.unsubscribe();
   }
 
   /**
@@ -153,15 +155,12 @@ export class InvitationManagerComponent implements OnInit, OnDestroy {
       );
 
       if (currentOrg) {
-        this.subscriptions.add(
-          this.invitationService
-            .getOrganizationInvitations(currentOrg.id)
-            .subscribe((invites) => {
-              this.pendingInvites = invites.filter(
-                (inv) => inv.status === 'pending'
-              );
-            })
-        );
+        this.invitationService
+          .getOrganizationInvitations(currentOrg.id)
+          .subscribe((invites) => {
+            const filtered = invites.filter((inv) => inv.status === 'pending');
+            this.pendingInvites.set(filtered);
+          });
       }
     } catch (error) {
       console.error('Error loading pending invites:', error);
@@ -178,9 +177,9 @@ export class InvitationManagerComponent implements OnInit, OnDestroy {
       );
 
       if (currentOrg) {
-        this.organizationCode = currentOrg.code;
-        this.organization = currentOrg;
-        this.maxMembers = currentOrg.settings.maxMembers || 100;
+        this.organizationCode.set(currentOrg.code);
+        this.organization.set(currentOrg);
+        this.maxMembers.set(currentOrg.settings?.maxMembers || 100);
       }
     } catch (error) {
       console.error('Error loading organization code:', error);
@@ -197,189 +196,166 @@ export class InvitationManagerComponent implements OnInit, OnDestroy {
       );
 
       if (currentOrg && currentOrg.settings.departments) {
-        this.availableDepartments = currentOrg.settings.departments;
+        this.availableDepartments.set(currentOrg.settings.departments);
       } else {
-        this.availableDepartments = [
+        this.availableDepartments.set([
           'General',
           'Administración',
           'Operaciones',
           'Técnico',
-        ];
+        ]);
       }
     } catch (error) {
       console.error('Error loading departments:', error);
-      this.availableDepartments = [
+      this.availableDepartments.set([
         'General',
         'Administración',
         'Operaciones',
         'Técnico',
-      ];
+      ]);
+    }
+  }
+  /**
+   * Carga estadísticas de la organización
+   */
+  private loadOrganizationStats(): void {
+    try {
+      console.log('📊 Loading organization stats...');
+
+      const orgId = this.organization()?.id || 'org-1';
+      this.organizationService.getOrganizationStats(orgId).subscribe((stats) => {
+        this.organizationStats.set(stats);
+        console.log('✅ Organization stats loaded');
+      });
+    } catch (error) {
+      console.error('❌ Error loading organization stats:', error);
     }
   }
 
   /**
    * Envía una invitación por email
    */
-  async sendInvitation() {
-    if (!this.inviteEmail.trim()) {
+  async sendInvitation(): Promise<void> {
+    if (!this.isFormValid()) {
       await this.showToast('Por favor ingresa un email válido', 'warning');
       return;
     }
 
-    this.loading = true;
+    this.isLoading.set(true);
 
     try {
+      console.log(`📧 Sending invitation to ${this.inviteEmail()}`);
+
       const invite = await this.invitationService.sendInvitation(
-        this.inviteEmail,
-        this.inviteRole
+        this.inviteEmail(),
+        this.inviteRole()
       );
 
-      // Mostrar mensaje de éxito con diseño mejorado
+      console.log('✅ Invitation sent successfully');
+
+      // Mostrar modal de éxito
       await this.showSuccessInviteModal(invite);
 
       // Limpiar formulario
-      this.inviteEmail = '';
-      this.inviteRole = 'user';
+      this.inviteEmail.set('');
+      this.inviteRole.set('user');
 
       // Recargar invitaciones
       this.loadPendingInvites();
     } catch (error: any) {
-      console.error('Error sending invitation:', error);
+      console.error('❌ Error sending invitation:', error);
       await this.showToast(
         error.message || 'Error al enviar la invitación',
         'danger'
       );
     } finally {
-      this.loading = false;
+      this.isLoading.set(false);
     }
   }
-
   /**
-   * Muestra un modal de éxito mejorado para la invitación
+   * Procesa invitaciones masivas
    */
-  private async showSuccessInviteModal(invite: OrganizationInvite) {
-    const alert = await this.alertController.create({
-      header: '✅ Invitación Enviada',
-      subHeader: `Para: ${invite.invitedEmail}`,
-      cssClass: 'custom-alert success-alert',
-      message: `
-        <div class="success-content">
-          <div class="icon-container">
-            <ion-icon name="checkmark-circle" color="success"></ion-icon>
-          </div>
-          
-          <div class="message-section">
-            <p class="success-message">¡Invitación enviada exitosamente!</p>
-            <p class="instructions">El usuario recibirá las instrucciones por correo electrónico.</p>
-          </div>
+  async processBulkInvites(): Promise<void> {
+    if (!this.isBulkFormValid()) {
+      await this.showToast('Ingresa al menos un email', 'warning');
+      return;
+    }
 
-          <div class="code-section">
-            <p class="code-label"><strong>Código de invitación:</strong></p>
-            <div class="code-container">
-              <span class="invite-code">${invite.code}</span>
-              <ion-button fill="clear" size="small" class="copy-btn">
-                <ion-icon name="copy-outline" slot="icon-only"></ion-icon>
-              </ion-button>
-            </div>
-          </div>
+    this.isLoading.set(true);
 
-          <div class="instructions-section">
-            <p class="instructions-title"><strong>¿Cómo usar el código?</strong></p>
-            <div class="steps-container">
-              <div class="step">
-                <span class="step-number">1</span>
-                <span class="step-text">Iniciar sesión en la app</span>
-              </div>
-              <div class="step">
-                <span class="step-number">2</span>
-                <span class="step-text">Abrir el menú lateral (☰)</span>
-              </div>
-              <div class="step">
-                <span class="step-number">3</span>
-                <span class="step-text">Ir a "Gestión de Organizaciones"</span>
-              </div>
-              <div class="step">
-                <span class="step-number">4</span>
-                <span class="step-text">Seleccionar "Unirse con Código"</span>
-              </div>
-              <div class="step">
-                <span class="step-number">5</span>
-                <span class="step-text">Ingresar el código y confirmar</span>
-              </div>
-            </div>
-          </div>
+    try {
+      console.log('📧 Processing bulk invites...');
 
-          <div class="expiry-notice">
-            <ion-icon name="time-outline" color="medium"></ion-icon>
-            <span>El código expira en 7 días</span>
-          </div>
-        </div>
-      `,
-      buttons: [
-        {
-          text: 'Copiar Código',
-          cssClass: 'copy-button',
-          handler: () => {
-            this.copyToClipboard(invite.code);
-            this.showToast('Código copiado al portapapeles', 'success');
-          },
-        },
-        {
-          text: 'Entendido',
-          cssClass: 'confirm-button',
-          role: 'cancel',
-        },
-      ],
-    });
+      // Separar emails por líneas o comas
+      const emails = this.bulkInviteEmails()
+        .split(/[,\n]/)
+        .map((email) => email.trim())
+        .filter((email) => email.length > 0);
 
-    await alert.present();
+      if (emails.length === 0) {
+        await this.showToast('No se encontraron emails válidos', 'warning');
+        return;
+      }
+
+      if (emails.length > 50) {
+        await this.showToast('Máximo 50 invitaciones por lote', 'warning');
+        return;
+      }
+
+      console.log(`📧 Processing ${emails.length} invitations`);
+
+      // Preparar invitaciones
+      const invites = emails.map((email) => ({
+        email,
+        role: this.bulkInviteRole(),
+        department: this.bulkInviteDepartment() || 'General',
+        message: this.bulkInviteMessage(),
+      }));
+
+      const bulkRequest = {
+        organizationId: this.organization()?.id || 'org-1',
+        invites,
+        defaultRole: this.bulkInviteRole(),
+        defaultDepartment: this.bulkInviteDepartment() || 'General',
+        personalMessage: this.bulkInviteMessage(),
+      };
+
+      const result = await this.organizationService.processBulkInvites(
+        bulkRequest
+      );
+
+      console.log(
+        `✅ Bulk invites processed: ${result.sent.length} sent, ${result.failed.length} failed`
+      );
+
+      await this.showToast(
+        `${result.sent.length} invitaciones enviadas exitosamente`,
+        'success'
+      );
+
+      if (result.failed.length > 0) {
+        await this.showBulkInviteResults(result);
+      }
+
+      // Limpiar formulario
+      this.bulkInviteEmails.set('');
+      this.showBulkInvite.set(false);
+      this.loadPendingInvites();
+      this.loadOrganizationStats();
+    } catch (error: any) {
+      console.error('❌ Error processing bulk invites:', error);
+      await this.showToast(
+        error.message || 'Error al procesar invitaciones',
+        'danger'
+      );
+    } finally {
+      this.isLoading.set(false);
+    }
   }
-
-  /**
-   * Muestra el código de invitación en un alert
-   */
-  private async showInviteCodeAlert(invite: OrganizationInvite) {
-    const alert = await this.alertController.create({
-      header: 'Invitación Enviada',
-      subHeader: `Para: ${invite.invitedEmail}`,
-      message: `
-        <p><strong>El código de invitación es:</strong></p>
-        <p style="font-size: 1.4em; font-weight: bold; color: var(--ion-color-primary); text-align: center; padding: 10px; background: var(--ion-color-light); border-radius: 8px; margin: 10px 0;">
-          ${invite.code}
-        </p>
-        <p><strong>¿Cómo usar el código?</strong></p>
-        <ol style="text-align: left; margin: 10px 0;">
-          <li>El usuario debe iniciar sesión en la app</li>
-          <li>Abrir el menú lateral (☰)</li>
-          <li>Ir a "Gestión de Organizaciones"</li>
-          <li>Seleccionar "Unirse con Código"</li>
-          <li>Ingresar el código: <strong>${invite.code}</strong></li>
-        </ol>
-        <p style="color: var(--ion-color-medium); font-size: 0.9em;">
-          ⏰ El código expira en 7 días
-        </p>
-      `,
-      buttons: [
-        {
-          text: 'Copiar Código',
-          handler: () => {
-            this.copyToClipboard(invite.code);
-          },
-        },
-        {
-          text: 'OK',
-          role: 'cancel',
-        },
-      ],
-    });
-
-    await alert.present();
-  }
-
-  /**
+ /**
    * Cancela una invitación
    */
-  async cancelInvitation(invite: OrganizationInvite) {
+  async cancelInvitation(invite: OrganizationInvite): Promise<void> {
     const alert = await this.alertController.create({
       header: 'Cancelar Invitación',
       message: `¿Estás seguro de cancelar la invitación para ${invite.invitedEmail}?`,
@@ -392,10 +368,15 @@ export class InvitationManagerComponent implements OnInit, OnDestroy {
           text: 'Sí, Cancelar',
           handler: async () => {
             try {
+              console.log(`🚫 Canceling invitation ${invite.id}`);
+
               await this.invitationService.cancelInvitation(invite.id);
               await this.showToast('Invitación cancelada', 'success');
               this.loadPendingInvites();
+
+              console.log('✅ Invitation canceled successfully');
             } catch (error: any) {
+              console.error('❌ Error canceling invitation:', error);
               await this.showToast('Error al cancelar la invitación', 'danger');
             }
           },
@@ -409,15 +390,15 @@ export class InvitationManagerComponent implements OnInit, OnDestroy {
   /**
    * Copia el código de organización al portapapeles
    */
-  async copyOrganizationCode() {
-    await this.copyToClipboard(this.organizationCode);
+  async copyOrganizationCode(): Promise<void> {
+    await this.copyToClipboard(this.organizationCode());
     await this.showToast('Código copiado al portapapeles', 'success');
   }
 
   /**
    * Copia el código de invitación al portapapeles
    */
-  async copyInviteCode(code: string) {
+  async copyInviteCode(code: string): Promise<void> {
     await this.copyToClipboard(code);
     await this.showToast('Código de invitación copiado', 'success');
   }
@@ -425,11 +406,11 @@ export class InvitationManagerComponent implements OnInit, OnDestroy {
   /**
    * Copia texto al portapapeles
    */
-  private async copyToClipboard(text: string) {
+  private async copyToClipboard(text: string): Promise<void> {
     try {
       await navigator.clipboard.writeText(text);
     } catch (error) {
-      console.error('Error copying to clipboard:', error);
+      console.error('❌ Error copying to clipboard:', error);
       // Fallback para navegadores que no soportan clipboard API
       const textArea = document.createElement('textarea');
       textArea.value = text;
@@ -441,35 +422,52 @@ export class InvitationManagerComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * Alterna la vista de invitaciones masivas
+   */
+  toggleBulkInvite(): void {
+    this.showBulkInvite.update((value) => !value);
+    if (!this.showBulkInvite()) {
+      this.bulkInviteEmails.set('');
+      this.bulkInviteRole.set('user');
+      this.bulkInviteDepartment.set('');
+      this.bulkInviteMessage.set('');
+    }
+  }
+
+  /**
    * Obtiene el color del chip según el rol
    */
   getRoleColor(role: string): string {
-    switch (role) {
-      case 'admin':
-        return 'warning';
-      case 'moderator':
-        return 'secondary';
-      case 'user':
-        return 'primary';
-      default:
-        return 'medium';
-    }
+    const colors: Record<string, string> = {
+      admin: 'warning',
+      moderator: 'secondary',
+      user: 'primary',
+    };
+    return colors[role] || 'medium';
   }
 
   /**
    * Obtiene el nombre del rol para mostrar
    */
   getRoleDisplayName(role: string): string {
-    switch (role) {
-      case 'admin':
-        return 'Administrador';
-      case 'moderator':
-        return 'Moderador';
-      case 'user':
-        return 'Usuario';
-      default:
-        return role;
-    }
+    const names: Record<string, string> = {
+      admin: 'Administrador',
+      moderator: 'Moderador',
+      user: 'Usuario',
+    };
+    return names[role] || role;
+  }
+
+  /**
+   * Obtiene el icono para el rol
+   */
+  getRoleIcon(role: string): string {
+    const icons: Record<string, string> = {
+      admin: 'shield-checkmark-outline',
+      moderator: 'people-outline',
+      user: 'person-outline',
+    };
+    return icons[role] || 'person-outline';
   }
 
   /**
@@ -490,110 +488,56 @@ export class InvitationManagerComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Muestra un toast
+   * Formatea el porcentaje de crecimiento
    */
-  private async showToast(message: string, color: string = 'primary') {
-    const toast = await this.toastController.create({
-      message,
-      duration: 3000,
-      color,
-      position: 'top',
-      cssClass: 'custom-toast',
-    });
-    await toast.present();
+  formatGrowthPercentage(growth: number): string {
+    if (growth > 0) return `+${growth}%`;
+    if (growth < 0) return `${growth}%`;
+    return '0%';
   }
 
   /**
-   * Alterna la vista de invitaciones masivas
+   * Obtiene el color del crecimiento
    */
-  toggleBulkInvite() {
-    this.showBulkInvite = !this.showBulkInvite;
-    if (this.showBulkInvite) {
-      this.bulkInviteEmails = '';
-      this.bulkInviteRole = 'user';
-      this.bulkInviteDepartment = '';
-      this.bulkInviteMessage = '';
-    }
+  getGrowthColor(growth: number): string {
+    if (growth > 0) return 'success';
+    if (growth < 0) return 'danger';
+    return 'medium';
   }
 
-  /**
-   * Procesa invitaciones masivas
-   */
-  async processBulkInvites() {
-    if (!this.bulkInviteEmails.trim()) {
-      await this.showToast('Ingresa al menos un email', 'warning');
-      return;
-    }
+  private async showSuccessInviteModal(
+  invite: OrganizationInvite
+): Promise<void> {
+  const alert = await this.alertController.create({
+    header: '✅ Invitación Enviada',
+    subHeader: `Para: ${invite.invitedEmail}`,
+    cssClass: 'custom-alert success-alert',
+    message: INVITATION_MODAL_TEMPLATES.successModal(invite.code),
+    buttons: [
+      {
+        text: 'Copiar Código',
+        cssClass: 'copy-button',
+        handler: () => {
+          this.copyToClipboard(invite.code);
+          this.showToast('Código copiado al portapapeles', 'success');
+        },
+      },
+      {
+        text: 'Entendido',
+        cssClass: 'confirm-button',
+        role: 'cancel',
+      },
+    ],
+  });
 
-    this.loading = true;
+  await alert.present();
+}
 
-    try {
-      // Separar emails por líneas o comas
-      const emails = this.bulkInviteEmails
-        .split(/[,\n]/)
-        .map((email) => email.trim())
-        .filter((email) => email.length > 0);
-
-      if (emails.length === 0) {
-        await this.showToast('No se encontraron emails válidos', 'warning');
-        return;
-      }
-
-      if (emails.length > 50) {
-        await this.showToast('Máximo 50 invitaciones por lote', 'warning');
-        return;
-      }
-
-      // Preparar invitaciones
-      const invites = emails.map((email) => ({
-        email,
-        role: this.bulkInviteRole,
-        department: this.bulkInviteDepartment || 'General',
-        message: this.bulkInviteMessage,
-      }));
-
-      const bulkRequest = {
-        organizationId: this.organization?.id || 'org-1',
-        invites,
-        defaultRole: this.bulkInviteRole,
-        defaultDepartment: this.bulkInviteDepartment || 'General',
-        personalMessage: this.bulkInviteMessage,
-      };
-
-      const result = await this.organizationService.processBulkInvites(
-        bulkRequest
-      );
-
-      await this.showToast(
-        `${result.sent.length} invitaciones enviadas exitosamente`,
-        'success'
-      );
-
-      if (result.failed.length > 0) {
-        await this.showBulkInviteResults(result);
-      }
-
-      // Limpiar formulario y recargar
-      this.bulkInviteEmails = '';
-      this.showBulkInvite = false;
-      this.loadPendingInvites();
-      this.loadOrganizationStats();
-    } catch (error: any) {
-      console.error('Error processing bulk invites:', error);
-      await this.showToast(
-        error.message || 'Error al procesar invitaciones',
-        'danger'
-      );
-    } finally {
-      this.loading = false;
-    }
-  }
-
-  /**
+ /**
    * Muestra los resultados de invitaciones masivas
    */
-  private async showBulkInviteResults(result: any) {
-    const successCount = result.successful.length;
+  private async showBulkInviteResults(result: any): Promise<void> {
+    const successCount = result.sent.length;
     const failCount = result.failed.length;
 
     let message = `✅ ${successCount} invitaciones enviadas\n`;
@@ -619,52 +563,17 @@ export class InvitationManagerComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Carga estadísticas de la organización
+   * Muestra un toast
    */
-  private async loadOrganizationStats() {
-    try {
-      const orgId = this.organization?.id || 'org-1';
-      this.organizationService
-        .getOrganizationStats(orgId)
-        .subscribe((stats) => {
-          this.organizationStats = stats;
-        });
-    } catch (error) {
-      console.error('Error loading organization stats:', error);
-    }
-  }
-
-  /**
-   * Obtiene el icono para el rol
-   */
-  getRoleIcon(role: string): string {
-    switch (role) {
-      case 'admin':
-        return 'shield-checkmark-outline';
-      case 'moderator':
-        return 'people-outline';
-      case 'user':
-        return 'person-outline';
-      default:
-        return 'person-outline';
-    }
-  }
-
-  /**
-   * Formatea el porcentaje de crecimiento
-   */
-  formatGrowthPercentage(growth: number): string {
-    if (growth > 0) return `+${growth}%`;
-    if (growth < 0) return `${growth}%`;
-    return '0%';
-  }
-
-  /**
-   * Obtiene el color del crecimiento
-   */
-  getGrowthColor(growth: number): string {
-    if (growth > 0) return 'success';
-    if (growth < 0) return 'danger';
-    return 'medium';
+  private async showToast(message: string, color: string = 'primary'): Promise<void> {
+    const toast = await this.toastController.create({
+      message,
+      duration: 3000,
+      color,
+      position: 'top',
+      cssClass: 'custom-toast',
+    });
+    await toast.present();
   }
 }
+
