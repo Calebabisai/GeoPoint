@@ -1,40 +1,43 @@
-import { ErrorHandler, Injectable, inject } from '@angular/core';
+import { ErrorHandler, Injectable, inject, signal, computed } from '@angular/core';
 import { environment } from '../../../environments/environment';
 import { ToastController } from '@ionic/angular/standalone';
 
 /**
  * Manejador global de errores para la aplicación
- * Captura errores no manejados y los procesa de forma segura
  */
 @Injectable()
 export class GlobalErrorHandler implements ErrorHandler {
   private toastCtrl = inject(ToastController);
-  private toastQueue: string[] = [];
-  private showingToast = false;
+
+  // Signals
+  private errorCountSignal = signal(0);
+  private lastErrorSignal = signal<string | null>(null);
+  private isProcessingToastSignal = signal(false);
+  private toastQueueSignal = signal<string[]>([]);
+
+  // Readonly exports
+  readonly errorCount = this.errorCountSignal.asReadonly();
+  readonly lastError = this.lastErrorSignal.asReadonly();
+  readonly isProcessingToast = this.isProcessingToastSignal.asReadonly();
+
+  // Computed signals
+  readonly hasErrors = computed(() => this.errorCountSignal() > 0);
+  readonly queueLength = computed(() => this.toastQueueSignal().length);
 
   async handleError(error: any): Promise<void> {
-    // Extraer mensaje de error
     const errorMessage = this.getErrorMessage(error);
-    const errorStack = error?.stack;
 
-    // En producción, solo mostrar mensaje genérico
+    this.errorCountSignal.update((count) => count + 1);
+    this.lastErrorSignal.set(errorMessage);
+
     if (environment.production) {
       console.error('Error:', errorMessage);
-
-      // Aquí puedes enviar el error a un servicio de monitoreo
-      // como Firebase Crashlytics, Sentry, etc.
       this.reportErrorToMonitoring(error);
-
-      // Mostrar mensaje amigable al usuario
       await this.showUserFriendlyError(error);
     } else {
-      // En desarrollo, mostrar todo el detalle
-      console.error('❌ Error capturado por GlobalErrorHandler:');
-      console.error('Mensaje:', errorMessage);
-      console.error('Stack:', errorStack);
+      console.error('Error capturado:', errorMessage);
+      console.error('Stack:', error?.stack);
       console.error('Error completo:', error);
-
-      // También mostrar en UI para desarrollo
       await this.showDevelopmentError(errorMessage);
     }
   }
@@ -47,24 +50,18 @@ export class GlobalErrorHandler implements ErrorHandler {
       return 'Error desconocido';
     }
 
-    // Error de Firebase
     if (error.code) {
       return this.getFirebaseErrorMessage(error.code);
     }
 
-    // Error HTTP
     if (error.status) {
-      return `Error HTTP ${error.status}: ${
-        error.statusText || 'Error de red'
-      }`;
+      return `Error HTTP ${error.status}: ${error.statusText || 'Error de red'}`;
     }
 
-    // Error estándar
     if (error.message) {
       return error.message;
     }
 
-    // Error como string
     if (typeof error === 'string') {
       return error;
     }
@@ -73,7 +70,7 @@ export class GlobalErrorHandler implements ErrorHandler {
   }
 
   /**
-   * Traduce códigos de error de Firebase a mensajes amigables
+   * Traduce códigos de error de Firebase
    */
   private getFirebaseErrorMessage(code: string): string {
     const errorMessages: { [key: string]: string } = {
@@ -96,12 +93,11 @@ export class GlobalErrorHandler implements ErrorHandler {
   }
 
   /**
-   * Muestra un mensaje amigable al usuario en producción
+   * Muestra mensaje amigable al usuario en producción
    */
   private async showUserFriendlyError(error: any): Promise<void> {
     let userMessage = 'Ha ocurrido un error. Por favor, intenta nuevamente.';
 
-    // Personalizar mensaje según el tipo de error
     if (error?.code?.includes('auth/')) {
       userMessage = this.getFirebaseErrorMessage(error.code);
     } else if (error?.code === 'permission-denied') {
@@ -128,15 +124,12 @@ export class GlobalErrorHandler implements ErrorHandler {
   }
 
   /**
-   * Cola de toasts para evitar múltiples toasts simultáneos
+   * Cola de toasts para evitar múltiples simultáneos
    */
-  private async queueToast(
-    message: string,
-    color: string = 'danger'
-  ): Promise<void> {
-    this.toastQueue.push(message);
+  private async queueToast(message: string, color: string = 'danger'): Promise<void> {
+    this.toastQueueSignal.update((queue) => [...queue, message]);
 
-    if (!this.showingToast) {
+    if (!this.isProcessingToastSignal()) {
       await this.processToastQueue(color);
     }
   }
@@ -145,11 +138,15 @@ export class GlobalErrorHandler implements ErrorHandler {
    * Procesa la cola de toasts
    */
   private async processToastQueue(color: string): Promise<void> {
-    this.showingToast = true;
+    this.isProcessingToastSignal.set(true);
 
-    while (this.toastQueue.length > 0) {
-      const message = this.toastQueue.shift();
+    while (this.queueLength() > 0) {
+      const currentQueue = this.toastQueueSignal();
+      const message = currentQueue[0];
+
       if (message) {
+        this.toastQueueSignal.update((queue) => queue.slice(1));
+
         const toast = await this.toastCtrl.create({
           message,
           duration: 3000,
@@ -162,37 +159,40 @@ export class GlobalErrorHandler implements ErrorHandler {
             },
           ],
         });
+
         await toast.present();
         await toast.onDidDismiss();
       }
     }
 
-    this.showingToast = false;
+    this.isProcessingToastSignal.set(false);
   }
 
   /**
-   * Reporta el error a un servicio de monitoreo
+   * Reporta el error a servicio de monitoreo
    * TODO: Implementar con Firebase Crashlytics, Sentry, etc.
    */
   private reportErrorToMonitoring(error: any): void {
-    // Aquí puedes integrar con servicios como:
-    // - Firebase Crashlytics
-    // - Sentry
-    // - Bugsnag
-    // - etc.
-
-    // Ejemplo con Firebase Crashlytics (requiere instalación):
-    // import { FirebaseCrashlytics } from '@capacitor-firebase/crashlytics';
-    // FirebaseCrashlytics.recordException({ message: error.message, stacktrace: error.stack });
-
-    // Por ahora solo guardamos en consola
     if (environment.production) {
-      // En producción, enviar a servicio de monitoreo
       console.error('[Monitoring]', {
         message: error.message,
         code: error.code,
         timestamp: new Date().toISOString(),
       });
     }
+  }
+
+  /**
+   * Resetea el contador de errores
+   */
+  resetErrorCount(): void {
+    this.errorCountSignal.set(0);
+  }
+
+  /**
+   * Limpia el último error
+   */
+  clearLastError(): void {
+    this.lastErrorSignal.set(null);
   }
 }

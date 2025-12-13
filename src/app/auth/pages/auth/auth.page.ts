@@ -1,5 +1,4 @@
 import { Component, inject, effect } from '@angular/core';
-import { CommonModule } from '@angular/common';
 import { IonContent, IonButton, IonIcon } from '@ionic/angular/standalone';
 import { RouterModule, Router } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
@@ -15,7 +14,7 @@ import {
 @Component({
   selector: 'app-auth',
   standalone: true,
-  imports: [CommonModule, IonContent, IonButton, IonIcon, RouterModule],
+  imports: [IonContent, IonButton, IonIcon, RouterModule],
   templateUrl: './auth.page.html',
   styleUrls: ['./auth.page.scss'],
 })
@@ -33,7 +32,7 @@ export class AuthPage {
     });
 
     effect(() => {
-      const user = this.authService.getCurrentUser();
+      const user = this.authService.getCurrentUser()();
       if(user) {
         this.router.navigate(['/map'])
       }

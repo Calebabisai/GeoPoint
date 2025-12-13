@@ -3,7 +3,8 @@ import {
   inject,
   OnInit,
   OnDestroy,
-  ChangeDetectorRef,
+  signal,
+  computed,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {
@@ -17,8 +18,6 @@ import {
   IonBadge,
   IonAccordion,
   IonAccordionGroup,
-  IonSelect,
-  IonSelectOption,
   ToastController,
   AlertController,
   MenuController,
@@ -39,19 +38,17 @@ import {
   addOutline,
   shareOutline,
   copyOutline,
-  personAddOutline,
-} from 'ionicons/icons';
+  personAddOutline, helpOutline } from 'ionicons/icons';
 import { AuthService } from 'src/app/auth/services/auth.service';
 import { AuthorizationService } from 'src/app/auth/services/authorization.service';
 import { OrganizationService } from '../../services/organization.service';
 import { Router } from '@angular/router';
-import { Observable, Subscription, firstValueFrom } from 'rxjs';
 import {
   User,
   getUserDisplayName,
   getUserShortName,
 } from '../../models/user.model';
-import { Organization } from '../../models/organization.model';
+import { firstValueFrom } from 'rxjs';
 
 @Component({
   selector: 'app-menu',
@@ -77,46 +74,22 @@ export class MenuComponent implements OnInit, OnDestroy {
   private authorizationService = inject(AuthorizationService);
   private organizationService = inject(OrganizationService);
   private router = inject(Router);
-  private cdr = inject(ChangeDetectorRef);
   private toastCtrl = inject(ToastController);
   private alertCtrl = inject(AlertController);
   private menuCtrl = inject(MenuController);
 
-  currentUser$: Observable<User | null>;
-  isDev$: Observable<boolean>;
-  currentOrganization$: Observable<Organization | null>;
-  userOrganizations$: Observable<Organization[]>;
-  organizationRole$: Observable<
-    'owner' | 'admin' | 'moderator' | 'user' | null
-  >;
-  private roleChangeSubscription?: Subscription;
+  // Signals
+  readonly currentUser = computed(() => this.authService.getCurrentUser()());
+readonly currentOrganization$ = this.organizationService.getCurrentOrganization();
+  readonly organizationRole = computed(() =>
+    this.organizationService.getCurrentOrganizationRole()
+  );
+
+  // Observables (que aún dependen de services que retornan Observables)
+  userOrganizations$ = this.organizationService.getUserOrganizations();
 
   constructor() {
-    addIcons({
-      logOutOutline,
-      personOutline,
-      mailOutline,
-      shieldCheckmarkOutline,
-      ribbonOutline,
-      keyOutline,
-      peopleOutline,
-      codeSlashOutline,
-      settingsOutline,
-      swapHorizontalOutline,
-      businessOutline,
-      addOutline,
-      shareOutline,
-      copyOutline,
-      personAddOutline,
-    });
-
-    this.currentUser$ = this.authorizationService.getCurrentUser();
-    this.isDev$ = this.authorizationService.isDev();
-    this.currentOrganization$ =
-      this.organizationService.getCurrentOrganization();
-    this.userOrganizations$ = this.organizationService.getUserOrganizations();
-    this.organizationRole$ =
-      this.organizationService.getCurrentOrganizationRole();
+    addIcons({personOutline,helpOutline,businessOutline,settingsOutline,personAddOutline,peopleOutline,copyOutline,mailOutline,swapHorizontalOutline,ribbonOutline,addOutline,logOutOutline,shieldCheckmarkOutline,keyOutline,codeSlashOutline,shareOutline,});
   }
 
   ngOnInit() {
@@ -132,8 +105,6 @@ export class MenuComponent implements OnInit, OnDestroy {
       'organizationCreated',
       this.onOrganizationChanged.bind(this)
     );
-
-    console.log('🎯 Menu: Listening for organization events');
   }
 
   ngOnDestroy() {
@@ -147,29 +118,17 @@ export class MenuComponent implements OnInit, OnDestroy {
       'organizationCreated',
       this.onOrganizationChanged.bind(this)
     );
-    if (this.roleChangeSubscription) {
-      this.roleChangeSubscription.unsubscribe();
-    }
   }
 
   private onRoleChanged(event: any) {
-    console.log('🔄 Menu: Role change detected', event.detail);
-    // Forzar actualización del observable
-    this.currentUser$ = this.authorizationService.getCurrentUser();
-    this.isDev$ = this.authorizationService.isDev();
-    this.cdr.detectChanges();
+    console.log('Menu: Role change detected', event.detail);
+    // Los computed signals se actualizan automáticamente
   }
 
   private onOrganizationChanged(event: any) {
-    console.log('🏢 Menu: Organization change detected', event.detail);
-    // Forzar actualización de observables de organización
-    this.currentOrganization$ =
-      this.organizationService.getCurrentOrganization();
-    this.userOrganizations$ = this.organizationService.getUserOrganizations();
-    this.organizationRole$ =
-      this.organizationService.getCurrentOrganizationRole();
-    this.cdr.detectChanges();
-    console.log('✅ Menu: Observables updated and change detection triggered');
+    console.log('Menu: Organization change detected', event.detail);
+    // Los computed signals se actualizan automáticamente
+    console.log('Menu: Signals updated automatically');
   }
 
   getRoleDisplayName(role: string): string {
@@ -211,10 +170,12 @@ export class MenuComponent implements OnInit, OnDestroy {
     }
   }
 
-  // Cambiar rol (solo disponible para admins)
+  /**
+   * Cambiar rol (solo disponible para admins)
+   */
   async changeRole(newRole: 'admin' | 'user') {
     try {
-      console.log(`🔄 Changing role to: ${newRole}`);
+      console.log(` Changing role to: ${newRole}`);
       this.authorizationService.setDevelopmentRole(newRole);
 
       const toast = await this.toastCtrl.create({
@@ -225,7 +186,7 @@ export class MenuComponent implements OnInit, OnDestroy {
       });
       await toast.present();
     } catch (error) {
-      console.error('❌ Error changing role:', error);
+      console.error(' Error changing role:', error);
 
       const toast = await this.toastCtrl.create({
         message: 'Error al cambiar el rol',
@@ -236,8 +197,6 @@ export class MenuComponent implements OnInit, OnDestroy {
       await toast.present();
     }
   }
-
-  // === MÉTODOS DE ORGANIZACIÓN ===
 
   /**
    * Crear nueva organización
@@ -280,7 +239,6 @@ export class MenuComponent implements OnInit, OnDestroy {
                     description: data.description?.trim(),
                   });
 
-                // Cambiar a la nueva organización
                 this.organizationService.setCurrentOrganization(newOrg.id);
 
                 const toast = await this.toastCtrl.create({
@@ -291,7 +249,7 @@ export class MenuComponent implements OnInit, OnDestroy {
                 });
                 await toast.present();
               } catch (error) {
-                console.error('❌ Error creating organization:', error);
+                console.error(' Error creating organization:', error);
 
                 const toast = await this.toastCtrl.create({
                   message: 'Error al crear la organización',
@@ -319,7 +277,7 @@ export class MenuComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Invitar usuario a la organización - Redirige al panel de gestión de invitaciones
+   * Invitar usuario a la organización
    */
   async inviteUser() {
     console.log('🎯 Navegando al panel de gestión de invitaciones...');
@@ -330,33 +288,25 @@ export class MenuComponent implements OnInit, OnDestroy {
   /**
    * Copiar código de invitación
    */
-  async copyInviteCode() {
-    try {
-      // ✅ Reemplazado toPromise() por firstValueFrom()
-      const currentOrg = await firstValueFrom(this.currentOrganization$);
-      if (currentOrg) {
-        await navigator.clipboard.writeText(currentOrg.code);
-
-        const toast = await this.toastCtrl.create({
-          message: `Código copiado: ${currentOrg.code}`,
-          duration: 2000,
-          position: 'bottom',
-          color: 'success',
-        });
-        await toast.present();
-      }
-    } catch (error) {
-      console.error('❌ Error copying code:', error);
+async copyInviteCode() {
+  try {
+    const currentOrg = await firstValueFrom(this.currentOrganization$);
+    if (currentOrg) {
+      await navigator.clipboard.writeText(currentOrg.code);
 
       const toast = await this.toastCtrl.create({
-        message: 'Error al copiar el código',
+        message: `Código copiado: ${currentOrg.code}`,
         duration: 2000,
         position: 'bottom',
-        color: 'danger',
+        color: 'success',
       });
       await toast.present();
     }
+  } catch (error) {
+    console.error('❌ Error copying code:', error);
+    // ... error toast
   }
+}
 
   /**
    * Obtener el nombre del rol de organización
@@ -403,15 +353,15 @@ export class MenuComponent implements OnInit, OnDestroy {
    * Abrir el gestor de invitaciones por email
    */
   openEmailInvitations() {
-    this.menuCtrl.close(); // Cerrar el menú
+    this.menuCtrl.close();
     this.router.navigate(['/admin/email-invitations']);
   }
 
   /**
-   * Abrir la gestión de usuarios (solo para administradores)
+   * Abrir la gestión de usuarios
    */
   openUserManagement() {
-    this.menuCtrl.close(); // Cerrar el menú
+    this.menuCtrl.close();
     this.router.navigate(['/admin/user-management']);
   }
 
@@ -424,7 +374,9 @@ export class MenuComponent implements OnInit, OnDestroy {
     return getUserShortName(user);
   }
 
-  // Obtener las iniciales del nombre para el avatar
+  /**
+   * Obtener las iniciales del nombre para el avatar
+   */
   getUserInitials(user: User | null): string {
     if (!user) return 'U';
 

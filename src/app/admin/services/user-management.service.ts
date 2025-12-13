@@ -1,5 +1,4 @@
-import { Injectable, signal, computed } from '@angular/core';
-import { firstValueFrom } from 'rxjs';
+import { Injectable, signal, computed, inject } from '@angular/core';
 import {
   Firestore,
   collection,
@@ -38,32 +37,42 @@ export interface UserRoleChangeRequest {
   providedIn: 'root',
 })
 export class UserManagementService {
-  //signals
 
+  private firestore = inject(Firestore);
+  private authService = inject(AuthService);
+  private authorizationService = inject(AuthorizationService);
+  private organizationService = inject(OrganizationService);
+
+  // Signals
   private userSignal = signal<UserWithOrganization[]>([]);
   private isLoadingSignal = signal<boolean>(false);
   private errorSignal = signal<string | null>(null);
-  //Private readonly signals
+
+  // Readonly exports
   readonly users = this.userSignal.asReadonly();
   readonly isLoading = this.isLoadingSignal.asReadonly();
   readonly error = this.errorSignal.asReadonly();
-  //Computed signals
+
+  // Computed signals
   readonly totalUsers = computed(() => this.userSignal().length);
   readonly adminUsers = computed(
-    () => this.userSignal().filter((user) => user.role === 'admin').length);
+    () => this.userSignal().filter((user) => user.role === 'admin').length
+  );
   readonly regularUsers = computed(
-    () => this.userSignal().filter((user) => user.role === 'user').length);
-  readonly userWithOrganizations = computed(
-    () => this.userSignal().filter((user) => !user.organizationId).length);
+    () => this.userSignal().filter((user) => user.role === 'user').length
+  );
+  readonly usersWithoutOrganization = computed(
+    () => this.userSignal().filter((user) => !user.organizationId).length
+  );
   readonly recentlyActive = computed(() => {
     const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
     return this.userSignal().filter(
-      (user) => user.lastActivity && user.lastActivity.getTime() > oneDayAgo).length;
+      (user) =>
+        user.lastActivity && user.lastActivity.getTime() > oneDayAgo
+    ).length;
   });
 
-
-
-// Data de desarrollo
+  // Data de desarrollo
   private readonly developmentUsers: UserWithOrganization[] = [
     {
       uid: 'admin-user-1',
@@ -122,16 +131,10 @@ export class UserManagementService {
     },
   ];
 
-  constructor(
-    private firestore: Firestore,
-    private authService: AuthService,
-    private authorizationService: AuthorizationService,
-    private organizationService: OrganizationService
-  ) {
+  constructor() {
     console.log(' UserManagementService initialized');
     this.userSignal.set(this.developmentUsers);
   }
-
 
   /**
    * Obtiene todos los usuarios del sistema (requiere permisos de admin)
@@ -141,8 +144,8 @@ export class UserManagementService {
     this.errorSignal.set(null);
 
     try {
-      const hasPermission = await firstValueFrom(
-        this.authorizationService.hasPermission('manage-users')
+      const hasPermission = this.authorizationService.hasPermission(
+        'manage-users'
       );
 
       if (!hasPermission) {
@@ -152,7 +155,6 @@ export class UserManagementService {
       const usersCollection = collection(this.firestore, 'users');
       const usersQuery = query(usersCollection, orderBy('createdAt', 'desc'));
       const snapshot = await getDocs(usersQuery);
-
 
       const users = this.mapFirebaseUsersToOrganizationUsers(snapshot.docs);
       this.userSignal.set(users);
@@ -167,23 +169,25 @@ export class UserManagementService {
     }
   }
 
-/**
- * Obtiene usuarios de la organización actual
- */
+  /**
+   * Obtiene usuarios de la organización actual
+   */
   async getSimpleOrganizationUsers(): Promise<UserWithOrganization[]> {
     this.isLoadingSignal.set(true);
     this.errorSignal.set(null);
+
     try {
       const auth = getAuth();
       const currentAuthUser = auth.currentUser;
 
-      if(!currentAuthUser) {
+      if (!currentAuthUser) {
         this.userSignal.set([]);
         return [];
       }
-      // Obtener datos del usuario desde Firestore
+
       const userDoc = doc(this.firestore, 'users', currentAuthUser.uid);
       const userSnapshot = await getDoc(userDoc);
+
       if (!userSnapshot.exists()) {
         this.userSignal.set([]);
         return [];
@@ -197,8 +201,6 @@ export class UserManagementService {
         return [];
       }
 
-
-      // Query de usuarios de la organización
       const usersCollection = collection(this.firestore, 'users');
       const orgUsersQuery = query(
         usersCollection,
@@ -214,7 +216,6 @@ export class UserManagementService {
         return firebaseUsers;
       }
 
-      // Fallback a datos de desarrollo
       const orgUsers = this.developmentUsers.slice();
       this.userSignal.set(orgUsers);
       return orgUsers;
@@ -222,16 +223,15 @@ export class UserManagementService {
       console.error(' Error in getSimpleOrganizationUsers:', error);
       this.errorSignal.set('Error cargando usuarios');
 
-      // Fallback final
       const emptyList: UserWithOrganization[] = [];
       this.userSignal.set(emptyList);
       return emptyList;
     } finally {
       this.isLoadingSignal.set(false);
-    }      
-}
+    }
+  }
 
-/**
+  /**
    * Obtiene usuarios de la organización actual con verificación de permisos
    */
   async getOrganizationUsers(): Promise<UserWithOrganization[]> {
@@ -239,16 +239,14 @@ export class UserManagementService {
     this.errorSignal.set(null);
 
     try {
+      const currentUser = this.authService.getCurrentUser()();
 
-      const currentUser = await firstValueFrom(
-        this.authService.getCurrentUser()
-      );
       if (!currentUser) {
         throw new Error('Usuario no autenticado');
       }
 
-      const hasAdminPermission = await firstValueFrom(
-        this.authorizationService.hasPermission('manage-users')
+      const hasAdminPermission = this.authorizationService.hasPermission(
+        'manage-users'
       );
 
       if (!hasAdminPermission || currentUser.role !== 'admin') {
@@ -271,9 +269,6 @@ export class UserManagementService {
       );
 
       const snapshot = await getDocs(orgQuery);
-      console.log(
-        `🔥 Found ${snapshot.docs.length} users in Firebase for organization`
-      );
 
       if (snapshot.docs.length > 0) {
         const firebaseUsers = snapshot.docs.map((doc) => {
@@ -297,7 +292,7 @@ export class UserManagementService {
       this.userSignal.set(devUsersForOrg);
       return devUsersForOrg;
     } catch (error) {
-      console.error(' Error getting organization users:', error);
+      console.error('❌ Error getting organization users:', error);
       this.errorSignal.set('Error al obtener usuarios de la organización');
       this.userSignal.set([]);
       return [];
@@ -306,7 +301,7 @@ export class UserManagementService {
     }
   }
 
-   /**
+  /**
    * Actualiza el rol de organización de un usuario
    */
   async updateUserOrganizationRole(
@@ -314,15 +309,14 @@ export class UserManagementService {
     newRole: 'owner' | 'admin' | 'moderator' | 'user'
   ): Promise<void> {
     try {
-      const currentUser = await firstValueFrom(
-        this.authService.getCurrentUser()
-      );
+      const currentUser = this.authService.getCurrentUser()();
+
       if (!currentUser) {
         throw new Error('Usuario no autenticado');
       }
 
-      const hasPermission = await firstValueFrom(
-        this.authorizationService.hasPermission('manage-users')
+      const hasPermission = this.authorizationService.hasPermission(
+        'manage-users'
       );
 
       if (!hasPermission || currentUser.role !== 'admin') {
@@ -335,7 +329,6 @@ export class UserManagementService {
         throw new Error('No puedes cambiar tu propio rol');
       }
 
-      // Actualizar en Firebase
       const userDoc = doc(this.firestore, 'users', userId);
       await updateDoc(userDoc, {
         organizationRole: newRole,
@@ -344,17 +337,14 @@ export class UserManagementService {
         roleUpdatedAt: new Date(),
       });
 
-
-      // Actualizar en el signal localmente
       const updatedUsers = this.userSignal().map((u) =>
         u.uid === userId ? { ...u, organizationRole: newRole } : u
       );
       this.userSignal.set(updatedUsers);
 
-      // Recargar usuarios
       await this.getOrganizationUsers();
     } catch (error) {
-      console.error('Error updating user organization role:', error);
+      console.error(' Error updating user organization role:', error);
       this.errorSignal.set('Error al actualizar el rol del usuario');
       throw error;
     }
@@ -365,15 +355,14 @@ export class UserManagementService {
    */
   async removeUserFromOrganization(userId: string): Promise<void> {
     try {
-      const currentUser = await firstValueFrom(
-        this.authService.getCurrentUser()
-      );
+      const currentUser = this.authService.getCurrentUser()();
+
       if (!currentUser) {
         throw new Error('Usuario no autenticado');
       }
 
-      const hasPermission = await firstValueFrom(
-        this.authorizationService.hasPermission('manage-users')
+      const hasPermission = this.authorizationService.hasPermission(
+        'manage-users'
       );
 
       if (!hasPermission || currentUser.role !== 'admin') {
@@ -386,10 +375,6 @@ export class UserManagementService {
         throw new Error('No puedes removerte a ti mismo de la organización');
       }
 
-      console.log(
-        ` Removing user ${userId} from organization`
-      );
-
       const userDoc = doc(this.firestore, 'users', userId);
       await updateDoc(userDoc, {
         organizationId: null,
@@ -398,19 +383,19 @@ export class UserManagementService {
         removedFromOrgAt: new Date(),
       });
 
-
-      // Actualizar signal localmente
-      const updatedUsers = this.userSignal().filter((user) => user.uid !== userId);
+      const updatedUsers = this.userSignal().filter(
+        (user) => user.uid !== userId
+      );
       this.userSignal.set(updatedUsers);
 
-      // Recargar usuarios
       await this.getOrganizationUsers();
     } catch (error) {
-      console.error('Error removing user from organization:', error);
+      console.error(' Error removing user from organization:', error);
       this.errorSignal.set('Error al eliminar el usuario');
       throw error;
     }
   }
+
   /**
    * Establece usuarios directamente (para debug)
    */
@@ -422,12 +407,15 @@ export class UserManagementService {
    * Métodos privados auxiliares
    */
 
-  private mapFirebaseUsersToOrganizationUsers(docs: any[]): UserWithOrganization[] {
+  private mapFirebaseUsersToOrganizationUsers(
+    docs: any[]
+  ): UserWithOrganization[] {
     return docs.map((doc) => {
       const userData = { uid: doc.id, ...doc.data() } as User;
       const createdAtDate = this.convertToDate(userData.createdAt);
       const firebaseOrgRole = (userData as any).organizationRole;
-      const orgRole = firebaseOrgRole || this.determineOrganizationRole(userData);
+      const orgRole =
+        firebaseOrgRole || this.determineOrganizationRole(userData);
 
       return {
         ...userData,
@@ -450,9 +438,11 @@ export class UserManagementService {
     return new Date();
   }
 
-  private determineOrganizationRole(user: User): 'owner' | 'admin' | 'user' {
+  private determineOrganizationRole(
+    user: User
+  ): 'owner' | 'admin' | 'user' {
     console.warn(
-      ` User ${user.email} has NO organizationRole in Firebase. Using fallback: 'user'`
+      `User ${user.email} has NO organizationRole in Firebase. Using fallback: 'user'`
     );
     return 'user';
   }
@@ -485,7 +475,7 @@ export class UserManagementService {
     }
 
     console.warn(
-      `⚠️ User ${user.email} has no organizationRole. Defaulting to 'user'`
+      `User ${user.email} has no organizationRole. Defaulting to 'user'`
     );
     return 'user';
   }
@@ -499,7 +489,7 @@ export class UserManagementService {
   private async getCurrentOrganizationWithTimeout(): Promise<any> {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
-        console.warn('⚠️ getCurrentOrganization timeout, using fallback');
+        console.warn('getCurrentOrganization timeout, using fallback');
         resolve({
           id: 'org-1',
           name: 'Empresa Demo',
@@ -514,11 +504,11 @@ export class UserManagementService {
         },
         error: (error) => {
           clearTimeout(timeout);
-          console.error('❌ getCurrentOrganization error:', error);
+          console.error('getCurrentOrganization error:', error);
           reject(error);
         },
       });
     });
   }
- 
 }
+ 
