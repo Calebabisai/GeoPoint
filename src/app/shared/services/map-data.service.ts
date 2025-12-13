@@ -1,5 +1,5 @@
-import { Injectable } from '@angular/core';
-import { Observable, combineLatest, firstValueFrom } from 'rxjs';
+import { Injectable, inject, signal, computed } from '@angular/core';
+import { Observable, combineLatest } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { Firestore } from '@angular/fire/firestore';
 import { AuthService } from '../../auth/services/auth.service';
@@ -14,20 +14,42 @@ import { MapZone as FirestoreZone } from '../models/zone.model';
   providedIn: 'root',
 })
 export class MapDataService {
-  constructor(
-    private firestore: Firestore,
-    private authService: AuthService,
-    private organizationService: OrganizationService,
-    private authorizationService: AuthorizationService,
-    private firestoreService: FirestoreService
-  ) {
-    console.log('🗺️ MapDataService initialized with Firebase real-time sync');
-    // Exponer para debugging
-    if (typeof window !== 'undefined') {
-      (window as any).mapDataService = this;
-      console.log('🗺️ MapDataService exposed globally');
-    }
-  }
+  private firestore = inject(Firestore);
+  private authService = inject(AuthService);
+  private organizationService = inject(OrganizationService);
+  private authorizationService = inject(AuthorizationService);
+  private firestoreService = inject(FirestoreService);
+
+  // Signals
+  private markersSignal = signal<MapMarker[]>([]);
+  private zonesSignal = signal<MapZone[]>([]);
+  private isLoadingSignal = signal(false);
+  private lastErrorSignal = signal<string | null>(null);
+
+  // Readonly exports
+  readonly markers = this.markersSignal.asReadonly();
+  readonly zones = this.zonesSignal.asReadonly();
+  readonly isLoading = this.isLoadingSignal.asReadonly();
+  readonly lastError = this.lastErrorSignal.asReadonly();
+
+  // Computed signals
+  readonly hasError = computed(() => this.lastErrorSignal() !== null);
+  readonly totalMarkers = computed(() => this.markersSignal().length);
+  readonly totalZones = computed(() => this.zonesSignal().length);
+  readonly markersByType = computed(() => {
+    const byType: Record<string, number> = {};
+    this.markersSignal().forEach((marker) => {
+      byType[marker.type] = (byType[marker.type] || 0) + 1;
+    });
+    return byType;
+  });
+  readonly zonesByType = computed(() => {
+    const byType: Record<string, number> = {};
+    this.zonesSignal().forEach((zone) => {
+      byType[zone.type] = (byType[zone.type] || 0) + 1;
+    });
+    return byType;
+  });
 
   /**
    * Convierte el tipo de marcador del mapa al formato de Firestore
@@ -85,13 +107,13 @@ export class MapDataService {
       color: firestoreMarker.color,
       createdBy: firestoreMarker.createdBy,
       createdAt: firestoreMarker.createdAt,
-      updatedAt: firestoreMarker.createdAt, // Usamos createdAt si no hay updatedAt
+      updatedAt: firestoreMarker.createdAt,
       isVisible: true,
       metadata: {
         category: firestoreMarker.type,
         tags: [],
         customFields: {
-          number: (firestoreMarker as any).number || 1, // ✅ EXTRAER el número del marcador
+          number: (firestoreMarker as any).number || 1,
         },
       },
     };
@@ -106,7 +128,7 @@ export class MapDataService {
       organizationId: firestoreZone.organizationId,
       name: firestoreZone.name,
       description: firestoreZone.description,
-      type: 'polygon', // Por defecto polygon
+      type: 'polygon',
       coordinates: {
         polygon: firestoreZone.coordinates.map((coord) => [
           coord.lat,
@@ -154,20 +176,12 @@ export class MapDataService {
    * Obtiene todos los marcadores de la organización actual desde Firebase
    */
   getMarkers(): Observable<MapMarker[]> {
-    console.log('🔄 MapDataService: Getting markers from Firestore...');
     return this.firestoreService.getMarkers().pipe(
       map((firestoreMarkers) => {
-        console.log(
-          '📍 MapDataService: Raw Firestore markers:',
-          firestoreMarkers.length
-        );
         const convertedMarkers = firestoreMarkers.map((marker) =>
           this.convertFirestoreMarkerToMapMarker(marker)
         );
-        console.log(
-          '📍 MapDataService: Converted markers:',
-          convertedMarkers.length
-        );
+        this.markersSignal.set(convertedMarkers);
         return convertedMarkers;
       })
     );
@@ -177,61 +191,38 @@ export class MapDataService {
    * Obtiene todas las zonas de la organización actual desde Firebase
    */
   getZones(): Observable<MapZone[]> {
-    console.log('🔄 MapDataService: Getting zones from Firestore...');
     return this.firestoreService.getZones().pipe(
       map((firestoreZones) => {
-        console.log(
-          '🏗️ MapDataService: Raw Firestore zones:',
-          firestoreZones.length
-        );
         const convertedZones = firestoreZones.map((zone) =>
           this.convertFirestoreZoneToMapZone(zone)
         );
-        console.log(
-          '🏗️ MapDataService: Converted zones:',
-          convertedZones.length
-        );
+        this.zonesSignal.set(convertedZones);
         return convertedZones;
       })
     );
   }
 
-  /**
-   * Obtiene los permisos del usuario actual para mapas
-   */
-  getMapPermissions(): Observable<MapPermissions> {
-    return combineLatest([
-      this.authorizationService.getCurrentUserRole(),
-      this.organizationService.getCurrentOrganizationRole(),
-    ]).pipe(
-      map(([userRole, orgRole]) => {
-        const isAdmin =
-          userRole === 'admin' || orgRole === 'owner' || orgRole === 'admin';
-        const isModerator = orgRole === 'moderator';
-        const isUser = orgRole === 'user';
+/**
+ * Obtiene los permisos del usuario actual para mapas
+ */
+getMapPermissions(): Observable<MapPermissions> {
+  return this.organizationService.getCurrentOrganizationRole().pipe(
+    map((orgRole) => {
+      const isAdmin = orgRole === 'owner' || orgRole === 'admin';
+      const isModerator = orgRole === 'moderator';
+      const isUser = orgRole === 'user';
 
-        const permissions = {
-          canView: true, // Todos los miembros pueden ver
-          canCreate: isAdmin || isModerator || isUser, // Todos los miembros pueden crear
-          canEdit: isAdmin || isModerator,
-          canDelete: isAdmin || isModerator,
-          canEditOwn: true, // Pueden editar sus propios elementos
-          canDeleteOwn: true, // Pueden eliminar sus propios elementos
-        };
-
-        console.log(`🔐 Map permissions calculated:`, {
-          userRole,
-          orgRole,
-          isAdmin,
-          isModerator,
-          isUser,
-          permissions,
-        });
-
-        return permissions;
-      })
-    );
-  }
+      return {
+        canView: true,
+        canCreate: isAdmin || isModerator || isUser,
+        canEdit: isAdmin || isModerator,
+        canDelete: isAdmin || isModerator,
+        canEditOwn: true,
+        canDeleteOwn: true,
+      };
+    })
+  );
+}
 
   /**
    * Crea un nuevo marcador en Firebase
@@ -242,31 +233,18 @@ export class MapDataService {
       'id' | 'organizationId' | 'createdBy' | 'createdAt' | 'updatedAt'
     >
   ): Promise<MapMarker> {
-    try {
-      // Obtener usuario y organización actual
-      const currentUser = await firstValueFrom(
-        this.authService.getCurrentUser()
-      );
-      const currentOrg = await firstValueFrom(
-        this.organizationService.getCurrentOrganization()
-      );
+    this.isLoadingSignal.set(true);
+    this.lastErrorSignal.set(null);
 
-      console.log('🔄 Creating marker with:', {
-        hasUser: !!currentUser,
-        hasOrg: !!currentOrg,
-        userEmail: currentUser?.email,
-        orgName: currentOrg?.name,
-      });
+    try {
+      const currentUser = this.authService.getCurrentUser()();
+      const currentOrg = await this.organizationService
+        .getCurrentOrganization();
 
       if (!currentUser || !currentOrg) {
-        console.error('❌ Missing user or organization:', {
-          currentUser,
-          currentOrg,
-        });
         throw new Error('Usuario u organización no encontrados');
       }
 
-      // Crear el marcador en formato Firestore
       const firestoreMarkerData: Omit<FirestoreMarker, 'id'> = {
         title: markerData.title,
         description: markerData.description || '',
@@ -277,32 +255,29 @@ export class MapDataService {
         createdBy: currentUser.uid,
         organizationId: currentOrg.id,
         createdAt: new Date(),
-        // ✅ AGREGAR el número del marcador
         number: markerData.metadata?.customFields?.['number'] || 1,
       } as any;
 
-      // Guardar en Firebase
       const savedMarkerId = await this.firestoreService.addMarker(
         firestoreMarkerData
       );
 
-      // Crear el objeto completo con el ID devuelto
       const savedMarker: FirestoreMarker = {
         ...firestoreMarkerData,
         id: savedMarkerId,
       };
 
-      console.log(`✅ Marker created successfully in Firebase:`, {
-        id: savedMarker.id,
-        title: savedMarker.title,
-        orgId: currentOrg.id,
-      });
+      const convertedMarker = this.convertFirestoreMarkerToMapMarker(savedMarker);
+      this.markersSignal.update((markers) => [...markers, convertedMarker]);
 
-      // Convertir y retornar en formato MapMarker
-      return this.convertFirestoreMarkerToMapMarker(savedMarker);
+      return convertedMarker;
     } catch (error) {
-      console.error('❌ Error creating marker:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Error creando marcador';
+      this.lastErrorSignal.set(errorMessage);
       throw error;
+    } finally {
+      this.isLoadingSignal.set(false);
     }
   }
 
@@ -315,59 +290,63 @@ export class MapDataService {
       'id' | 'organizationId' | 'createdBy' | 'createdAt' | 'updatedAt'
     >
   ): Promise<MapZone> {
-    const currentUser = await firstValueFrom(this.authService.getCurrentUser());
-    const currentOrg = await firstValueFrom(
-      this.organizationService.getCurrentOrganization()
-    );
+    this.isLoadingSignal.set(true);
+    this.lastErrorSignal.set(null);
 
-    if (!currentUser || !currentOrg) {
-      throw new Error('Usuario u organización no encontrados');
+    try {
+      const currentUser = this.authService.getCurrentUser()();
+      const currentOrg = await this.organizationService
+        .getCurrentOrganization();
+
+      if (!currentUser || !currentOrg) {
+        throw new Error('Usuario u organización no encontrados');
+      }
+
+      const permissions = await this.getMapPermissionsValue();
+      if (!permissions?.canCreate) {
+        throw new Error('No tienes permisos para crear zonas');
+      }
+
+      const coordinates = zoneData.coordinates.polygon
+        ? zoneData.coordinates.polygon.map((coord) => ({
+            lat: coord[0],
+            lng: coord[1],
+          }))
+        : [];
+
+      const zoneNumber = zoneData.metadata?.customFields?.['number'] || 1;
+
+      const firestoreZoneData: Omit<FirestoreZone, 'id'> = {
+        name: zoneData.name,
+        description: zoneData.description || '',
+        coordinates: coordinates,
+        color: zoneData.style?.fillColor || '#007bff',
+        number: zoneNumber,
+        type: this.convertMapZoneTypeToFirestore(zoneData.type),
+        createdBy: currentUser.uid,
+        organizationId: currentOrg.id,
+        createdAt: new Date(),
+      };
+
+      const savedZoneId = await this.firestoreService.addZone(firestoreZoneData);
+
+      const savedZone: FirestoreZone = {
+        ...firestoreZoneData,
+        id: savedZoneId,
+      };
+
+      const convertedZone = this.convertFirestoreZoneToMapZone(savedZone);
+      this.zonesSignal.update((zones) => [...zones, convertedZone]);
+
+      return convertedZone;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Error creando zona';
+      this.lastErrorSignal.set(errorMessage);
+      throw error;
+    } finally {
+      this.isLoadingSignal.set(false);
     }
-
-    // Verificar permisos
-    const permissions = await firstValueFrom(this.getMapPermissions());
-    if (!permissions?.canCreate) {
-      throw new Error('No tienes permisos para crear zonas');
-    }
-
-    // Convertir coordenadas del formato MapZone al formato FirestoreZone
-    const coordinates = zoneData.coordinates.polygon
-      ? zoneData.coordinates.polygon.map((coord) => ({
-          lat: coord[0],
-          lng: coord[1],
-        }))
-      : [];
-
-    // Crear la zona en formato Firestore
-    const zoneNumber = zoneData.metadata?.customFields?.['number'] || 1;
-
-    const firestoreZoneData: Omit<FirestoreZone, 'id'> = {
-      name: zoneData.name,
-      description: zoneData.description || '',
-      coordinates: coordinates,
-      color: zoneData.style?.fillColor || '#007bff',
-      number: zoneNumber,
-      type: this.convertMapZoneTypeToFirestore(zoneData.type),
-      createdBy: currentUser.uid,
-      organizationId: currentOrg.id,
-      createdAt: new Date(),
-    };
-
-    // Guardar en Firebase
-    const savedZoneId = await this.firestoreService.addZone(firestoreZoneData);
-
-    // Crear el objeto completo con el ID devuelto
-    const savedZone: FirestoreZone = {
-      ...firestoreZoneData,
-      id: savedZoneId,
-    };
-
-    console.log(
-      `📐 Zone created in Firebase: ${savedZone.name} in ${currentOrg.name}`
-    );
-
-    // Convertir y retornar en formato MapZone
-    return this.convertFirestoreZoneToMapZone(savedZone);
   }
 
   /**
@@ -398,66 +377,115 @@ export class MapDataService {
     markerId: string,
     updates: Partial<MapMarker>
   ): Promise<void> {
-    const currentUser = await firstValueFrom(this.authService.getCurrentUser());
+    this.isLoadingSignal.set(true);
+    this.lastErrorSignal.set(null);
 
-    if (!currentUser) {
-      throw new Error('Usuario no encontrado');
+    try {
+      const currentUser = this.authService.getCurrentUser()();
+
+      if (!currentUser) {
+        throw new Error('Usuario no encontrado');
+      }
+
+      const permissions = await this.getMapPermissionsValue();
+      if (!permissions?.canEdit) {
+        throw new Error('No tienes permisos para editar marcadores');
+      }
+
+      const firestoreUpdates = this.convertMapMarkerUpdatesToFirestore(updates);
+      await this.firestoreService.updateMarker(markerId, firestoreUpdates);
+
+      this.markersSignal.update((markers) =>
+        markers.map((marker) =>
+          marker.id === markerId ? { ...marker, ...updates } : marker
+        )
+      );
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Error actualizando marcador';
+      this.lastErrorSignal.set(errorMessage);
+      throw error;
+    } finally {
+      this.isLoadingSignal.set(false);
     }
-
-    const permissions = await firstValueFrom(this.getMapPermissions());
-    if (!permissions?.canEdit) {
-      throw new Error('No tienes permisos para editar marcadores');
-    }
-
-    // Convertir actualizaciones al formato Firestore
-    const firestoreUpdates = this.convertMapMarkerUpdatesToFirestore(updates);
-
-    // Actualizar en Firebase usando el FirestoreService
-    await this.firestoreService.updateMarker(markerId, firestoreUpdates);
-
-    console.log(`📍 Marker updated in Firebase: ${markerId}`);
   }
 
   /**
    * Elimina un marcador de Firebase
    */
   async deleteMarker(markerId: string): Promise<void> {
-    const currentUser = await firstValueFrom(this.authService.getCurrentUser());
+    this.isLoadingSignal.set(true);
+    this.lastErrorSignal.set(null);
 
-    if (!currentUser) {
-      throw new Error('Usuario no encontrado');
+    try {
+      const currentUser = this.authService.getCurrentUser()();
+
+      if (!currentUser) {
+        throw new Error('Usuario no encontrado');
+      }
+
+      const permissions = await this.getMapPermissionsValue();
+      if (!permissions?.canDelete) {
+        throw new Error('No tienes permisos para eliminar marcadores');
+      }
+
+      await this.firestoreService.deleteMarker(markerId);
+      this.markersSignal.update((markers) =>
+        markers.filter((marker) => marker.id !== markerId)
+      );
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Error eliminando marcador';
+      this.lastErrorSignal.set(errorMessage);
+      throw error;
+    } finally {
+      this.isLoadingSignal.set(false);
     }
-
-    const permissions = await firstValueFrom(this.getMapPermissions());
-    if (!permissions?.canDelete) {
-      throw new Error('No tienes permisos para eliminar marcadores');
-    }
-
-    // Eliminar de Firebase usando el FirestoreService
-    await this.firestoreService.deleteMarker(markerId);
-
-    console.log(`🗑️ Marker deleted from Firebase: ${markerId}`);
   }
 
   /**
    * Elimina una zona de Firebase
    */
   async deleteZone(zoneId: string): Promise<void> {
-    const currentUser = await firstValueFrom(this.authService.getCurrentUser());
+    this.isLoadingSignal.set(true);
+    this.lastErrorSignal.set(null);
 
-    if (!currentUser) {
-      throw new Error('Usuario no encontrado');
+    try {
+      const currentUser = this.authService.getCurrentUser()();
+
+      if (!currentUser) {
+        throw new Error('Usuario no encontrado');
+      }
+
+      const permissions = await this.getMapPermissionsValue();
+      if (!permissions?.canDelete) {
+        throw new Error('No tienes permisos para eliminar zonas');
+      }
+
+      await this.firestoreService.deleteZone(zoneId);
+      this.zonesSignal.update((zones) =>
+        zones.filter((zone) => zone.id !== zoneId)
+      );
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Error eliminando zona';
+      this.lastErrorSignal.set(errorMessage);
+      throw error;
+    } finally {
+      this.isLoadingSignal.set(false);
     }
+  }
 
-    const permissions = await firstValueFrom(this.getMapPermissions());
-    if (!permissions?.canDelete) {
-      throw new Error('No tienes permisos para eliminar zonas');
-    }
-
-    // Eliminar de Firebase usando el FirestoreService
-    await this.firestoreService.deleteZone(zoneId);
-
-    console.log(`�️ Zone deleted from Firebase: ${zoneId}`);
+  /**
+   * Obtiene permisos como Promise (helper interno)
+   */
+  private async getMapPermissionsValue(): Promise<MapPermissions | null> {
+    return new Promise((resolve, reject) => {
+      this.getMapPermissions().subscribe({
+        next: (permissions) => resolve(permissions),
+        error: (error) => reject(error),
+      });
+    });
   }
 
   /**

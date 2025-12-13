@@ -57,7 +57,7 @@ export class LoggerService {
    */
   firebase(operation: string, ...args: any[]): void {
     if (!this.isProduction) {
-      console.log(`🔥 [Firebase - ${operation}]`, ...args);
+      console.log(`[Firebase - ${operation}]`, ...args);
     }
   }
 
@@ -66,7 +66,7 @@ export class LoggerService {
    */
   auth(operation: string, ...args: any[]): void {
     if (!this.isProduction) {
-      console.log(`🔐 [Auth - ${operation}]`, ...args);
+      console.log(`[Auth - ${operation}]`, ...args);
     }
   }
 
@@ -75,7 +75,7 @@ export class LoggerService {
    */
   geo(operation: string, ...args: any[]): void {
     if (!this.isProduction) {
-      console.log(`📍 [Geo - ${operation}]`, ...args);
+      console.log(`[Geo - ${operation}]`, ...args);
     }
   }
 
@@ -84,7 +84,7 @@ export class LoggerService {
    */
   map(operation: string, ...args: any[]): void {
     if (!this.isProduction) {
-      console.log(`🗺️ [Map - ${operation}]`, ...args);
+      console.log(`[Map - ${operation}]`, ...args);
     }
   }
 
@@ -93,7 +93,7 @@ export class LoggerService {
    */
   org(operation: string, ...args: any[]): void {
     if (!this.isProduction) {
-      console.log(`🏢 [Org - ${operation}]`, ...args);
+      console.log(`[Org - ${operation}]`, ...args);
     }
   }
 
