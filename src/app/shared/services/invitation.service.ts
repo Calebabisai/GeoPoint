@@ -1,43 +1,39 @@
-import { Injectable } from '@angular/core';
-import { Observable, BehaviorSubject, from, of, firstValueFrom } from 'rxjs';
-import { map, switchMap } from 'rxjs/operators';
+import { Injectable, inject, signal, computed } from '@angular/core';
 import {
   Firestore,
   collection,
-  addDoc,
   doc,
   updateDoc,
-  deleteDoc,
   getDocs,
-  getDoc,
   query,
   where,
-  orderBy,
 } from '@angular/fire/firestore';
+import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../auth/services/auth.service';
 import { OrganizationService } from './organization.service';
 import { OrganizationInvite } from '../models/organization.model';
-import { User } from '../models/user.model';
 
 @Injectable({
   providedIn: 'root',
 })
 export class InvitationService {
-  // Para desarrollo: invitaciones simuladas
-  private developmentInvites: OrganizationInvite[] = [];
+  private firestore = inject(Firestore);
+  private authService = inject(AuthService);
+  private organizationService = inject(OrganizationService);
 
-  constructor(
-    private firestore: Firestore,
-    private authService: AuthService,
-    private organizationService: OrganizationService
-  ) {
-    console.log('🔥 InvitationService initialized with constructor injection');
-    // Exponer para debugging
-    if (typeof window !== 'undefined') {
-      (window as any).invitationService = this;
-      console.log('📧 InvitationService exposed globally');
-    }
-  }
+  // Signals
+  private developmentInvitesSignal = signal<OrganizationInvite[]>([]);
+  private isProcessingSignal = signal(false);
+  private lastErrorSignal = signal<string | null>(null);
+
+  // Readonly exports
+  readonly developmentInvites = this.developmentInvitesSignal.asReadonly();
+  readonly isProcessing = this.isProcessingSignal.asReadonly();
+  readonly lastError = this.lastErrorSignal.asReadonly();
+
+  // Computed signals
+  readonly hasError = computed(() => this.lastErrorSignal() !== null);
+  readonly invitationCount = computed(() => this.developmentInvitesSignal().length);
 
   /**
    * Envía una invitación a un usuario por email
@@ -46,200 +42,193 @@ export class InvitationService {
     email: string,
     role: 'admin' | 'moderator' | 'user' = 'user'
   ): Promise<OrganizationInvite> {
-    // ✅ Reemplazado toPromise() por firstValueFrom()
-    const currentUser = await firstValueFrom(this.authService.getCurrentUser());
-    const currentOrg = await firstValueFrom(
-      this.organizationService.getCurrentOrganization()
-    );
+    this.isProcessingSignal.set(true);
+    this.lastErrorSignal.set(null);
 
-    if (!currentUser || !currentOrg) {
-      throw new Error('Usuario u organización no encontrados');
+    try {
+      const currentUser = this.authService.getCurrentUser()();
+      const currentOrg = await firstValueFrom(
+        this.organizationService.getCurrentOrganization()
+      );
+
+      if (!currentUser || !currentOrg) {
+        throw new Error('Usuario u organización no encontrados');
+      }
+
+      const userMember = currentOrg.members.find(
+        (m) => m.userId === currentUser.uid
+      );
+      if (
+        !userMember ||
+        (userMember.role !== 'owner' && userMember.role !== 'admin')
+      ) {
+        throw new Error('No tienes permisos para enviar invitaciones');
+      }
+
+      const existingMember = currentOrg.members.find((m) => m.email === email);
+      if (existingMember) {
+        throw new Error('Este usuario ya es miembro de la organización');
+      }
+
+      const currentInvites = this.developmentInvitesSignal();
+      const existingInvite = currentInvites.find(
+        (inv) =>
+          inv.invitedEmail === email &&
+          inv.organizationId === currentOrg.id &&
+          inv.status === 'pending'
+      );
+      if (existingInvite) {
+        throw new Error('Ya existe una invitación pendiente para este email');
+      }
+
+      const inviteCode = this.generateInviteCode();
+      const invite: OrganizationInvite = {
+        id: `invite-${Date.now()}`,
+        organizationId: currentOrg.id,
+        organizationName: currentOrg.name,
+        invitedEmail: email,
+        invitedBy: currentUser.uid,
+        role,
+        code: inviteCode,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        createdAt: new Date(),
+        status: 'pending',
+      };
+
+      this.developmentInvitesSignal.update((invites) => [...invites, invite]);
+
+      console.log(`Invitation sent to ${email}`);
+
+      return invite;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Error enviando invitación';
+      this.lastErrorSignal.set(errorMessage);
+      throw error;
+    } finally {
+      this.isProcessingSignal.set(false);
     }
-
-    // Verificar permisos
-    const userMember = currentOrg.members.find(
-      (m) => m.userId === currentUser.uid
-    );
-    if (
-      !userMember ||
-      (userMember.role !== 'owner' && userMember.role !== 'admin')
-    ) {
-      throw new Error('No tienes permisos para enviar invitaciones');
-    }
-
-    // Verificar si el usuario ya es miembro
-    const existingMember = currentOrg.members.find((m) => m.email === email);
-    if (existingMember) {
-      throw new Error('Este usuario ya es miembro de la organización');
-    }
-
-    // Verificar si ya existe una invitación pendiente
-    const existingInvite = this.developmentInvites.find(
-      (inv) =>
-        inv.invitedEmail === email &&
-        inv.organizationId === currentOrg.id &&
-        inv.status === 'pending'
-    );
-    if (existingInvite) {
-      throw new Error('Ya existe una invitación pendiente para este email');
-    }
-
-    // Crear código de invitación único
-    const inviteCode = this.generateInviteCode();
-
-    const invite: OrganizationInvite = {
-      id: `invite-${Date.now()}`,
-      organizationId: currentOrg.id,
-      organizationName: currentOrg.name,
-      invitedEmail: email,
-      invitedBy: currentUser.uid,
-      role,
-      code: inviteCode,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 días
-      createdAt: new Date(),
-      status: 'pending',
-    };
-
-    // En desarrollo, agregar a la lista local
-    this.developmentInvites.push(invite);
-
-    console.log(
-      `📧 Invitation sent to ${email} for organization ${currentOrg.name}`
-    );
-    console.log(`🔑 Invitation code: ${inviteCode}`);
-
-    // TODO: Enviar email real con el código de invitación
-    // await this.sendInvitationEmail(invite);
-
-    return invite;
   }
 
   /**
    * Acepta una invitación usando el código
    */
   async acceptInvitation(inviteCode: string): Promise<void> {
-    // ✅ Reemplazado toPromise() por firstValueFrom()
-    const currentUser = await firstValueFrom(this.authService.getCurrentUser());
-    if (!currentUser) {
-      throw new Error('Usuario no autenticado');
-    }
-
-    console.log(`🔍 Looking for invitation with code: ${inviteCode}`);
-
-    // 1. PRIMERO: Buscar la invitación en Firebase
-    let invite: OrganizationInvite | null = null;
+    this.isProcessingSignal.set(true);
+    this.lastErrorSignal.set(null);
 
     try {
-      const invitationsRef = collection(this.firestore, 'invitations');
-      const q = query(
-        invitationsRef,
-        where('code', '==', inviteCode),
-        where('status', '==', 'pending')
-      );
-      const snapshot = await getDocs(q);
+      const currentUser = this.authService.getCurrentUser()();
+      if (!currentUser) {
+        throw new Error('Usuario no autenticado');
+      }
 
-      if (!snapshot.empty) {
-        const inviteDoc = snapshot.docs[0];
-        invite = {
-          id: inviteDoc.id,
-          ...inviteDoc.data(),
-        } as OrganizationInvite;
+      let invite: OrganizationInvite | null = null;
 
-        // Convertir Timestamp a Date si es necesario
-        if (
-          invite.expiresAt &&
-          typeof invite.expiresAt === 'object' &&
-          'toDate' in invite.expiresAt
-        ) {
-          invite.expiresAt = (invite.expiresAt as any).toDate();
-        }
-
-        console.log('✅ Found invitation in Firebase:', invite);
-      } else {
-        console.log(
-          '📝 No Firebase invitation found, checking development data...'
+      try {
+        const invitationsRef = collection(this.firestore, 'invitations');
+        const q = query(
+          invitationsRef,
+          where('code', '==', inviteCode),
+          where('status', '==', 'pending')
         );
+        const snapshot = await getDocs(q);
 
-        // Fallback: buscar en datos de desarrollo
+        if (!snapshot.empty) {
+          const inviteDoc = snapshot.docs[0];
+          invite = {
+            id: inviteDoc.id,
+            ...inviteDoc.data(),
+          } as OrganizationInvite;
+
+          if (
+            invite.expiresAt &&
+            typeof invite.expiresAt === 'object' &&
+            'toDate' in invite.expiresAt
+          ) {
+            invite.expiresAt = (invite.expiresAt as any).toDate();
+          }
+        } else {
+          const currentInvites = this.developmentInvitesSignal();
+          invite =
+            currentInvites.find(
+              (inv) => inv.code === inviteCode && inv.status === 'pending'
+            ) || null;
+        }
+      } catch (firebaseError) {
+        console.error('Firebase lookup failed:', firebaseError);
+        const currentInvites = this.developmentInvitesSignal();
         invite =
-          this.developmentInvites.find(
+          currentInvites.find(
             (inv) => inv.code === inviteCode && inv.status === 'pending'
           ) || null;
       }
-    } catch (firebaseError) {
-      console.error('🔥 Firebase invitation lookup failed:', firebaseError);
 
-      // Fallback a datos de desarrollo
-      invite =
-        this.developmentInvites.find(
-          (inv) => inv.code === inviteCode && inv.status === 'pending'
-        ) || null;
-    }
-
-    if (!invite) {
-      throw new Error('Código de invitación inválido o expirado');
-    }
-
-    // Verificar si la invitación ha expirado
-    if (invite.expiresAt < new Date()) {
-      invite.status = 'expired';
-      throw new Error('La invitación ha expirado');
-    }
-
-    // Verificar que el email coincida
-    if (invite.invitedEmail !== currentUser.email) {
-      throw new Error('Esta invitación no está destinada a tu cuenta');
-    }
-
-    try {
-      // Agregar usuario a la organización
-      await this.organizationService.addMemberToOrganization(
-        invite.organizationId,
-        {
-          userId: currentUser.uid,
-          email: currentUser.email || '',
-          role: invite.role,
-          department: invite.department,
-        }
-      );
-
-      // Marcar invitación como aceptada en Firebase
-      if (invite.id) {
-        try {
-          const inviteDocRef = doc(this.firestore, 'invitations', invite.id);
-          await updateDoc(inviteDocRef, {
-            status: 'accepted',
-            acceptedAt: new Date(),
-            acceptedBy: currentUser.uid,
-          });
-          console.log('✅ Invitation marked as accepted in Firebase');
-        } catch (updateError) {
-          console.error(
-            '⚠️ Could not update invitation status in Firebase:',
-            updateError
-          );
-        }
+      if (!invite) {
+        throw new Error('Código de invitación inválido o expirado');
       }
 
-      // Marcar invitación como aceptada (fallback local)
-      invite.status = 'accepted';
+      if (invite.expiresAt < new Date()) {
+        this.developmentInvitesSignal.update((invites) =>
+          invites.map((inv) =>
+            inv.id === invite!.id ? { ...inv, status: 'expired' } : inv
+          )
+        );
+        throw new Error('La invitación ha expirado');
+      }
 
-      // ✅ CRUCIAL: Actualizar el usuario con la información de la organización Y EL ROL
-      console.log(
-        `📝 Updating user ${currentUser.email} with organization role: ${invite.role}`
-      );
-      await this.updateUserOrganization(
-        currentUser.uid,
-        invite.organizationId,
-        invite.role
-      );
+      if (invite.invitedEmail !== currentUser.email) {
+        throw new Error('Esta invitación no está destinada a tu cuenta');
+      }
 
-      console.log(
-        `✅ User ${currentUser.email} joined organization ${invite.organizationName} with role: ${invite.role}`
-      );
+      try {
+        await this.organizationService.addMemberToOrganization(
+          invite.organizationId,
+          {
+            userId: currentUser.uid,
+            email: currentUser.email || '',
+            role: invite.role,
+            department: invite.department,
+          }
+        );
+
+        if (invite.id) {
+          try {
+            const inviteDocRef = doc(this.firestore, 'invitations', invite.id);
+            await updateDoc(inviteDocRef, {
+              status: 'accepted',
+              acceptedAt: new Date(),
+              acceptedBy: currentUser.uid,
+            });
+          } catch (updateError) {
+            console.error('Could not update invitation status:', updateError);
+          }
+        }
+
+        this.developmentInvitesSignal.update((invites) =>
+          invites.map((inv) =>
+            inv.id === invite!.id ? { ...inv, status: 'accepted' } : inv
+          )
+        );
+
+        await this.updateUserOrganization(
+          currentUser.uid,
+          invite.organizationId,
+          invite.role
+        );
+
+        console.log(`User ${currentUser.email} joined organization ${invite.organizationName}`);
+      } catch (error) {
+        console.error('Error accepting invitation:', error);
+        throw new Error('Error al aceptar la invitación');
+      }
     } catch (error) {
-      console.error('Error accepting invitation:', error);
-      throw new Error('Error al aceptar la invitación');
+      const errorMessage =
+        error instanceof Error ? error.message : 'Error aceptando invitación';
+      this.lastErrorSignal.set(errorMessage);
+      throw error;
+    } finally {
+      this.isProcessingSignal.set(false);
     }
   }
 
@@ -247,39 +236,51 @@ export class InvitationService {
    * Rechaza una invitación
    */
   async rejectInvitation(inviteCode: string): Promise<void> {
-    const invite = this.developmentInvites.find(
-      (inv) => inv.code === inviteCode && inv.status === 'pending'
-    );
+    this.isProcessingSignal.set(true);
+    this.lastErrorSignal.set(null);
 
-    if (!invite) {
-      throw new Error('Código de invitación inválido');
+    try {
+      const currentInvites = this.developmentInvitesSignal();
+      const invite = currentInvites.find(
+        (inv) => inv.code === inviteCode && inv.status === 'pending'
+      );
+
+      if (!invite) {
+        throw new Error('Código de invitación inválido');
+      }
+
+      this.developmentInvitesSignal.update((invites) =>
+        invites.map((inv) =>
+          inv.id === invite.id ? { ...inv, status: 'rejected' } : inv
+        )
+      );
+
+      console.log(`Invitation rejected: ${invite.invitedEmail}`);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Error rechazando invitación';
+      this.lastErrorSignal.set(errorMessage);
+      throw error;
+    } finally {
+      this.isProcessingSignal.set(false);
     }
-
-    invite.status = 'rejected';
-    console.log(`❌ Invitation rejected: ${invite.invitedEmail}`);
   }
 
   /**
-   * Obtiene las invitaciones pendientes de una organización
+   * Obtiene invitaciones de una organización
    */
-  getOrganizationInvitations(
-    organizationId: string
-  ): Observable<OrganizationInvite[]> {
-    return of(
-      this.developmentInvites.filter(
-        (inv) => inv.organizationId === organizationId
-      )
+  getOrganizationInvitations(organizationId: string): OrganizationInvite[] {
+    return this.developmentInvitesSignal().filter(
+      (inv) => inv.organizationId === organizationId
     );
   }
 
   /**
-   * Obtiene las invitaciones pendientes para un email
+   * Obtiene invitaciones para un email
    */
-  getUserInvitations(email: string): Observable<OrganizationInvite[]> {
-    return of(
-      this.developmentInvites.filter(
-        (inv) => inv.invitedEmail === email && inv.status === 'pending'
-      )
+  getUserInvitations(email: string): OrganizationInvite[] {
+    return this.developmentInvitesSignal().filter(
+      (inv) => inv.invitedEmail === email && inv.status === 'pending'
     );
   }
 
@@ -287,17 +288,52 @@ export class InvitationService {
    * Cancela una invitación
    */
   async cancelInvitation(inviteId: string): Promise<void> {
-    const inviteIndex = this.developmentInvites.findIndex(
-      (inv) => inv.id === inviteId
-    );
-    if (inviteIndex !== -1) {
-      this.developmentInvites.splice(inviteIndex, 1);
-      console.log(`🗑️ Invitation cancelled: ${inviteId}`);
+    this.isProcessingSignal.set(true);
+    this.lastErrorSignal.set(null);
+
+    try {
+      this.developmentInvitesSignal.update((invites) =>
+        invites.filter((inv) => inv.id !== inviteId)
+      );
+
+      console.log(`Invitation cancelled: ${inviteId}`);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Error cancelando invitación';
+      this.lastErrorSignal.set(errorMessage);
+      throw error;
+    } finally {
+      this.isProcessingSignal.set(false);
     }
   }
 
   /**
-   * Genera un código único de invitación
+   * Valida un código de invitación
+   */
+  validateInviteCode(code: string): OrganizationInvite | null {
+    const currentInvites = this.developmentInvitesSignal();
+    const invite = currentInvites.find(
+      (inv) => inv.code === code && inv.status === 'pending'
+    );
+
+    if (!invite) return null;
+
+    if (invite.expiresAt < new Date()) {
+      this.developmentInvitesSignal.update((invites) =>
+        invites.map((inv) =>
+          inv.id === invite.id ? { ...inv, status: 'expired' } : inv
+        )
+      );
+      return null;
+    }
+
+    return invite;
+  }
+
+  /**
+   * Genera código único de invitación
    */
   private generateInviteCode(): string {
     const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -319,48 +355,24 @@ export class InvitationService {
     organizationRole: 'admin' | 'moderator' | 'user'
   ): Promise<void> {
     try {
-      // Actualizar el usuario en Firestore con su organizationRole real
       const userDoc = doc(this.firestore, 'users', userId);
       await updateDoc(userDoc, {
         organizationId,
-        organizationRole, // ✅ CORREGIDO: Guardar el rol de organización real
+        organizationRole,
         updatedAt: new Date(),
       });
 
-      console.log(
-        `✅ User organization updated in Firebase: ${userId} -> org: ${organizationId}, role: ${organizationRole}`
-      );
+      console.log(`User organization updated: ${userId}`);
     } catch (error) {
-      console.error('Error updating user organization in Firebase:', error);
+      console.error('Error updating user organization:', error);
       throw error;
     }
   }
 
   /**
-   * Envía email de invitación (placeholder)
+   * Limpia el último error
    */
-  private async sendInvitationEmail(invite: OrganizationInvite): Promise<void> {
-    // TODO: Implementar envío de email real
-    console.log(`📧 Email invitation sent to ${invite.invitedEmail}`);
-    console.log(`🔗 Invitation link: /invitation/${invite.code}`);
-  }
-
-  /**
-   * Verifica si un código de invitación es válido
-   */
-  async validateInviteCode(code: string): Promise<OrganizationInvite | null> {
-    const invite = this.developmentInvites.find(
-      (inv) => inv.code === code && inv.status === 'pending'
-    );
-
-    if (!invite) return null;
-
-    // Verificar si ha expirado
-    if (invite.expiresAt < new Date()) {
-      invite.status = 'expired';
-      return null;
-    }
-
-    return invite;
+  clearLastError(): void {
+    this.lastErrorSignal.set(null);
   }
 }
