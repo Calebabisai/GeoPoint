@@ -1,0 +1,20 @@
+@if (showStatus()) {
+<ion-chip
+  [color]="isOnline() ? 'success' : 'danger'"
+  class="network-status-chip"
+>
+  <ion-icon
+    [name]="isOnline() ? 'cloud-done-outline' : 'cloud-offline-outline'"
+  ></ion-icon>
+  <ion-label>
+    {{ isOnline() ? 'Conectado' : 'Sin conexión' }}
+    @if (pendingOperationsCount() > 0) {
+    <span class="pending-count">
+      ({{ pendingOperationsCount() }} pendiente{{
+        pendingOperationsCount() > 1 ? 's' : ''
+      }})
+    </span>
+    }
+  </ion-label>
+</ion-chip>
+}

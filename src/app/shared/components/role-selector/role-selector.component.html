@@ -1,0 +1,27 @@
+<ion-chip
+  id="role-trigger"
+  [color]="roleColor()"
+  class="role-selector-chip"
+>
+  <ion-icon [name]="roleIcon()"></ion-icon>
+  <ion-label>{{ currentRole() | titlecase }} Mode</ion-label>
+</ion-chip>
+
+<ion-popover trigger="role-trigger" triggerAction="click">
+  <ion-content>
+    <ion-list>
+      <ion-item button (click)="setRole('admin')">
+        <ion-icon
+          name="shield-checkmark"
+          slot="start"
+          color="primary"
+        ></ion-icon>
+        <ion-label>Modo Administrador</ion-label>
+      </ion-item>
+      <ion-item button (click)="setRole('user')">
+        <ion-icon name="person" slot="start" color="medium"></ion-icon>
+        <ion-label>Modo Usuario</ion-label>
+      </ion-item>
+    </ion-list>
+  </ion-content>
+</ion-popover>

@@ -1,0 +1,33 @@
+.network-status-chip {
+  position: fixed;
+  top: 60px;
+  right: 10px;
+  z-index: 9999;
+  font-size: 0.8rem;
+  animation: slideIn 0.3s ease-in-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.pending-count {
+  margin-left: 4px;
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
+@media (max-width: 768px) {
+  .network-status-chip {
+    top: 50px;
+    right: 5px;
+    font-size: 0.75rem;
+  }
+}

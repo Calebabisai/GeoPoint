@@ -1,13 +1,9 @@
 import {
   Component,
   inject,
-  OnInit,
-  OnDestroy,
   signal,
   computed,
-  effect,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
 import {
   IonContent,
   IonIcon,
@@ -58,7 +54,6 @@ import {
   styleUrls: ['./menu.component.scss'],
   standalone: true,
   imports: [
-    CommonModule,
     IonContent,
     IonIcon,
     IonButton,
@@ -71,7 +66,7 @@ import {
     IonAccordionGroup,
   ],
 })
-export class MenuComponent implements OnInit, OnDestroy {
+export class MenuComponent {
   private authService = inject(AuthService);
   private authorizationService = inject(AuthorizationService);
   private organizationService = inject(OrganizationService);
@@ -116,38 +111,6 @@ export class MenuComponent implements OnInit, OnDestroy {
       codeSlashOutline,
       shareOutline,
     });
-  }
-
-  ngOnInit() {
-    window.addEventListener('roleChanged', this.onRoleChanged.bind(this));
-    window.addEventListener(
-      'organizationChanged',
-      this.onOrganizationChanged.bind(this)
-    );
-    window.addEventListener(
-      'organizationCreated',
-      this.onOrganizationChanged.bind(this)
-    );
-  }
-
-  ngOnDestroy() {
-    window.removeEventListener('roleChanged', this.onRoleChanged.bind(this));
-    window.removeEventListener(
-      'organizationChanged',
-      this.onOrganizationChanged.bind(this)
-    );
-    window.removeEventListener(
-      'organizationCreated',
-      this.onOrganizationChanged.bind(this)
-    );
-  }
-
-  private onRoleChanged(event: any) {
-    console.log('Menu: Role change detected');
-  }
-
-  private onOrganizationChanged(event: any) {
-    console.log('Menu: Organization change detected');
   }
 
   getRoleDisplayName(role: string): string {

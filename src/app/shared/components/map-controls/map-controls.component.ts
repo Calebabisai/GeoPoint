@@ -76,11 +76,9 @@ export class MapControlsComponent implements OnInit, OnDestroy {
   private mapService = inject(MapService);
   private firestoreService = inject(FirestoreService);
   private mapDataService = inject(MapDataService);
-  private authService = inject(AuthService);
   private authorizationService = inject(AuthorizationService);
   private toastCtrl = inject(ToastController);
   private alertCtrl = inject(AlertController);
-  private router = inject(Router);
 
   // Signals para permisos
   readonly canCreateMarker = computed(() =>

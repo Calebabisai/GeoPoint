@@ -52,10 +52,8 @@ import { OrganizationService } from '../../services/organization.service';
 import { EmailService } from '../../services/email.service';
 import { AuthService } from '../../../auth/services/auth.service';
 import {
-  Organization,
   OrganizationInvite,
 } from '../../models/organization.model';
-import { User } from '../../models/user.model';
 import { Router } from '@angular/router';
 
 interface EmailInviteForm {
