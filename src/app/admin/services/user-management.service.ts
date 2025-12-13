@@ -128,7 +128,7 @@ export class UserManagementService {
     private authorizationService: AuthorizationService,
     private organizationService: OrganizationService
   ) {
-    console.log('🚀 UserManagementService initialized');
+    console.log(' UserManagementService initialized');
     this.userSignal.set(this.developmentUsers);
   }
 

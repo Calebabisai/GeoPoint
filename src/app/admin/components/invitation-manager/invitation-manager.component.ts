@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
@@ -83,7 +83,6 @@ import { OrganizationInvite } from '../../../shared/models/organization.model';
 export class InvitationManagerComponent implements OnInit, OnDestroy {
   private invitationService = inject(InvitationService);
   private organizationService = inject(OrganizationService);
-  private authService = inject(AuthService);
   private toastController = inject(ToastController);
   private alertController = inject(AlertController);
 
