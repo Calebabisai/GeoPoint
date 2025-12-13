@@ -41,7 +41,7 @@ import {
   copyOutline,
   personAddOutline,
 } from 'ionicons/icons';
-import { AuthService } from 'src/app/auth/services/auth';
+import { AuthService } from 'src/app/auth/services/auth.service';
 import { AuthorizationService } from 'src/app/auth/services/authorization.service';
 import { OrganizationService } from '../../services/organization.service';
 import { Router } from '@angular/router';

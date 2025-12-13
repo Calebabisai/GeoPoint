@@ -1,7 +1,6 @@
-import { Injectable, NgZone, inject } from '@angular/core';
+import { Injectable, inject, signal, computed } from '@angular/core';
 import {
   Auth,
-  authState,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
@@ -14,8 +13,6 @@ import {
   getDoc,
   DocumentData,
 } from '@angular/fire/firestore';
-import { map, switchMap } from 'rxjs/operators';
-import { Observable, from, of } from 'rxjs';
 import { User } from '../../shared/models/user.model';
 import { LoggerService } from '../../shared/services/logger.service';
 
@@ -24,71 +21,121 @@ import { LoggerService } from '../../shared/services/logger.service';
 })
 export class AuthService {
   private logger = inject(LoggerService);
+  private auth = inject(Auth);
+  private firestore = inject(Firestore);
 
-  // Cache de authState para evitar múltiples llamadas
-  private authState$: Observable<FirebaseUser | null>;
+  //Signals
+  private firebaseUserSignal = signal<FirebaseUser | null>(null);
+  private currentUserSignal = signal<User | null>(null);
+  private isLoadingSignal = signal(false);
+  private errorSignal = signal<string | null>(null);
+  
+  //Readonly exports
+  readonly firebaseUser = this.firebaseUserSignal.asReadonly();
+  readonly currentUser = this.currentUserSignal.asReadonly();
+  readonly isLoading = this.isLoadingSignal.asReadonly();
+  readonly error = this.errorSignal.asReadonly();
 
-  constructor(
-    private auth: Auth,
-    private firestore: Firestore,
-    private ngZone: NgZone
-  ) {
-    this.authState$ = authState(this.auth);
-    this.logger.auth('Service initialized');
+  //Computed
+  readonly isAuthenticated = computed(() => this.currentUserSignal() !== null);
+  readonly isAdmin = computed(() => this.currentUserSignal()?.role === 'admin');
+
+  constructor() {
   }
+
+  /**
+   * Iniciar sesion con email y contrasenia 
+  */
 
   async login(email: string, password: string) {
-    return await signInWithEmailAndPassword(this.auth, email, password);
+    this.isLoadingSignal.set(true);
+    this.errorSignal.set(null);
+
+    try{
+      const cred = await signInWithEmailAndPassword(this.auth, email, password);
+      this.logger.auth('Login Successful');
+      return cred.user;
+    }catch(error: any) {
+      this.errorSignal.set(error.message);
+      this.logger.error('Login erro:', error);
+      throw error;
+    }finally {
+      this.isLoadingSignal.set(false);
+    }
   }
 
-  async register(
-    email: string,
-    password: string,
-    role: 'admin' | 'user' = 'user',
-    displayName?: string
-  ) {
-    const userCredential = await createUserWithEmailAndPassword(
-      this.auth,
-      email,
-      password
-    );
-    const user = userCredential.user;
+    /**
+   * Registrar un nuevo usuario
+   */
 
-    // Guardar información adicional del usuario en Firestore
-    await this.saveUserData(user.uid, user.email, role, displayName);
+    async register(
+      email: string,
+      password: string,
+      role: 'admin' | 'user' = 'user',
+      displayName?: string
+    ) {
+      this.isLoadingSignal.set(true);
+      this.errorSignal.set(null);
 
-    return user;
-  }
+      try{
 
+      const userCredential = await createUserWithEmailAndPassword(
+        this.auth,
+        email,
+        password
+      );
+      const user = userCredential.user;
+
+      await this.saveUserData(user.uid, user.email, role, displayName);
+      this.logger.auth('Registration successful');
+
+      return user;
+      }catch(error: any){
+        this.errorSignal.set(error.message);
+        this.logger.error('Registration error:', error);
+        throw error;
+      }finally{
+        this.isLoadingSignal.set(false);
+      }
+    }
+    /**
+   * Cierra la sesión
+   */
   async logout() {
-    return await signOut(this.auth);
-  }
+    this.isLoadingSignal.set(true);
+    this.errorSignal.set(null);
 
-  getAuthState(): Observable<FirebaseUser | null> {
-    return this.authState$;
-  }
-
-  /**
-   * Devuelve un Observable con la información del usuario en la sesión
-   * (se ajusta al tipo `User | null` que espera el código existente).
-   */
-  getCurrentUser(): Observable<User | null> {
-    return this.authState$.pipe(
-      switchMap((firebaseUser) => {
-        if (!firebaseUser) return of(null);
-
-        // Usar from() para convertir la promesa en observable y mantener el contexto
-        return from(this.getUserDataFromFirestore(firebaseUser));
-      })
-    );
+    try {
+      await signOut(this.auth);
+      this.currentUserSignal.set(null);
+      this.logger.auth('Logout successful');
+    } catch (error: any) {
+      this.errorSignal.set(error.message);
+      this.logger.error('Logout error:', error);
+      throw error;
+    } finally {
+      this.isLoadingSignal.set(false);
+    }
   }
 
   /**
-   * Método separado para obtener datos del usuario desde Firestore
+   * Obtiene el usuario actual como Signal (para componentes)
    */
-  private async getUserDataFromFirestore(
-    firebaseUser: FirebaseUser
-  ): Promise<User> {
+  getCurrentUser() {
+    return this.currentUserSignal.asReadonly();
+  }
+
+  /**
+   * Obtiene el usuario de Firebase como Signal
+   */
+  getFirebaseUser() {
+    return this.firebaseUserSignal.asReadonly();
+  }
+
+  /**
+   * Carga los datos del usuario desde Firestore
+   */
+  private async loadUserDataFromFirestore(firebaseUser: FirebaseUser) {
     try {
       this.logger.firebase('Getting user data for:', firebaseUser.uid);
       const userDoc = doc(this.firestore, `users/${firebaseUser.uid}`);
@@ -97,7 +144,8 @@ export class AuthService {
       if (userSnap.exists()) {
         const userData = userSnap.data() as DocumentData;
         this.logger.firebase('User data found in Firestore');
-        return {
+
+        const appUser: User = {
           uid: firebaseUser.uid,
           email: firebaseUser.email || '',
           displayName: userData['displayName'] || '',
@@ -108,10 +156,13 @@ export class AuthService {
             userData['createdAt']?.toDate() ||
             new Date(firebaseUser.metadata?.creationTime || Date.now()),
         } as User;
+
+        this.currentUserSignal.set(appUser);
       } else {
         // Usuario sin datos en Firestore, usar valores por defecto
         this.logger.warn('User not found in Firestore, using defaults');
-        return {
+
+        const appUser: User = {
           uid: firebaseUser.uid,
           email: firebaseUser.email || '',
           displayName: '',
@@ -120,17 +171,24 @@ export class AuthService {
             firebaseUser.metadata?.creationTime || Date.now()
           ),
         } as User;
+
+        this.currentUserSignal.set(appUser);
       }
     } catch (error) {
       this.logger.error('Error fetching user data from Firestore:', error);
-      // Fallback si no se puede acceder a Firestore
-      return {
+
+      // Fallback
+      const appUser: User = {
         uid: firebaseUser.uid,
         email: firebaseUser.email || '',
         displayName: '',
         role: 'user',
-        createdAt: new Date(firebaseUser.metadata?.creationTime || Date.now()),
+        createdAt: new Date(
+          firebaseUser.metadata?.creationTime || Date.now()
+        ),
       } as User;
+
+      this.currentUserSignal.set(appUser);
     }
   }
 
@@ -166,3 +224,7 @@ export class AuthService {
     }
   }
 }
+
+
+
+
