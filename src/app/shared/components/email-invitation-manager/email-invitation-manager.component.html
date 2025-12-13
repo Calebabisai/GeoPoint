@@ -1,6 +1,6 @@
 <ion-header>
   <ion-toolbar>
-    <ion-title>📧 Invitaciones por Email</ion-title>
+    <ion-title>Invitaciones por Email</ion-title>
     <ion-button slot="end" fill="clear" (click)="goBack()">
       <ion-icon name="close-outline"></ion-icon>
     </ion-button>
@@ -10,34 +10,34 @@
 <ion-content class="ion-padding">
   <div class="email-invitation-container">
     <!-- Información de la organización -->
-    <ion-card class="organization-info-card" *ngIf="currentOrganization">
+    @if (currentOrganization(); as org) {
+    <ion-card class="organization-info-card">
       <ion-card-header>
         <ion-card-title>
           <ion-icon name="business-outline"></ion-icon>
-          {{ currentOrganization.name }}
+          {{ org.name }}
         </ion-card-title>
       </ion-card-header>
       <ion-card-content>
         <p>
           {{
-            currentOrganization.description ||
+            org.description ||
               "Invita usuarios a unirse a tu organización por email"
           }}
         </p>
         <div class="org-stats">
           <ion-chip color="success">
             <ion-icon name="people-outline"></ion-icon>
-            <ion-label
-              >{{ currentOrganization.members.length }} miembros</ion-label
-            >
+            <ion-label>{{ org.members.length }} miembros</ion-label>
           </ion-chip>
           <ion-chip color="success" fill="outline">
             <ion-icon name="key-outline"></ion-icon>
-            <ion-label>Código: {{ currentOrganization.code }}</ion-label>
+            <ion-label>Código: {{ org.code }}</ion-label>
           </ion-chip>
         </div>
       </ion-card-content>
     </ion-card>
+    }
 
     <!-- Formulario de invitación -->
     <form [formGroup]="inviteForm" (ngSubmit)="sendInvitations()">
@@ -62,10 +62,8 @@
           </div>
 
           <div formArrayName="emails" class="emails-container">
-            <div
-              *ngFor="let emailControl of emails; let i = index"
-              class="email-input-row"
-            >
+            @for (emailControl of emails; track $index; let i = $index) {
+            <div class="email-input-row">
               <ion-item class="email-item">
                 <ion-input
                   type="email"
@@ -83,19 +81,17 @@
                   <ion-icon name="remove-outline"></ion-icon>
                 </ion-button>
               </ion-item>
-              <div
-                class="error-message"
-                *ngIf="emailControl.invalid && emailControl.touched"
-              >
+              @if (emailControl.invalid && emailControl.touched) {
+              <div class="error-message">
                 Email inválido
               </div>
+              }
             </div>
+            }
           </div>
 
           <div class="email-count">
-            <ion-badge color="success"
-              >{{ emails.length }} destinatario(s)</ion-badge
-            >
+            <ion-badge color="success">{{ emails.length }} destinatario(s)</ion-badge>
           </div>
         </ion-card-content>
       </ion-card>
@@ -113,12 +109,11 @@
           <ion-item>
             <ion-label position="stacked">Rol del Usuario</ion-label>
             <ion-select formControlName="role" placeholder="Seleccionar rol">
-              <ion-select-option
-                *ngFor="let role of roleOptions"
-                [value]="role.value"
-              >
+              @for (role of roleOptions; track role.value) {
+              <ion-select-option [value]="role.value">
                 {{ role.label }} - {{ role.description }}
               </ion-select-option>
+              }
             </ion-select>
           </ion-item>
 
@@ -129,12 +124,11 @@
               formControlName="department"
               placeholder="Seleccionar departamento"
             >
-              <ion-select-option
-                *ngFor="let dept of availableDepartments"
-                [value]="dept"
-              >
+              @for (dept of availableDepartments; track dept) {
+              <ion-select-option [value]="dept">
                 {{ dept }}
               </ion-select-option>
+              }
             </ion-select>
           </ion-item>
 
@@ -145,12 +139,11 @@
               formControlName="expirationDays"
               placeholder="Seleccionar duración"
             >
-              <ion-select-option
-                *ngFor="let option of expirationOptions"
-                [value]="option.value"
-              >
+              @for (option of expirationOptions; track option.value) {
+              <ion-select-option [value]="option.value">
                 {{ option.label }}
               </ion-select-option>
+              }
             </ion-select>
           </ion-item>
 
@@ -166,13 +159,12 @@
               maxlength="500"
             ></ion-textarea>
           </ion-item>
-
-          <!-- Opciones adicionales eliminadas por solicitud del usuario -->
         </ion-card-content>
       </ion-card>
 
       <!-- Vista previa del rol seleccionado -->
-      <ion-card class="preview-card" *ngIf="selectedRole">
+      @if (selectedRole) {
+      <ion-card class="preview-card">
         <ion-card-content>
           <div class="role-preview">
             <h4>Rol Seleccionado: {{ selectedRole.label }}</h4>
@@ -180,44 +172,49 @@
           </div>
         </ion-card-content>
       </ion-card>
+      }
 
       <!-- Botones de acción -->
       <div class="action-buttons">
         <ion-button
           expand="block"
           type="submit"
-          [disabled]="!inviteForm.valid || isLoading"
+          [disabled]="!inviteForm.valid || isLoading()"
           color="success"
         >
           <ion-icon name="send-outline" slot="start"></ion-icon>
-          <span *ngIf="!isLoading">Enviar Invitaciones</span>
-          <span *ngIf="isLoading">Enviando...</span>
+          @if (!isLoading()) {
+          <span>Enviar Invitaciones</span>
+          } @else {
+          <span>Enviando...</span>
+          }
         </ion-button>
       </div>
     </form>
 
     <!-- Indicador de carga -->
-    <div class="loading-indicator" *ngIf="isLoading">
+    @if (isLoading()) {
+    <div class="loading-indicator">
       <ion-progress-bar type="indeterminate"></ion-progress-bar>
       <p>Enviando invitaciones por email...</p>
     </div>
+    }
 
     <!-- Invitaciones recientes -->
-    <ion-accordion-group
-      *ngIf="recentInvites.length > 0"
-      class="recent-invites"
-    >
+    @if (recentInvites().length > 0) {
+    <ion-accordion-group class="recent-invites">
       <ion-accordion value="recent">
         <ion-item slot="header">
           <ion-icon name="time-outline" slot="start"></ion-icon>
           <ion-label>
             <h3>Invitaciones Recientes</h3>
-            <p>{{ recentInvites.length }} invitación(es) enviada(s)</p>
+            <p>{{ recentInvites().length }} invitación(es) enviada(s)</p>
           </ion-label>
         </ion-item>
         <div class="accordion-content" slot="content">
           <ion-list>
-            <ion-item *ngFor="let invite of recentInvites">
+            @for (invite of recentInvites(); track invite.id) {
+            <ion-item>
               <div class="invite-info">
                 <h4>{{ invite.invitedEmail }}</h4>
                 <p>Código: {{ invite.code }}</p>
@@ -236,9 +233,11 @@
                 <ion-icon name="copy-outline"></ion-icon>
               </ion-button>
             </ion-item>
+            }
           </ion-list>
         </div>
       </ion-accordion>
     </ion-accordion-group>
+    }
   </div>
 </ion-content>
