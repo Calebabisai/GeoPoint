@@ -26,6 +26,11 @@ export interface NetworkStatus {
   connectionType: string;
 }
 
+export interface GeolocationPosition {
+  lat: number;
+  lng: number;
+}
+
 @Injectable({
   providedIn: 'root',
 })
