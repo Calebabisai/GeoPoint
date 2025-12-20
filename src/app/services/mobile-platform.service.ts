@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import { Capacitor } from '@capacitor/core';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { SplashScreen } from '@capacitor/splash-screen';
@@ -35,15 +35,34 @@ export interface GeolocationPosition {
   providedIn: 'root',
 })
 export class MobilePlatformService {
-  private deviceInfo: DeviceInfo | null = null;
-  private networkStatus: NetworkStatus = {
+
+  private readonly logger = inject(LoggerService);
+  private readonly platform = inject(Platform);
+
+  // Signals para estado reactivo
+  private readonly _deviceInfo = signal<DeviceInfo | null>(null);
+  private readonly _networkStatus = signal<NetworkStatus>({
     connected: true,
     connectionType: 'wifi',
-  };
+  });
+  private readonly _isInitialized = signal(false);
+  private readonly _locationPermissionGranted = signal(false);
 
-  private logger = inject(LoggerService);
+  // Computed signals (solo lectura)
+  readonly deviceInfo = this._deviceInfo.asReadonly();
+  readonly networkStatus = this._networkStatus.asReadonly();
+  readonly isInitialized = this._isInitialized.asReadonly();
+  readonly locationPermissionGranted = this._locationPermissionGranted.asReadonly();
 
-  constructor(private platform: Platform) {
+  // Computed derivados
+  readonly isOnline = computed(() => this._networkStatus().connected);
+  readonly isNative = computed(() => Capacitor.isNativePlatform());
+  readonly isAndroid = computed(() => this.platform.is('android'));
+  readonly isIOS = computed(() => this.platform.is('ios'));
+  readonly connectionType = computed(() => this._networkStatus().connectionType);
+
+
+  constructor() {
     this.initializePlatform();
   }
 
@@ -51,41 +70,50 @@ export class MobilePlatformService {
    * Inicializa configuraciones específicas de la plataforma
    */
   private async initializePlatform(): Promise<void> {
-    // Esperar a que la plataforma esté lista
-    await this.platform.ready();
+    try {
+      await this.platform.ready();
 
-    if (Capacitor.isNativePlatform()) {
-      this.logger.log('Running on native platform');
+      if (Capacitor.isNativePlatform()) {
+        this.logger.log('Running on native platform');
 
-      // Configurar status bar
-      await this.setupStatusBar();
+        // Ejecutar configuraciones en paralelo cuando es posible
+        await Promise.all([
+          this.setupStatusBar(),
+          this.hideSplashScreen(),
+          this.loadDeviceInfo(),
+        ]);
 
-      // Ocultar splash screen
-      await this.hideSplashScreen();
+        // Estas dependen de permisos, se ejecutan secuencialmente
+        await this.setupNetworkListeners();
+        await this.requestLocationPermissions();
+      } else {
+        this.logger.log('Running on web platform');
+        this.setWebDeviceInfo();
+      }
 
-      // Obtener información del dispositivo
-      await this.getDeviceInformation();
-
-      // Configurar listeners de red
-      await this.setupNetworkListeners();
-
-      // Solicitar permisos de ubicación
-      await this.requestLocationPermissions();
-    } else {
-      this.logger.log('Running on web platform');
-      this.deviceInfo = {
-        platform: 'web',
-        isNative: false,
-        isAndroid: false,
-        isIOS: false,
-        deviceId: 'web-browser',
-        model: 'Browser',
-        operatingSystem: 'web',
-        osVersion: 'unknown',
-        manufacturer: 'Browser',
-        isVirtual: true,
-      };
+      this._isInitialized.set(true);
+    } catch (error) {
+      this.logger.error('Error initializing platform:', error);
+      this._isInitialized.set(true); // Marcamos como inicializado aunque haya error
     }
+  }
+
+  /**
+   * Establece información del dispositivo para web
+   */
+  private setWebDeviceInfo(): void {
+    this._deviceInfo.set({
+      platform: 'web',
+      isNative: false,
+      isAndroid: false,
+      isIOS: false,
+      deviceId: 'web-browser',
+      model: 'Browser',
+      operatingSystem: 'web',
+      osVersion: 'unknown',
+      manufacturer: 'Browser',
+      isVirtual: true,
+    });
   }
 
   /**
@@ -93,14 +121,15 @@ export class MobilePlatformService {
    */
   private async setupStatusBar(): Promise<void> {
     try {
-      if (this.platform.is('ios')) {
-        await StatusBar.setStyle({ style: Style.Light });
-        await StatusBar.setBackgroundColor({ color: '#1976d2' });
-      } else if (this.platform.is('android')) {
-        await StatusBar.setStyle({ style: Style.Dark });
-        await StatusBar.setBackgroundColor({ color: '#1976d2' });
-      }
-      this.logger.log('📱 Status bar configured');
+      const isIOS = this.platform.is('ios');
+      const style = isIOS ? Style.Light : Style.Dark;
+      
+      await Promise.all([
+        StatusBar.setStyle({ style }),
+        StatusBar.setBackgroundColor({ color: '#1976d2' }),
+      ]);
+      
+      this.logger.log(' Status bar configured');
     } catch (error) {
       this.logger.error('Error configuring status bar:', error);
     }
@@ -119,24 +148,29 @@ export class MobilePlatformService {
   }
 
   /**
-   * Obtiene información del dispositivo
+   * Carga información del dispositivo
    */
-  private async getDeviceInformation(): Promise<void> {
+  private async loadDeviceInfo(): Promise<void> {
     try {
-      const info = await Device.getInfo();
-      this.deviceInfo = {
+      const [info, deviceId] = await Promise.all([
+        Device.getInfo(),
+        this.getDeviceId(),
+      ]);
+
+      this._deviceInfo.set({
         platform: info.platform,
         isNative: Capacitor.isNativePlatform(),
         isAndroid: this.platform.is('android'),
         isIOS: this.platform.is('ios'),
-        deviceId: await this.getDeviceId(),
+        deviceId,
         model: info.model,
         operatingSystem: info.operatingSystem,
         osVersion: info.osVersion,
         manufacturer: info.manufacturer,
         isVirtual: info.isVirtual,
-      };
-      this.logger.log('Device info:', this.deviceInfo);
+      });
+      
+      this.logger.log('Device info:', this._deviceInfo());
     } catch (error) {
       this.logger.error('Error getting device info:', error);
     }
@@ -147,8 +181,8 @@ export class MobilePlatformService {
    */
   private async getDeviceId(): Promise<string> {
     try {
-      const id = await Device.getId();
-      return id.identifier;
+      const { identifier } = await Device.getId();
+      return identifier;
     } catch (error) {
       this.logger.error('Error getting device ID:', error);
       return 'unknown';
@@ -160,29 +194,20 @@ export class MobilePlatformService {
    */
   private async setupNetworkListeners(): Promise<void> {
     try {
-      // Estado inicial de la red
       const status = await Network.getStatus();
-      this.networkStatus = {
+      this._networkStatus.set({
         connected: status.connected,
         connectionType: status.connectionType,
-      };
+      });
 
-      // Listener para cambios en la red
       Network.addListener('networkStatusChange', (status) => {
-        this.networkStatus = {
+        this._networkStatus.set({
           connected: status.connected,
           connectionType: status.connectionType,
-        };
-        this.logger.log('Network status changed:', this.networkStatus);
-
-        // Emitir evento personalizado para que otros servicios puedan reaccionar
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(
-            new CustomEvent('networkStatusChange', {
-              detail: this.networkStatus,
-            })
-          );
-        }
+        });
+        
+        this.logger.log('Network status changed:', this._networkStatus());
+        this.emitNetworkStatusEvent();
       });
 
       this.logger.log('Network listeners configured');
@@ -192,36 +217,47 @@ export class MobilePlatformService {
   }
 
   /**
+   * Emite evento de cambio de estado de red
+   */
+  private emitNetworkStatusEvent(): void {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('networkStatusChange', {
+          detail: this._networkStatus(),
+        })
+      );
+    }
+  }
+
+  /**
    * Solicita permisos de ubicación
    */
   private async requestLocationPermissions(): Promise<void> {
     try {
-      const permissions = await Geolocation.requestPermissions();
-      this.logger.log('Location permissions:', permissions);
-
-      if (permissions.location === 'granted') {
-        this.logger.log('Location permissions granted');
-      } else {
-        this.logger.warn('Location permissions denied');
-      }
+      const { location } = await Geolocation.requestPermissions();
+      const granted = location === 'granted';
+      
+      this._locationPermissionGranted.set(granted);
+      this.logger.log(`Location permissions ${granted ? 'granted' : 'denied'}`);
     } catch (error) {
       this.logger.error('Error requesting location permissions:', error);
+      this._locationPermissionGranted.set(false);
     }
   }
 
   /**
    * Obtiene la ubicación actual del dispositivo
    */
-  async getCurrentPosition(): Promise<{ lat: number; lng: number } | null> {
+  async getCurrentPosition(): Promise<GeolocationPosition | null> {
     try {
-      const position = await Geolocation.getCurrentPosition({
+      const { coords } = await Geolocation.getCurrentPosition({
         enableHighAccuracy: true,
         timeout: 10000,
       });
 
       return {
-        lat: position.coords.latitude,
-        lng: position.coords.longitude,
+        lat: coords.latitude,
+        lng: coords.longitude,
       };
     } catch (error) {
       this.logger.error('Error getting current position:', error);
@@ -230,59 +266,16 @@ export class MobilePlatformService {
   }
 
   /**
-   * Verifica si la aplicación está ejecutándose en un dispositivo móvil nativo
-   */
-  isNativePlatform(): boolean {
-    return Capacitor.isNativePlatform();
-  }
-
-  /**
-   * Verifica si es Android
-   */
-  isAndroid(): boolean {
-    return this.platform.is('android');
-  }
-
-  /**
-   * Verifica si es iOS
-   */
-  isIOS(): boolean {
-    return this.platform.is('ios');
-  }
-
-  /**
-   * Obtiene información del dispositivo
-   */
-  getDeviceInfo(): DeviceInfo | null {
-    return this.deviceInfo;
-  }
-
-  /**
-   * Obtiene el estado actual de la red
-   */
-  getNetworkStatus(): NetworkStatus {
-    return this.networkStatus;
-  }
-
-  /**
-   * Verifica si hay conexión a internet
-   */
-  isOnline(): boolean {
-    return this.networkStatus.connected;
-  }
-
-  /**
    * Configura el tema para modo oscuro/claro
    */
   async setTheme(isDark: boolean): Promise<void> {
-    if (Capacitor.isNativePlatform()) {
-      try {
-        const style = isDark ? Style.Dark : Style.Light;
-        await StatusBar.setStyle({ style });
-        this.logger.log(`Theme set to: ${isDark ? 'dark' : 'light'}`);
-      } catch (error) {
-        this.logger.error('Error setting theme:', error);
-      }
+    if (!Capacitor.isNativePlatform()) return;
+
+    try {
+      await StatusBar.setStyle({ style: isDark ? Style.Dark : Style.Light });
+      this.logger.log(`Theme set to: ${isDark ? 'dark' : 'light'}`);
+    } catch (error) {
+      this.logger.error('Error setting theme:', error);
     }
   }
 
@@ -290,10 +283,29 @@ export class MobilePlatformService {
    * Maneja la navegación back en Android
    */
   setupBackButtonHandler(callback: () => void): void {
-    if (this.isAndroid()) {
-      document.addEventListener('ionBackButton', (event: any) => {
-        event.detail.register(10, callback);
-      });
-    }
+    if (!this.platform.is('android')) return;
+
+    document.addEventListener('ionBackButton', (event: Event) => {
+      (event as CustomEvent).detail.register(10, callback);
+    });
+  }
+
+  // ============================================
+  // Métodos legacy para compatibilidad (deprecated)
+  // ============================================
+  
+  /** @deprecated Usa el signal `isNative` en su lugar */
+  isNativePlatform(): boolean {
+    return Capacitor.isNativePlatform();
+  }
+
+  /** @deprecated Usa el signal `deviceInfo` en su lugar */
+  getDeviceInfo(): DeviceInfo | null {
+    return this._deviceInfo();
+  }
+
+  /** @deprecated Usa el signal `networkStatus` en su lugar */
+  getNetworkStatus(): NetworkStatus {
+    return this._networkStatus();
   }
 }
