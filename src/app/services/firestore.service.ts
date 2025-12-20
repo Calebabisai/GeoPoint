@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import {
   Observable,
   switchMap,
@@ -6,11 +6,11 @@ import {
   take,
   timeout,
   catchError,
-  throwError,
   from,
   startWith,
   interval,
   mergeMap,
+  shareReplay,
 } from 'rxjs';
 import {
   Firestore,
@@ -23,8 +23,6 @@ import {
   query,
   where,
   getDocs,
-  QuerySnapshot,
-  DocumentData,
 } from '@angular/fire/firestore';
 import { MapMarker } from '../shared/models/marker.model';
 import { MapZone } from '../shared/models/zone.model';
@@ -33,334 +31,375 @@ import { Organization } from '../shared/models/organization.model';
 import { LoggerService } from '../shared/services/logger.service';
 import { NetworkService } from '../shared/services/network.service';
 
+export interface FirestoreState {
+  isLoading: boolean;
+  error: string | null;
+  lastSync: Date | null;
+}
+
+export interface OfflineOperation {
+  type: 'create' | 'update' | 'delete';
+  collection: string;
+  data?: unknown;
+  id?: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class FirestoreService {
-  private firestore = inject(Firestore);
-  private organizationService = inject(OrganizationService);
-  private logger = inject(LoggerService);
-  private networkService = inject(NetworkService);
+private readonly firestore = inject(Firestore);
+  private readonly organizationService = inject(OrganizationService);
+  private readonly logger = inject(LoggerService);
+  private readonly networkService = inject(NetworkService);
 
-  // ✅ Timeout para operaciones de Firestore (en milisegundos)
-  private readonly FIRESTORE_TIMEOUT = 30000; // 30 segundos
+  // Configuración
+  private readonly FIRESTORE_TIMEOUT = 30000;
+  private readonly POLLING_INTERVAL = 5000;
+
+  // Signals para estado
+  private readonly _markersState = signal<FirestoreState>({
+    isLoading: false,
+    error: null,
+    lastSync: null,
+  });
+  private readonly _zonesState = signal<FirestoreState>({
+    isLoading: false,
+    error: null,
+    lastSync: null,
+  });
+  private readonly _routesState = signal<FirestoreState>({
+    isLoading: false,
+    error: null,
+    lastSync: null,
+  });
+
+  // Signals públicos (solo lectura)
+  readonly markersState = this._markersState.asReadonly();
+  readonly zonesState = this._zonesState.asReadonly();
+  readonly routesState = this._routesState.asReadonly();
+
+  // Computed
+  readonly isAnyLoading = computed(
+    () =>
+      this._markersState().isLoading ||
+      this._zonesState().isLoading ||
+      this._routesState().isLoading
+  );
+
+  readonly hasErrors = computed(
+    () =>
+      !!this._markersState().error ||
+      !!this._zonesState().error ||
+      !!this._routesState().error
+  );
+
+  // Cache de observables para evitar múltiples subscripciones
+  private markersCache$: Observable<MapMarker[]> | null = null;
+  private zonesCache$: Observable<MapZone[]> | null = null;
+  private routesCache$: Observable<unknown[]> | null = null;
 
   constructor() {
-    this.logger.firebase(
-      'FirestoreService initialized - using getDocs() polling instead of real-time listeners'
-    );
+    this.logger.firebase('FirestoreService initialized - using getDocs() polling');
   }
 
-  // Marcadores por organización
-  // ✅ CAMBIADO: Usar getDocs() con polling en lugar de collectionData() real-time listener
-  getMarkers(): Observable<MapMarker[]> {
-    this.logger.firebase('🔍 getMarkers() called');
-    return this.organizationService.getCurrentOrganization().pipe(
-      switchMap((org: Organization | null) => {
-        if (!org) {
-          this.logger.warn(
-            '❌ No organization available - returning empty markers'
-          );
-          return of([]);
-        }
+  // Markers per organization
+    getMarkers(): Observable<MapMarker[]> {
+    if (this.markersCache$) {
+      return this.markersCache$;
+    }
 
-        this.logger.firebase(
-          `✅ Organization available: ${org.name} (${org.id})`
-        );
-        this.logger.firebase(`🔍 Querying markers for organization: ${org.id}`);
-
-        const markersCollection = collection(this.firestore, 'markers');
-        const q = query(
-          markersCollection,
-          where('organizationId', '==', org.id)
-        );
-
-        // ✅ Polling cada 5 segundos usando getDocs() en lugar de listener en tiempo real
-        return interval(5000).pipe(
-          startWith(0), // Ejecutar inmediatamente
-          mergeMap(() => from(getDocs(q))),
-          timeout(this.FIRESTORE_TIMEOUT),
-          catchError((error) => {
-            if (error.name === 'TimeoutError') {
-              this.logger.error(
-                `⏱️ TIMEOUT al cargar marcadores para org: ${org.id} después de ${this.FIRESTORE_TIMEOUT}ms`
-              );
-              this.logger.error(
-                '🔧 Verifica: 1) Reglas de Firestore, 2) Conexión a internet, 3) Índices de Firestore'
-              );
-            } else {
-              this.logger.error('❌ Error al cargar marcadores:', error);
-            }
-            return of(null); // Retornar null para que el map siguiente lo maneje
-          }),
-          switchMap((snapshot: QuerySnapshot<DocumentData> | null) => {
-            if (!snapshot) {
-              return of([]);
-            }
-
-            const markers: MapMarker[] = [];
-            snapshot.forEach((doc) => {
-              markers.push({ id: doc.id, ...doc.data() } as MapMarker);
-            });
-
-            this.logger.firebase(
-              `✅ Loaded ${markers.length} markers from Firestore`
-            );
-            return of(markers);
-          })
-        );
-      })
+    this.markersCache$ = this.organizationService.getCurrentOrganization().pipe(
+      switchMap((org) => this.fetchMarkersForOrg(org)),
+      shareReplay(1)
     );
+
+    return this.markersCache$;
+  }
+
+    private fetchMarkersForOrg(org: Organization | null): Observable<MapMarker[]> {
+    if (!org) {
+      this.logger.warn('No organization available - returning empty markers');
+      return of([]);
+    }
+
+    this._markersState.update((state) => ({ ...state, isLoading: true, error: null }));
+
+    const markersCollection = collection(this.firestore, 'markers');
+    const q = query(markersCollection, where('organizationId', '==', org.id));
+
+    return this.createPollingObservable<MapMarker>(q, 'markers');
   }
 
   async addMarker(marker: Omit<MapMarker, 'id'>): Promise<string> {
-    // ✅ Verificar conexión antes de intentar guardar
-    if (this.networkService.isOffline()) {
-      this.logger.warn('Sin conexión. Guardando marcador en cola offline...');
-      this.networkService.queueOperation({
-        type: 'create',
-        collection: 'markers',
-        data: marker,
-      });
-      throw new Error(
-        'Sin conexión. El marcador se guardará cuando vuelva la conexión.'
-      );
-    }
+    this.ensureOnlineOrQueue('markers', 'create', marker);
 
-    return new Promise((resolve, reject) => {
-      this.organizationService
-        .getCurrentOrganization()
-        .pipe(take(1), timeout(this.FIRESTORE_TIMEOUT))
-        .subscribe({
-          next: async (currentOrg: Organization | null) => {
-            try {
-              if (!currentOrg) {
-                throw new Error('No hay organización activa');
-              }
+    const currentOrg = await this.getCurrentOrgOrThrow();
+    const markersCollection = collection(this.firestore, 'markers');
 
-              const markersCollection = collection(this.firestore, 'markers');
-              const markerData = {
-                ...marker,
-                organizationId: currentOrg.id,
-                createdAt: Timestamp.now(),
-              };
+    const markerData = {
+      ...marker,
+      organizationId: currentOrg.id,
+      createdAt: Timestamp.now(),
+    };
 
-              this.logger.firebase('Adding marker', markerData);
-              const docRef = await addDoc(markersCollection, markerData);
-              this.logger.firebase('Marker added with ID:', docRef.id);
-              resolve(docRef.id);
-            } catch (error) {
-              this.logger.error('Error adding marker:', error);
-              reject(error);
-            }
-          },
-          error: (error) => {
-            if (error.name === 'TimeoutError') {
-              this.logger.error('Timeout al agregar marcador');
-              reject(
-                new Error('La operación tardó demasiado. Intenta nuevamente.')
-              );
-            } else {
-              reject(error);
-            }
-          },
-        });
-    });
+    const docRef = await addDoc(markersCollection, markerData);
+    this.invalidateMarkersCache();
+    
+    return docRef.id;
   }
 
   async updateMarker(id: string, marker: Partial<MapMarker>): Promise<void> {
     const markerDoc = doc(this.firestore, 'markers', id);
     await updateDoc(markerDoc, { ...marker });
+    this.invalidateMarkersCache();
   }
 
   async deleteMarker(id: string): Promise<void> {
     const markerDoc = doc(this.firestore, 'markers', id);
     await deleteDoc(markerDoc);
+    this.invalidateMarkersCache();
   }
 
-  // Zonas por organización
-  // ✅ CAMBIADO: Usar getDocs() con polling en lugar de collectionData() real-time listener
+  private invalidateMarkersCache(): void {
+    this.markersCache$ = null;
+  }
+
+  // ==================== ZONES ====================
+
   getZones(): Observable<MapZone[]> {
-    this.logger.firebase('🔍 getZones() called');
-    return this.organizationService.getCurrentOrganization().pipe(
-      switchMap((org: Organization | null) => {
-        if (!org) {
-          this.logger.warn(
-            '❌ No organization available - returning empty zones'
-          );
-          return of([]);
-        }
+    if (this.zonesCache$) {
+      return this.zonesCache$;
+    }
 
-        this.logger.firebase(
-          `✅ Organization available: ${org.name} (${org.id})`
-        );
-        this.logger.firebase(`🔍 Querying zones for organization: ${org.id}`);
-
-        const zonesCollection = collection(this.firestore, 'zones');
-        const q = query(zonesCollection, where('organizationId', '==', org.id));
-
-        // ✅ Polling cada 5 segundos usando getDocs() en lugar de listener en tiempo real
-        return interval(5000).pipe(
-          startWith(0), // Ejecutar inmediatamente
-          mergeMap(() => from(getDocs(q))),
-          timeout(this.FIRESTORE_TIMEOUT),
-          catchError((error) => {
-            if (error.name === 'TimeoutError') {
-              this.logger.error(
-                `⏱️ TIMEOUT al cargar zonas para org: ${org.id} después de ${this.FIRESTORE_TIMEOUT}ms`
-              );
-              this.logger.error(
-                '🔧 Verifica: 1) Reglas de Firestore, 2) Conexión a internet, 3) Índices de Firestore'
-              );
-            } else {
-              this.logger.error('❌ Error al cargar zonas:', error);
-            }
-            return of(null);
-          }),
-          switchMap((snapshot: QuerySnapshot<DocumentData> | null) => {
-            if (!snapshot) {
-              return of([]);
-            }
-
-            const zones: MapZone[] = [];
-            snapshot.forEach((doc) => {
-              zones.push({ id: doc.id, ...doc.data() } as MapZone);
-            });
-
-            this.logger.firebase(
-              `✅ Loaded ${zones.length} zones from Firestore`
-            );
-            return of(zones);
-          })
-        );
-      })
+    this.zonesCache$ = this.organizationService.getCurrentOrganization().pipe(
+      switchMap((org) => this.fetchZonesForOrg(org)),
+      shareReplay(1)
     );
+
+    return this.zonesCache$;
+  }
+
+  private fetchZonesForOrg(org: Organization | null): Observable<MapZone[]> {
+    if (!org) {
+      this.logger.warn('No organization available - returning empty zones');
+      return of([]);
+    }
+
+    this._zonesState.update((state) => ({ ...state, isLoading: true, error: null }));
+
+    const zonesCollection = collection(this.firestore, 'zones');
+    const q = query(zonesCollection, where('organizationId', '==', org.id));
+
+    return this.createPollingObservable<MapZone>(q, 'zones');
   }
 
   async addZone(zone: Omit<MapZone, 'id'>): Promise<string> {
-    // ✅ Verificar conexión
-    if (this.networkService.isOffline()) {
-      this.logger.warn('Sin conexión. Guardando zona en cola offline...');
-      this.networkService.queueOperation({
-        type: 'create',
-        collection: 'zones',
-        data: zone,
-      });
-      throw new Error(
-        'Sin conexión. La zona se guardará cuando vuelva la conexión.'
-      );
-    }
+    this.ensureOnlineOrQueue('zones', 'create', zone);
 
-    return new Promise((resolve, reject) => {
-      this.organizationService
-        .getCurrentOrganization()
-        .pipe(take(1), timeout(this.FIRESTORE_TIMEOUT))
-        .subscribe({
-          next: async (currentOrg: Organization | null) => {
-            try {
-              if (!currentOrg) {
-                throw new Error('No hay organización activa');
-              }
+    const currentOrg = await this.getCurrentOrgOrThrow();
+    const zonesCollection = collection(this.firestore, 'zones');
 
-              const zonesCollection = collection(this.firestore, 'zones');
-              const zoneData = {
-                ...zone,
-                organizationId: currentOrg.id,
-                createdAt: Timestamp.now(),
-              };
+    const zoneData = {
+      ...zone,
+      organizationId: currentOrg.id,
+      createdAt: Timestamp.now(),
+    };
 
-              this.logger.firebase('Adding zone', zoneData);
-              const docRef = await addDoc(zonesCollection, zoneData);
-              this.logger.firebase('Zone added with ID:', docRef.id);
-              resolve(docRef.id);
-            } catch (error) {
-              this.logger.error('Error adding zone:', error);
-              reject(error);
-            }
-          },
-          error: (error) => {
-            if (error.name === 'TimeoutError') {
-              this.logger.error('Timeout al agregar zona');
-              reject(
-                new Error('La operación tardó demasiado. Intenta nuevamente.')
-              );
-            } else {
-              reject(error);
-            }
-          },
-        });
-    });
+    const docRef = await addDoc(zonesCollection, zoneData);
+    this.invalidateZonesCache();
+    
+    return docRef.id;
   }
 
   async updateZone(id: string, zone: Partial<MapZone>): Promise<void> {
     const zoneDoc = doc(this.firestore, 'zones', id);
     await updateDoc(zoneDoc, { ...zone });
+    this.invalidateZonesCache();
   }
 
   async deleteZone(id: string): Promise<void> {
     const zoneDoc = doc(this.firestore, 'zones', id);
     await deleteDoc(zoneDoc);
+    this.invalidateZonesCache();
   }
 
-  // Rutas por organización (mantener compatibilidad)
-  // CAMBIADO: Usar getDocs() con polling en lugar de collectionData() real-time listener
-  getRoutes(): Observable<any[]> {
-    return this.organizationService.getCurrentOrganization().pipe(
-      switchMap((org: Organization | null) => {
-        if (!org) return of([]);
+  private invalidateZonesCache(): void {
+    this.zonesCache$ = null;
+  }
 
-        const routesCollection = collection(this.firestore, 'routes');
-        const q = query(
-          routesCollection,
-          where('organizationId', '==', org.id)
-        );
+  // ==================== ROUTES ====================
 
-        //  Polling cada 5 segundos usando getDocs()
-        return interval(5000).pipe(
-          startWith(0),
-          mergeMap(() => from(getDocs(q))),
+  getRoutes(): Observable<unknown[]> {
+    if (this.routesCache$) {
+      return this.routesCache$;
+    }
+
+    this.routesCache$ = this.organizationService.getCurrentOrganization().pipe(
+      switchMap((org) => this.fetchRoutesForOrg(org)),
+      shareReplay(1)
+    );
+
+    return this.routesCache$;
+  }
+
+  private fetchRoutesForOrg(org: Organization | null): Observable<unknown[]> {
+    if (!org) {
+      return of([]);
+    }
+
+    this._routesState.update((state) => ({ ...state, isLoading: true, error: null }));
+
+    const routesCollection = collection(this.firestore, 'routes');
+    const q = query(routesCollection, where('organizationId', '==', org.id));
+
+    return this.createPollingObservable(q, 'routes');
+  }
+
+  async addRoute(route: unknown): Promise<string> {
+    const currentOrg = await this.getCurrentOrgOrThrow();
+    const routesCollection = collection(this.firestore, 'routes');
+
+    const docRef = await addDoc(routesCollection, {
+      ...(route as object),
+      organizationId: currentOrg.id,
+      createdAt: Timestamp.now(),
+    });
+
+    this.invalidateRoutesCache();
+    return docRef.id;
+  }
+
+  private invalidateRoutesCache(): void {
+    this.routesCache$ = null;
+  }
+
+  // ==================== HELPERS ====================
+
+    private createPollingObservable<T>(
+    q: ReturnType<typeof query>,
+    collectionName: string
+  ): Observable<T[]> {
+    const stateSignal = this.getStateSignal(collectionName);
+
+    return interval(this.POLLING_INTERVAL).pipe(
+      startWith(0),
+      mergeMap(() => 
+        from(getDocs(q)).pipe(
           timeout(this.FIRESTORE_TIMEOUT),
           catchError((error) => {
-            this.logger.error('Error al cargar rutas:', error);
+            const errorMessage = this.handleFirestoreError(error, collectionName);
+            stateSignal.update((state) => ({
+              ...state,
+              isLoading: false,
+              error: errorMessage,
+            }));
             return of(null);
-          }),
-          switchMap((snapshot: QuerySnapshot<DocumentData> | null) => {
-            if (!snapshot) return of([]);
-
-            const routes: any[] = [];
-            snapshot.forEach((doc) => {
-              routes.push({ id: doc.id, ...doc.data() });
-            });
-            return of(routes);
           })
-        );
+        )
+      ),
+      switchMap((snapshot) => {
+        if (!snapshot) {
+          return of([] as T[]);
+        }
+
+        const items: T[] = snapshot.docs.map((docSnap) => {
+          const data = docSnap.data() as Record<string, unknown>;
+          return { id: docSnap.id, ...data } as T;
+        });
+
+        stateSignal.update((state) => ({
+          ...state,
+          isLoading: false,
+          error: null,
+          lastSync: new Date(),
+        }));
+
+        return of(items);
       })
     );
+  
   }
 
-  async addRoute(route: any): Promise<string> {
+  private getStateSignal(collectionName: string) {
+    switch (collectionName) {
+      case 'markers':
+        return this._markersState;
+      case 'zones':
+        return this._zonesState;
+      case 'routes':
+        return this._routesState;
+      default:
+        return this._markersState;
+    }
+  }
+
+  private handleFirestoreError(error: unknown, collectionName: string): string {
+    const err = error as { name?: string };
+    
+    if (err.name === 'TimeoutError') {
+      this.logger.error(
+        `Timeout loading ${collectionName} after ${this.FIRESTORE_TIMEOUT}ms`
+      );
+      return 'La operación tardó demasiado. Verifica tu conexión.';
+    }
+
+    this.logger.error(`Error loading ${collectionName}:`, error);
+    return 'Error al cargar datos. Intenta nuevamente.';
+  }
+
+  private ensureOnlineOrQueue(
+    collectionName: string,
+    type: OfflineOperation['type'],
+    data?: unknown
+  ): void {
+    if (this.networkService.isOffline()) {
+      this.logger.warn(`Sin conexión. Guardando en cola offline...`);
+      this.networkService.queueOperation({ type, collection: collectionName, data });
+      throw new Error('Sin conexión. Se guardará cuando vuelva la conexión.');
+    }
+  }
+
+  private async getCurrentOrgOrThrow(): Promise<Organization> {
     return new Promise((resolve, reject) => {
       this.organizationService
         .getCurrentOrganization()
-        .pipe(take(1))
+        .pipe(take(1), timeout(this.FIRESTORE_TIMEOUT))
         .subscribe({
-          next: async (currentOrg: Organization | null) => {
-            try {
-              if (!currentOrg) {
-                throw new Error('No hay organización activa');
-              }
-
-              const routesCollection = collection(this.firestore, 'routes');
-              const docRef = await addDoc(routesCollection, {
-                ...route,
-                organizationId: currentOrg.id,
-                createdAt: Timestamp.now(),
-              });
-              resolve(docRef.id);
-            } catch (error) {
+          next: (org) => {
+            if (!org) {
+              reject(new Error('No hay organización activa'));
+              return;
+            }
+            resolve(org);
+          },
+          error: (error) => {
+            const err = error as { name?: string };
+            if (err.name === 'TimeoutError') {
+              reject(new Error('La operación tardó demasiado. Intenta nuevamente.'));
+            } else {
               reject(error);
             }
           },
-          error: reject,
         });
     });
+  }
+
+  // ==================== PUBLIC UTILITIES ====================
+
+  /**
+   * Invalida todos los caches para forzar recarga
+   */
+  invalidateAllCaches(): void {
+    this.markersCache$ = null;
+    this.zonesCache$ = null;
+    this.routesCache$ = null;
+  }
+
+  /**
+   * Limpia errores de estado
+   */
+  clearErrors(): void {
+    this._markersState.update((state) => ({ ...state, error: null }));
+    this._zonesState.update((state) => ({ ...state, error: null }));
+    this._routesState.update((state) => ({ ...state, error: null }));
   }
 }
