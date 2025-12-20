@@ -1,9 +1,6 @@
 import { Injectable, inject, signal, computed, effect, Signal } from '@angular/core';
 import {
   Observable,
-  map,
-  switchMap,
-  take,
 } from 'rxjs';
 import {
   Firestore,

@@ -1,7 +1,6 @@
 import { Component, inject, OnInit, OnDestroy, signal, computed } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import {
   IonButton,
@@ -47,7 +46,6 @@ import { MapMarker } from '../../models/marker.model';
 import { MapZone } from '../../models/zone.model';
 import { FirestoreService } from '../../../services/firestore.service';
 import { MapDataService } from '../../services/map-data.service';
-import { AuthService } from '../../../auth/services/auth.service';
 import { AuthorizationService } from '../../../auth/services/authorization.service';
 import { RoleSelectorComponent } from '../role-selector/role-selector.component';
 

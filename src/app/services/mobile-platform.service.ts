@@ -50,7 +50,7 @@ export class MobilePlatformService {
     await this.platform.ready();
 
     if (Capacitor.isNativePlatform()) {
-      this.logger.log('🏃‍♂️ Running on native platform');
+      this.logger.log('Running on native platform');
 
       // Configurar status bar
       await this.setupStatusBar();
@@ -67,7 +67,7 @@ export class MobilePlatformService {
       // Solicitar permisos de ubicación
       await this.requestLocationPermissions();
     } else {
-      this.logger.log('🌐 Running on web platform');
+      this.logger.log('Running on web platform');
       this.deviceInfo = {
         platform: 'web',
         isNative: false,
@@ -97,7 +97,7 @@ export class MobilePlatformService {
       }
       this.logger.log('📱 Status bar configured');
     } catch (error) {
-      this.logger.error('❌ Error configuring status bar:', error);
+      this.logger.error('Error configuring status bar:', error);
     }
   }
 
@@ -107,9 +107,9 @@ export class MobilePlatformService {
   private async hideSplashScreen(): Promise<void> {
     try {
       await SplashScreen.hide();
-      this.logger.log('🚀 Splash screen hidden');
+      this.logger.log('Splash screen hidden');
     } catch (error) {
-      this.logger.error('❌ Error hiding splash screen:', error);
+      this.logger.error('Error hiding splash screen:', error);
     }
   }
 
@@ -131,9 +131,9 @@ export class MobilePlatformService {
         manufacturer: info.manufacturer,
         isVirtual: info.isVirtual,
       };
-      this.logger.log('📱 Device info:', this.deviceInfo);
+      this.logger.log('Device info:', this.deviceInfo);
     } catch (error) {
-      this.logger.error('❌ Error getting device info:', error);
+      this.logger.error('Error getting device info:', error);
     }
   }
 
@@ -145,7 +145,7 @@ export class MobilePlatformService {
       const id = await Device.getId();
       return id.identifier;
     } catch (error) {
-      this.logger.error('❌ Error getting device ID:', error);
+      this.logger.error('Error getting device ID:', error);
       return 'unknown';
     }
   }
@@ -168,7 +168,7 @@ export class MobilePlatformService {
           connected: status.connected,
           connectionType: status.connectionType,
         };
-        this.logger.log('🌐 Network status changed:', this.networkStatus);
+        this.logger.log('Network status changed:', this.networkStatus);
 
         // Emitir evento personalizado para que otros servicios puedan reaccionar
         if (typeof window !== 'undefined') {
@@ -180,9 +180,9 @@ export class MobilePlatformService {
         }
       });
 
-      this.logger.log('🌐 Network listeners configured');
+      this.logger.log('Network listeners configured');
     } catch (error) {
-      this.logger.error('❌ Error setting up network listeners:', error);
+      this.logger.error('Error setting up network listeners:', error);
     }
   }
 
@@ -192,15 +192,15 @@ export class MobilePlatformService {
   private async requestLocationPermissions(): Promise<void> {
     try {
       const permissions = await Geolocation.requestPermissions();
-      this.logger.log('📍 Location permissions:', permissions);
+      this.logger.log('Location permissions:', permissions);
 
       if (permissions.location === 'granted') {
-        this.logger.log('✅ Location permissions granted');
+        this.logger.log('Location permissions granted');
       } else {
-        this.logger.warn('⚠️ Location permissions denied');
+        this.logger.warn('Location permissions denied');
       }
     } catch (error) {
-      this.logger.error('❌ Error requesting location permissions:', error);
+      this.logger.error('Error requesting location permissions:', error);
     }
   }
 
@@ -219,7 +219,7 @@ export class MobilePlatformService {
         lng: position.coords.longitude,
       };
     } catch (error) {
-      this.logger.error('❌ Error getting current position:', error);
+      this.logger.error('Error getting current position:', error);
       return null;
     }
   }
@@ -274,9 +274,9 @@ export class MobilePlatformService {
       try {
         const style = isDark ? Style.Dark : Style.Light;
         await StatusBar.setStyle({ style });
-        console.log(`🎨 Theme set to: ${isDark ? 'dark' : 'light'}`);
+        this.logger.log(`Theme set to: ${isDark ? 'dark' : 'light'}`);
       } catch (error) {
-        console.error('❌ Error setting theme:', error);
+        this.logger.error('Error setting theme:', error);
       }
     }
   }

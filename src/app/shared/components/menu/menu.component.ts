@@ -1,7 +1,6 @@
 import {
   Component,
   inject,
-  signal,
   computed,
 } from '@angular/core';
 import {

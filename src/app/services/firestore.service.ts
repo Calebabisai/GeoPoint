@@ -301,7 +301,7 @@ export class FirestoreService {
   }
 
   // Rutas por organización (mantener compatibilidad)
-  // ✅ CAMBIADO: Usar getDocs() con polling en lugar de collectionData() real-time listener
+  // CAMBIADO: Usar getDocs() con polling en lugar de collectionData() real-time listener
   getRoutes(): Observable<any[]> {
     return this.organizationService.getCurrentOrganization().pipe(
       switchMap((org: Organization | null) => {
@@ -313,7 +313,7 @@ export class FirestoreService {
           where('organizationId', '==', org.id)
         );
 
-        // ✅ Polling cada 5 segundos usando getDocs()
+        //  Polling cada 5 segundos usando getDocs()
         return interval(5000).pipe(
           startWith(0),
           mergeMap(() => from(getDocs(q))),
