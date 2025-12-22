@@ -1,5 +1,7 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { toSignal } from '@angular/core/rxjs-interop';
+
 import {
   FormsModule,
   ReactiveFormsModule,
@@ -35,7 +37,6 @@ import {
   getUserInitials,
 } from '../../shared/models/user.model';
 import { Firestore, doc, updateDoc } from '@angular/fire/firestore';
-import { Observable, firstValueFrom } from 'rxjs';
 import { addIcons } from 'ionicons';
 import {
   personOutline,
@@ -76,16 +77,27 @@ import {
   ],
 })
 export class ProfilePage implements OnInit {
-  private authService = inject(AuthService);
-  private firestore = inject(Firestore);
-  private toastController = inject(ToastController);
-  private alertController = inject(AlertController);
-  private fb = inject(FormBuilder);
 
-  currentUser$: Observable<User | null>;
+  private readonly authService = inject(AuthService);
+  private readonly firestore = inject(Firestore);
+  private readonly toastController = inject(ToastController);
+  private readonly alertController = inject(AlertController);
+  private readonly fb = inject(FormBuilder);
+
+  // Signals
+  readonly currentUser = toSignal(this.authService.getCurrentUser(), { initialValue: null });
+  readonly isEditing = signal(false);
+  readonly isSaving = signal(false);
+
+  // Computed
+  readonly displayName = computed(() => getUserDisplayName(this.currentUser()));
+  readonly initials = computed(() => getUserInitials(this.currentUser()));
+  readonly email = computed(() => this.currentUser()?.email || '');
+  readonly canSave = computed(() => 
+    this.profileForm.valid && !this.isSaving() && this.isEditing()
+  );
+
   profileForm: FormGroup;
-  isEditing = false;
-  isSaving = false;
 
   constructor() {
     addIcons({
@@ -98,44 +110,44 @@ export class ProfilePage implements OnInit {
       informationCircleOutline,
     });
 
-    this.currentUser$ = this.authService.getCurrentUser();
-
     this.profileForm = this.fb.group({
       displayName: ['', [Validators.required, Validators.minLength(2)]],
-      email: [{ value: '', disabled: true }], // Email no editable
+      email: [{ value: '', disabled: true }],
     });
-  }
 
-  ngOnInit() {
-    // Cargar datos del usuario actual
-    this.currentUser$.subscribe((user) => {
-      if (user) {
+    // Effect para actualizar el formulario cuando cambia el usuario
+    effect(() => {
+      const user = this.currentUser();
+      if (user && !this.isEditing()) {
         this.profileForm.patchValue({
           displayName: user.displayName || '',
           email: user.email || '',
-        });
+        }, { emitEvent: false });
       }
     });
   }
 
-  // Alternar modo de edición
-  toggleEdit() {
-    this.isEditing = !this.isEditing;
-
-    if (!this.isEditing) {
-      // Si se cancela la edición, restaurar valores originales
-      this.currentUser$.subscribe((user) => {
-        if (user) {
-          this.profileForm.patchValue({
-            displayName: user.displayName || '',
-          });
-        }
-      });
-    }
+  ngOnInit() {
+    // Inicialización si es necesario
   }
 
-  // Guardar cambios del perfil
-  async saveProfile() {
+  toggleEdit(): void {
+    const currentlyEditing = this.isEditing();
+    
+    if (currentlyEditing) {
+      // Cancelar edición: restaurar valores originales
+      const user = this.currentUser();
+      if (user) {
+        this.profileForm.patchValue({
+          displayName: user.displayName || '',
+        }, { emitEvent: false });
+      }
+    }
+    
+    this.isEditing.set(!currentlyEditing);
+  }
+
+  async saveProfile(): Promise<void> {
     if (this.profileForm.invalid) {
       await this.showToast(
         'Por favor, completa todos los campos correctamente',
@@ -144,11 +156,9 @@ export class ProfilePage implements OnInit {
       return;
     }
 
-    // Confirmar cambios
     const alert = await this.alertController.create({
       header: 'Confirmar cambios',
-      message:
-        '¿Estás seguro de que quieres actualizar tu información de perfil?',
+      message: '¿Estás seguro de que quieres actualizar tu información de perfil?',
       buttons: [
         {
           text: 'Cancelar',
@@ -165,51 +175,45 @@ export class ProfilePage implements OnInit {
     await alert.present();
   }
 
-  private async performSave() {
-    this.isSaving = true;
+  private async performSave(): Promise<void> {
+    this.isSaving.set(true);
 
     try {
-      // Obtener usuario actual
-      const currentUser = await firstValueFrom(this.currentUser$);
+      const user = this.currentUser();
 
-      if (!currentUser?.uid) {
+      if (!user?.uid) {
         throw new Error('No se pudo obtener la información del usuario');
       }
 
-      const formData = this.profileForm.value;
+      const { displayName } = this.profileForm.value;
 
-      // Actualizar en Firestore
-      const userDoc = doc(this.firestore, `users/${currentUser.uid}`);
+      const userDoc = doc(this.firestore, `users/${user.uid}`);
       await updateDoc(userDoc, {
-        displayName: formData.displayName.trim(),
+        displayName: displayName.trim(),
       });
 
       await this.showToast('Perfil actualizado exitosamente', 'success');
-      this.isEditing = false;
-    } catch (error: any) {
-      console.error('Error updating profile:', error);
+      this.isEditing.set(false);
+    } catch (error) {
+      const err = error as { message?: string };
       await this.showToast(
-        error?.message || 'Error al actualizar el perfil',
+        err.message || 'Error al actualizar el perfil',
         'danger'
       );
     } finally {
-      this.isSaving = false;
+      this.isSaving.set(false);
     }
   }
 
-  // Funciones utilitarias
-  getUserDisplayName(user: User | null): string {
-    return getUserDisplayName(user);
-  }
-
-  getUserInitials(user: User | null): string {
-    return getUserInitials(user);
+  isFieldInvalid(fieldName: string): boolean {
+    const field = this.profileForm.get(fieldName);
+    return !!(field && field.invalid && (field.dirty || field.touched));
   }
 
   private async showToast(
     message: string,
     color: 'success' | 'warning' | 'danger' = 'success'
-  ) {
+  ): Promise<void> {
     const toast = await this.toastController.create({
       message,
       duration: 3000,
@@ -218,11 +222,5 @@ export class ProfilePage implements OnInit {
       cssClass: 'custom-toast',
     });
     await toast.present();
-  }
-
-  // Validación de campos
-  isFieldInvalid(fieldName: string): boolean {
-    const field = this.profileForm.get(fieldName);
-    return !!(field && field.invalid && (field.dirty || field.touched));
   }
 }
