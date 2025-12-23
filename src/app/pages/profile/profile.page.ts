@@ -1,7 +1,5 @@
 import { Component, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { toSignal } from '@angular/core/rxjs-interop';
-
 import {
   FormsModule,
   ReactiveFormsModule,
@@ -31,11 +29,7 @@ import {
   AlertController,
 } from '@ionic/angular/standalone';
 import { AuthService } from '../../auth/services/auth.service';
-import {
-  User,
-  getUserDisplayName,
-  getUserInitials,
-} from '../../shared/models/user.model';
+import { getUserDisplayName, getUserInitials } from '../../shared/models/user.model';
 import { Firestore, doc, updateDoc } from '@angular/fire/firestore';
 import { addIcons } from 'ionicons';
 import {
@@ -84,8 +78,8 @@ export class ProfilePage implements OnInit {
   private readonly alertController = inject(AlertController);
   private readonly fb = inject(FormBuilder);
 
-  // Signals
-  readonly currentUser = toSignal(this.authService.getCurrentUser(), { initialValue: null });
+  // Signals - authService.currentUser ya es un Signal
+  readonly currentUser = this.authService.currentUser;
   readonly isEditing = signal(false);
   readonly isSaving = signal(false);
 
