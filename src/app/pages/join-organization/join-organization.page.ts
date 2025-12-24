@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -20,8 +20,7 @@ import {
   IonBackButton,
   IonButtons,
   ToastController,
-  LoadingController,
-} from '@ionic/angular/standalone';
+  LoadingController, IonSpinner } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import {
   keyOutline,
@@ -38,7 +37,7 @@ import { firstValueFrom } from 'rxjs';
   templateUrl: './join-organization.page.html',
   styleUrls: ['./join-organization.page.scss'],
   standalone: true,
-  imports: [
+  imports: [IonSpinner, 
     CommonModule,
     FormsModule,
     IonHeader,
@@ -60,14 +59,19 @@ import { firstValueFrom } from 'rxjs';
   ],
 })
 export class JoinOrganizationPage {
-  private organizationService = inject(OrganizationService);
-  private authService = inject(AuthService);
-  private router = inject(Router);
-  private toastCtrl = inject(ToastController);
-  private loadingCtrl = inject(LoadingController);
+  private readonly organizationService = inject(OrganizationService);
+  private readonly authService = inject(AuthService);
+  private readonly router = inject(Router);
+  private readonly toastCtrl = inject(ToastController);
+  private readonly loadingCtrl = inject(LoadingController);
 
-  inviteCode = '';
-  isLoading = false;
+  // Signals
+  readonly inviteCode = signal('');
+  readonly isLoading = signal(false);
+
+  // Computed
+  readonly isValidCode = computed(() => this.inviteCode().trim().length > 0);
+  readonly canSubmit = computed(() => this.isValidCode() && !this.isLoading());
 
   constructor() {
     addIcons({
@@ -78,54 +82,48 @@ export class JoinOrganizationPage {
     });
   }
 
-  async joinOrganization() {
-    if (!this.inviteCode.trim()) {
-      this.showToast('Por favor ingresa un código de invitación', 'warning');
+  updateInviteCode(value: string): void {
+    this.inviteCode.set(value.toUpperCase());
+  }
+
+  async joinOrganization(): Promise<void> {
+    if (!this.isValidCode()) {
+      await this.showToast('Por favor ingresa un codigo de invitacion', 'warning');
       return;
     }
 
     const loading = await this.loadingCtrl.create({
-      message: 'Uniéndose a la organización...',
+      message: 'Uniendose a la organizacion...',
     });
     await loading.present();
 
     try {
-      // Obtener usuario actual
-      const user = await firstValueFrom(this.authService.getCurrentUser());
+      const user = this.authService.currentUser();
       if (!user) {
         throw new Error('Usuario no autenticado');
       }
 
-      // Aceptar la invitación
       const organization = await this.organizationService.acceptInvite(
-        this.inviteCode.trim().toUpperCase()
+        this.inviteCode().trim()
       );
 
       await loading.dismiss();
-
-      await this.showToast(`¡Bienvenido a ${organization.name}!`, 'success');
-
-      // Navegar al home
+      await this.showToast(`Bienvenido a ${organization.name}!`, 'success');
       this.router.navigate(['/home']);
     } catch (error) {
       await loading.dismiss();
-      console.error('Error joining organization:', error);
-
-      let message = 'Error al unirse a la organización';
-      if (error instanceof Error) {
-        message = error.message;
-      }
-
-      await this.showToast(message, 'danger');
+      const err = error as { message?: string };
+      await this.showToast(
+        err.message || 'Error al unirse a la organizacion',
+        'danger'
+      );
     }
   }
 
-  formatInviteCode() {
-    // Convertir a mayúsculas automáticamente
-    this.inviteCode = this.inviteCode.toUpperCase();
-  }
-
-  private async showToast(message: string, color: string = 'primary') {
+  private async showToast(
+    message: string,
+    color: 'primary' | 'success' | 'warning' | 'danger' = 'primary'
+  ): Promise<void> {
     const toast = await this.toastCtrl.create({
       message,
       duration: 3000,

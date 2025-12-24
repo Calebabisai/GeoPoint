@@ -1,62 +1,63 @@
 <ion-header [translucent]="true">
-  <ion-toolbar>
+  <ion-toolbar color="dark">
     <ion-buttons slot="start">
       <ion-back-button defaultHref="/home"></ion-back-button>
     </ion-buttons>
-    <ion-title>Unirse a Organización</ion-title>
+    <ion-title>Unirse a Organizacion</ion-title>
   </ion-toolbar>
 </ion-header>
 
-<ion-content [fullscreen]="true">
-  <div class="container">
-    <ion-card class="welcome-card">
+<ion-content [fullscreen]="true" class="ion-padding">
+  <div class="join-container">
+    <ion-card>
       <ion-card-header>
-        <ion-card-title>
-          <ion-icon name="business-outline"></ion-icon>
-          Código de Invitación
-        </ion-card-title>
+        <ion-icon name="business-outline" class="header-icon"></ion-icon>
+        <ion-card-title>Unirse a una Organizacion</ion-card-title>
       </ion-card-header>
 
       <ion-card-content>
         <p class="description">
-          Ingresa el código de invitación que recibiste para unirte a una
-          organización.
+          Ingresa el codigo de invitacion proporcionado por tu organizacion para unirte.
         </p>
 
-        <ion-item class="code-input">
-          <ion-label position="stacked">Código de Invitación</ion-label>
+        <ion-item>
+          <ion-label position="stacked">
+            <ion-icon name="key-outline"></ion-icon>
+            Codigo de Invitacion
+          </ion-label>
           <ion-input
-            [(ngModel)]="inviteCode"
-            (ionInput)="formatInviteCode()"
-            placeholder="Ej: ABC12345"
-            maxlength="12"
-            class="code-field"
+            type="text"
+            placeholder="Ingresa el codigo"
+            [value]="inviteCode()"
+            (ionInput)="updateInviteCode($any($event.target).value)"
+            [disabled]="isLoading()"
+            fill="outline"
           ></ion-input>
-          <ion-icon name="key-outline" slot="start"></ion-icon>
         </ion-item>
+
+        @if (!isValidCode() && inviteCode().length > 0) {
+          <ion-text color="danger">
+            <p class="error-text">
+              <ion-icon name="alert-circle-outline"></ion-icon>
+              El codigo no puede estar vacio
+            </p>
+          </ion-text>
+        }
 
         <ion-button
           expand="block"
-          class="join-button"
           (click)="joinOrganization()"
-          [disabled]="!inviteCode.trim() || isLoading"
+          [disabled]="!canSubmit()"
+          class="join-button"
         >
-          <ion-icon name="checkmark-circle-outline" slot="start"></ion-icon>
-          Unirse a la Organización
+          @if (isLoading()) {
+            <ion-spinner name="crescent"></ion-spinner>
+            Uniendose...
+          } @else {
+            <ion-icon name="checkmark-circle-outline" slot="start"></ion-icon>
+            Unirse a la Organizacion
+          }
         </ion-button>
-
-        <div class="help-section">
-          <ion-text color="medium">
-            <h3>¿Cómo obtener un código?</h3>
-            <ul>
-              <li>
-                Solicita una invitación al administrador de tu organización
-              </li>
-              <li>El código tiene formato: ABC12345 (8-12 caracteres)</li>
-              <li>Los códigos expiran en 7 días</li>
-            </ul>
-          </ion-text>
-        </div>
       </ion-card-content>
     </ion-card>
   </div>
