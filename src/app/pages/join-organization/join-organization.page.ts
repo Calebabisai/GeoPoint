@@ -119,7 +119,6 @@ export class JoinOrganizationPage {
       );
     }
   }
-
   private async showToast(
     message: string,
     color: 'primary' | 'success' | 'warning' | 'danger' = 'primary'
@@ -133,4 +132,5 @@ export class JoinOrganizationPage {
     });
     await toast.present();
   }
+  
 }
