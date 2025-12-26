@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import {
@@ -42,123 +42,130 @@ import { AuthService } from '../../auth/services/auth.service';
     </ion-header>
 
     <ion-content [fullscreen]="true" class="join-invitation">
-      <!-- Estado de carga -->
-      <div *ngIf="isLoading" class="loading-container">
-        <div class="loading-content">
-          <ion-spinner name="crescent" color="secondary"></ion-spinner>
-          <h2>Procesando invitación...</h2>
-          <p>Esto solo tomará un momento</p>
+      @if (isLoading()) {
+        <div class="loading-container">
+          <div class="loading-content">
+            <ion-spinner name="crescent" color="secondary"></ion-spinner>
+            <h2>Procesando invitación...</h2>
+            <p>Esto solo tomará un momento</p>
+          </div>
         </div>
-      </div>
+      }
 
-      <!-- Contenido principal -->
-      <div *ngIf="!isLoading" class="content-container">
-        <!-- Estado de éxito -->
-        <div *ngIf="status === 'success'" class="success-container">
-          <ion-card class="success-card">
-            <ion-card-header>
-              <div class="success-icon">
-                <ion-icon name="checkmark-circle" color="success"></ion-icon>
-              </div>
-              <ion-card-title>¡Bienvenido al equipo!</ion-card-title>
-            </ion-card-header>
-            <ion-card-content>
-              <div class="organization-info">
-                <ion-item lines="none">
-                  <ion-icon
-                    name="business"
-                    slot="start"
-                    color="secondary"
-                  ></ion-icon>
-                  <ion-label>
-                    <h2>{{ organization?.name }}</h2>
-                    <p>Te has unido exitosamente</p>
-                  </ion-label>
-                </ion-item>
+      @if (!isLoading()) {
+        <div class="content-container">
+          @if (status() === 'success') {
+            <div class="success-container">
+              <ion-card class="success-card">
+                <ion-card-header>
+                  <div class="success-icon">
+                    <ion-icon name="checkmark-circle" color="success"></ion-icon>
+                  </div>
+                  <ion-card-title>¡Bienvenido al equipo!</ion-card-title>
+                </ion-card-header>
+                <ion-card-content>
+                  <div class="organization-info">
+                    <ion-item lines="none">
+                      <ion-icon
+                        name="business"
+                        slot="start"
+                        color="secondary"
+                      ></ion-icon>
+                      <ion-label>
+                        <h2>{{ organization()?.name }}</h2>
+                        <p>Te has unido exitosamente</p>
+                      </ion-label>
+                    </ion-item>
 
-                <ion-item lines="none" *ngIf="invitationDetails">
-                  <ion-icon
-                    name="person"
-                    slot="start"
-                    color="medium"
-                  ></ion-icon>
-                  <ion-label>
-                    <h3>
-                      Tu rol: {{ getRoleDisplayName(invitationDetails.role) }}
-                    </h3>
-                    <p *ngIf="invitationDetails.department">
-                      Departamento: {{ invitationDetails.department }}
-                    </p>
-                  </ion-label>
-                </ion-item>
-              </div>
+                    @if (invitationDetails()) {
+                      <ion-item lines="none">
+                        <ion-icon
+                          name="person"
+                          slot="start"
+                          color="medium"
+                        ></ion-icon>
+                        <ion-label>
+                          <h3>
+                            Tu rol: {{ getRoleDisplayName(invitationDetails()!.role) }}
+                          </h3>
+                          @if (invitationDetails()!.department) {
+                            <p>Departamento: {{ invitationDetails()!.department }}</p>
+                          }
+                        </ion-label>
+                      </ion-item>
+                    }
+                  </div>
 
-              <div class="action-buttons">
-                <ion-button
-                  expand="block"
-                  color="secondary"
-                  (click)="goToMap()"
-                >
-                  <ion-icon name="home" slot="start"></ion-icon>
-                  Ir al Mapa
-                </ion-button>
-              </div>
+                  <div class="action-buttons">
+                    <ion-button
+                      expand="block"
+                      color="secondary"
+                      (click)="goToMap()"
+                    >
+                      <ion-icon name="home" slot="start"></ion-icon>
+                      Ir al Mapa
+                    </ion-button>
+                  </div>
 
-              <p class="auto-redirect">
-                Serás redirigido automáticamente en unos segundos...
-              </p>
-            </ion-card-content>
-          </ion-card>
+                  <p class="auto-redirect">
+                    Serás redirigido automáticamente en unos segundos...
+                  </p>
+                </ion-card-content>
+              </ion-card>
+            </div>
+          }
+
+          @if (status() === 'error') {
+            <div class="error-container">
+              <ion-card class="error-card">
+                <ion-card-header>
+                  <div class="error-icon">
+                    <ion-icon name="close-circle" color="danger"></ion-icon>
+                  </div>
+                  <ion-card-title>Error en la invitación</ion-card-title>
+                </ion-card-header>
+                <ion-card-content>
+                  <p class="error-message">{{ errorMessage() }}</p>
+
+                  <div class="action-buttons">
+                    <ion-button expand="block" fill="outline" (click)="goHome()">
+                      <ion-icon name="home" slot="start"></ion-icon>
+                      Ir al Inicio
+                    </ion-button>
+                  </div>
+                </ion-card-content>
+              </ion-card>
+            </div>
+          }
+
+          @if (status() === 'expired') {
+            <div class="expired-container">
+              <ion-card class="expired-card">
+                <ion-card-header>
+                  <div class="expired-icon">
+                    <ion-icon name="time" color="warning"></ion-icon>
+                  </div>
+                  <ion-card-title>Invitación expirada</ion-card-title>
+                </ion-card-header>
+                <ion-card-content>
+                  <p>Esta invitación ha expirado y ya no es válida.</p>
+                  <p>
+                    Contacta al administrador de la organización para solicitar una
+                    nueva invitación.
+                  </p>
+
+                  <div class="action-buttons">
+                    <ion-button expand="block" fill="outline" (click)="goHome()">
+                      <ion-icon name="home" slot="start"></ion-icon>
+                      Ir al Inicio
+                    </ion-button>
+                  </div>
+                </ion-card-content>
+              </ion-card>
+            </div>
+          }
         </div>
-
-        <!-- Estado de error -->
-        <div *ngIf="status === 'error'" class="error-container">
-          <ion-card class="error-card">
-            <ion-card-header>
-              <div class="error-icon">
-                <ion-icon name="close-circle" color="danger"></ion-icon>
-              </div>
-              <ion-card-title>Error en la invitación</ion-card-title>
-            </ion-card-header>
-            <ion-card-content>
-              <p class="error-message">{{ errorMessage }}</p>
-
-              <div class="action-buttons">
-                <ion-button expand="block" fill="outline" (click)="goHome()">
-                  <ion-icon name="home" slot="start"></ion-icon>
-                  Ir al Inicio
-                </ion-button>
-              </div>
-            </ion-card-content>
-          </ion-card>
-        </div>
-
-        <!-- Estado de expirada -->
-        <div *ngIf="status === 'expired'" class="expired-container">
-          <ion-card class="expired-card">
-            <ion-card-header>
-              <div class="expired-icon">
-                <ion-icon name="time" color="warning"></ion-icon>
-              </div>
-              <ion-card-title>Invitación expirada</ion-card-title>
-            </ion-card-header>
-            <ion-card-content>
-              <p>Esta invitación ha expirado y ya no es válida.</p>
-              <p>
-                Contacta al administrador de la organización para solicitar una
-                nueva invitación.
-              </p>
-
-              <div class="action-buttons">
-                <ion-button expand="block" fill="outline" (click)="goHome()">
-                  <ion-icon name="home" slot="start"></ion-icon>
-                  Ir al Inicio
-                </ion-button>
-              </div>
-            </ion-card-content>
-          </ion-card>
-        </div>
-      </div>
+      }
     </ion-content>
   `,
   styles: [
@@ -324,20 +331,26 @@ import { AuthService } from '../../auth/services/auth.service';
   ],
 })
 export class JoinInvitationPage implements OnInit {
-  private route = inject(ActivatedRoute);
-  private router = inject(Router);
-  private organizationService = inject(OrganizationService);
-  private authService = inject(AuthService);
-  private toastController = inject(ToastController);
-  private loadingController = inject(LoadingController);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly organizationService = inject(OrganizationService);
+  private readonly authService = inject(AuthService);
+  private readonly toastController = inject(ToastController);
+  private readonly loadingController = inject(LoadingController);
 
-  inviteToken: string = '';
-  isLoading = true;
-  isProcessing = false;
-  status: 'loading' | 'success' | 'error' | 'expired' = 'loading';
-  errorMessage = '';
-  organization: any = null;
-  invitationDetails: any = null;
+  // Signals
+  readonly inviteToken = signal('');
+  readonly isLoading = signal(true);
+  readonly isProcessing = signal(false);
+  readonly status = signal<'loading' | 'success' | 'error' | 'expired'>('loading');
+  readonly errorMessage = signal('');
+  readonly organization = signal<any>(null);
+  readonly invitationDetails = signal<any>(null);
+
+  // Computed
+  readonly canProceed = computed(() => this.inviteToken().trim().length > 0);
+  readonly isSuccessful = computed(() => this.status() === 'success');
+  readonly hasError = computed(() => this.status() === 'error');
 
   constructor() {
     addIcons({
@@ -353,12 +366,13 @@ export class JoinInvitationPage implements OnInit {
 
   async ngOnInit() {
     // Obtener el token de la URL
-    this.inviteToken = this.route.snapshot.paramMap.get('token') || '';
+    const token = this.route.snapshot.paramMap.get('token') || '';
+    this.inviteToken.set(token);
 
-    if (!this.inviteToken) {
-      this.status = 'error';
-      this.errorMessage = 'Token de invitación no válido';
-      this.isLoading = false;
+    if (!this.canProceed()) {
+      this.status.set('error');
+      this.errorMessage.set('Token de invitación no válido');
+      this.isLoading.set(false);
       return;
     }
 
@@ -367,18 +381,18 @@ export class JoinInvitationPage implements OnInit {
 
   private async processInvitation() {
     try {
-      this.isLoading = true;
-      console.log('🔗 Processing invitation with token:', this.inviteToken);
-
+      this.isLoading.set(true);
+      
       // Mostrar loading para dar tiempo al usuario a ver la información
       await this.showProcessingLoader();
 
       // Procesar la invitación directamente usando Firebase
-      this.organization = await this.organizationService.acceptEmailInvite(
-        this.inviteToken
+      const org = await this.organizationService.acceptEmailInvite(
+        this.inviteToken()
       );
+      this.organization.set(org);
 
-      this.status = 'success';
+      this.status.set('success');
 
       await this.showSuccessMessage();
 
@@ -387,11 +401,10 @@ export class JoinInvitationPage implements OnInit {
         this.goToMap();
       }, 3000);
     } catch (error: any) {
-      console.error('❌ Error processing invitation:', error);
-      this.status = 'error';
-      this.errorMessage = error.message || 'Error al procesar la invitación';
+      this.status.set('error');
+      this.errorMessage.set(error.message || 'Error al procesar la invitación');
     } finally {
-      this.isLoading = false;
+      this.isLoading.set(false);
     }
   }
 
@@ -405,8 +418,9 @@ export class JoinInvitationPage implements OnInit {
   }
 
   private async showSuccessMessage() {
+    const org = this.organization();
     const toast = await this.toastController.create({
-      message: `¡Te has unido exitosamente a ${this.organization?.name}!`,
+      message: `Te has unido exitosamente a ${org?.name}!`,
       duration: 3000,
       color: 'success',
       position: 'top',
@@ -434,10 +448,11 @@ export class JoinInvitationPage implements OnInit {
   }
 
   getTimeUntilExpiration(): string {
-    if (!this.invitationDetails) return '';
+    const details = this.invitationDetails();
+    if (!details) return '';
 
     const now = new Date();
-    const expiresAt = new Date(this.invitationDetails.expiresAt);
+    const expiresAt = new Date(details.expiresAt);
     const diffMs = expiresAt.getTime() - now.getTime();
     const diffHours = Math.ceil(diffMs / (1000 * 60 * 60));
     const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
