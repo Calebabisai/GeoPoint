@@ -1,3 +1,4 @@
+/* filepath: /home/caleb-trevizo/Desktop/GeoPoint/src/app/pages/join-invitation/join-invitation.page.scss */
 .join-invitation {
   --background: var(--ion-color-dark);
 }
@@ -49,26 +50,6 @@
   ion-card-header {
     text-align: center;
     padding-bottom: 10px;
-    
-    .success-icon,
-    .error-icon,
-    .expired-icon {
-      margin-bottom: 15px;
-      
-      ion-icon {
-        font-size: 64px;
-      }
-    }
-    
-    ion-card-title {
-      font-size: 24px;
-      font-weight: 600;
-      color: var(--ion-color-light);
-    }
-  }
-  
-  ion-card-content {
-    padding-top: 10px;
   }
 }
 
@@ -87,6 +68,22 @@
   border: 2px solid var(--ion-color-warning);
 }
 
+.success-icon,
+.error-icon,
+.expired-icon {
+  margin-bottom: 15px;
+  
+  ion-icon {
+    font-size: 64px;
+  }
+}
+
+ion-card-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--ion-color-light);
+}
+
 .organization-info {
   margin: 20px 0;
   
@@ -94,19 +91,20 @@
     --background: transparent;
     --border-color: transparent;
     --color: var(--ion-color-light);
+  }
+  
+  ion-label {
+    h2,
+    h3 {
+      color: var(--ion-color-light);
+      margin: 0 0 5px;
+      font-weight: 600;
+    }
     
-    ion-label {
-      h2, h3 {
-        color: var(--ion-color-light);
-        margin: 0 0 5px;
-        font-weight: 600;
-      }
-      
-      p {
-        color: var(--ion-color-medium);
-        margin: 0;
-        font-size: 14px;
-      }
+    p {
+      color: var(--ion-color-medium);
+      margin: 0;
+      font-size: 14px;
     }
   }
 }
@@ -148,22 +146,16 @@
     padding-top: 60px;
   }
   
-  .success-card,
-  .error-card,
-  .expired-card {
-    ion-card-header {
-      .success-icon,
-      .error-icon,
-      .expired-icon {
-        ion-icon {
-          font-size: 48px;
-        }
-      }
-      
-      ion-card-title {
-        font-size: 20px;
-      }
+  .success-icon,
+  .error-icon,
+  .expired-icon {
+    ion-icon {
+      font-size: 48px;
     }
+  }
+  
+  ion-card-title {
+    font-size: 20px;
   }
 }
 
