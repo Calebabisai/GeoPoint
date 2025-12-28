@@ -6,130 +6,122 @@
 
 <ion-content [fullscreen]="true" class="invitation-accept">
   <div class="container">
-    <!-- Encabezado -->
     <div class="header-section">
       <ion-icon name="mail-open-outline" class="header-icon"></ion-icon>
       <h1>Invitación de Organización</h1>
       <p>Ingresa tu código de invitación para unirte a una organización</p>
     </div>
-
-    <!-- Formulario de código -->
     <ion-card class="code-input-card">
       <ion-card-content>
         <ion-item class="code-input" lines="none">
           <ion-input
             type="text"
             placeholder="Ingresa el código de invitación"
-            [(ngModel)]="inviteCode"
-            (ionInput)="validateCode()"
-            [disabled]="loading"
+            [value]="inviteCode()"
+            (ionInput)="updateInviteCode($any($event.target).value)"
+            [disabled]="loading()"
             fill="outline"
             class="code-field"
           >
             <div slot="label">Código de Invitación</div>
           </ion-input>
-          <ion-spinner
-            *ngIf="isValidating"
-            slot="end"
-            name="crescent"
-          ></ion-spinner>
-          <ion-icon
-            *ngIf="!isValidating && validationStatus"
-            [name]="getValidationIcon()"
-            [color]="getValidationColor()"
-            slot="end"
-          ></ion-icon>
+          @if (isValidating()) {
+            <ion-spinner slot="end" name="crescent"></ion-spinner>
+          }
+          @if (!isValidating() && validationStatus()) {
+            <ion-icon
+              [name]="getValidationIcon()"
+              [color]="getValidationColor()"
+              slot="end"
+            ></ion-icon>
+          }
         </ion-item>
 
-        <!-- Mensaje de validación -->
-        <div *ngIf="validationMessage" class="validation-message">
-          <ion-text [color]="getValidationColor()">
-            {{ validationMessage }}
-          </ion-text>
-        </div>
+        @if (validationMessage()) {
+          <div class="validation-message">
+            <ion-text [color]="getValidationColor()">
+              {{ validationMessage() }}
+            </ion-text>
+          </div>
+        }
       </ion-card-content>
     </ion-card>
 
-    <!-- Detalles de la invitación -->
-    <ion-card
-      *ngIf="inviteDetails && validationStatus === 'valid'"
-      class="invite-details-card"
-    >
-      <ion-card-header>
-        <ion-card-title>
-          <ion-icon name="business-outline"></ion-icon>
-          Detalles de la Invitación
-        </ion-card-title>
-      </ion-card-header>
-      <ion-card-content>
-        <div class="organization-info">
-          <div class="info-item">
-            <span class="label">Organización:</span>
-            <span class="value">{{ inviteDetails.organizationName }}</span>
-          </div>
-          <div class="info-item">
-            <span class="label">Invitado por:</span>
-            <span class="value">{{ inviteDetails.inviterName }}</span>
-          </div>
-          <div class="info-item">
-            <span class="label">Rol asignado:</span>
-            <ion-chip
-              [color]="inviteDetails.role === 'admin' ? 'warning' : 'primary'"
-            >
-              <ion-icon
-                [name]="inviteDetails.role === 'admin' ? 'shield-checkmark-outline' : 'person-outline'"
-              ></ion-icon>
-              <ion-label
-                >{{ inviteDetails.role === 'admin' ? 'Administrador' : 'Usuario'
-                }}</ion-label
+@if (inviteDetails() && isValid()) {
+      <ion-card class="invite-details-card">
+        <ion-card-header>
+          <ion-card-title>
+            <ion-icon name="business-outline"></ion-icon>
+            Detalles de la Invitación
+          </ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+          <div class="organization-info">
+            <div class="info-item">
+              <span class="label">Organización:</span>
+              <span class="value">{{ inviteDetails()!.organizationName }}</span>
+            </div>
+            <div class="info-item">
+              <span class="label">Invitado por:</span>
+              <span class="value">{{ inviteDetails()!.inviterName }}</span>
+            </div>
+            <div class="info-item">
+              <span class="label">Rol asignado:</span>
+              <ion-chip
+                [color]="inviteDetails()!.role === 'admin' ? 'warning' : 'primary'"
               >
-            </ion-chip>
+                <ion-icon
+                  [name]="inviteDetails()!.role === 'admin' ? 'shield-checkmark-outline' : 'person-outline'"
+                ></ion-icon>
+                <ion-label>
+                  {{ inviteDetails()!.role === 'admin' ? 'Administrador' : 'Usuario' }}
+                </ion-label>
+              </ion-chip>
+            </div>
+            <div class="info-item">
+              <span class="label">Expira:</span>
+              <span class="value expiry">
+                {{ inviteDetails()!.expiresAt | date:'short':'es' }}
+              </span>
+            </div>
           </div>
-          <div class="info-item">
-            <span class="label">Expira:</span>
-            <span class="value expiry"
-              >{{ inviteDetails.expiresAt | date:'short':'es' }}</span
+
+          <div class="action-buttons">
+            <ion-button
+              expand="block"
+              color="success"
+              (click)="acceptInvitation()"
+              [disabled]="!canAccept()"
+              class="accept-button"
             >
+              @if (loading()) {
+                <ion-spinner name="crescent"></ion-spinner>
+                Aceptando...
+              } @else {
+                <ion-icon name="checkmark-circle-outline" slot="start"></ion-icon>
+                Aceptar Invitación
+              }
+            </ion-button>
+
+            <ion-button
+              expand="block"
+              fill="outline"
+              color="medium"
+              (click)="rejectInvitation()"
+              [disabled]="loading()"
+              class="reject-button"
+            >
+              <ion-icon name="close-circle-outline" slot="start"></ion-icon>
+              Rechazar
+            </ion-button>
           </div>
-        </div>
+        </ion-card-content>
+      </ion-card>
+    }
 
-        <!-- Botones de acción -->
-        <div class="action-buttons">
-          <ion-button
-            expand="block"
-            color="success"
-            (click)="acceptInvitation()"
-            [disabled]="loading"
-            class="accept-button"
-          >
-            <ion-spinner *ngIf="loading" name="crescent"></ion-spinner>
-            <ion-icon
-              *ngIf="!loading"
-              name="checkmark-circle-outline"
-              slot="start"
-            ></ion-icon>
-            {{ loading ? 'Aceptando...' : 'Aceptar Invitación' }}
-          </ion-button>
-
-          <ion-button
-            expand="block"
-            fill="outline"
-            color="medium"
-            (click)="rejectInvitation()"
-            [disabled]="loading"
-            class="reject-button"
-          >
-            <ion-icon name="close-circle-outline" slot="start"></ion-icon>
-            Rechazar
-          </ion-button>
-        </div>
-      </ion-card-content>
-    </ion-card>
-
-    <!-- Información adicional -->
     <ion-card class="info-card">
       <ion-card-content>
-        <h4>ℹ️ ¿Cómo funciona?</h4>
+        <h4>Como funciona</h4>
         <ul>
           <li>
             Pide a un administrador de la organización que te envíe un código de
@@ -143,26 +135,27 @@
       </ion-card-content>
     </ion-card>
 
-    <!-- Estado de error -->
-    <ion-card
-      *ngIf="validationStatus === 'invalid' || validationStatus === 'expired'"
-      class="error-card"
-    >
-      <ion-card-content class="error-content">
-        <ion-icon name="alert-circle-outline" color="danger"></ion-icon>
-        <h3>
-          {{ validationStatus === 'expired' ? 'Código Expirado' : 'Código
-          Inválido' }}
-        </h3>
-        <p *ngIf="validationStatus === 'expired'">
-          Este código de invitación ha expirado. Solicita uno nuevo al
-          administrador de la organización.
-        </p>
-        <p *ngIf="validationStatus === 'invalid'">
-          El código ingresado no es válido. Verifica que lo hayas copiado
-          correctamente.
-        </p>
-      </ion-card-content>
-    </ion-card>
+    @if (hasError()) {
+      <ion-card class="error-card">
+        <ion-card-content class="error-content">
+          <ion-icon name="alert-circle-outline" color="danger"></ion-icon>
+          <h3>
+            {{ validationStatus() === 'expired' ? 'Código Expirado' : 'Código Inválido' }}
+          </h3>
+          @if (validationStatus() === 'expired') {
+            <p>
+              Este código de invitación ha expirado. Solicita uno nuevo al
+              administrador de la organización.
+            </p>
+          }
+          @if (validationStatus() === 'invalid') {
+            <p>
+              El código ingresado no es válido. Verifica que lo hayas copiado
+              correctamente.
+            </p>
+          }
+        </ion-card-content>
+      </ion-card>
+    }
   </div>
 </ion-content>

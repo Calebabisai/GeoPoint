@@ -168,40 +168,4 @@ export class EmailPreviewPage implements OnInit {
     }
   }
 
-  /**
-   * Muestra los pasos para implementar el sistema de email
-   */
-  showImplementationSteps() {
-    console.log(`
-📧 PASOS PARA IMPLEMENTAR EL SISTEMA DE EMAIL:
-
-1. Configurar un servicio de email:
-   - SendGrid (https://sendgrid.com/)
-   - Mailgun (https://www.mailgun.com/)
-   - Amazon SES (https://aws.amazon.com/ses/)
-   - Nodemailer con SMTP
-
-2. Actualizar el EmailService:
-   - Cambiar 'isDevelopmentMode()' para usar tu entorno
-   - Configurar 'API_ENDPOINT' con tu backend
-   - Agregar tu API key en 'sendEmailViaAPI()'
-
-3. Configurar el backend:
-   - Crear endpoint POST /api/email
-   - Validar datos de entrada
-   - Enviar emails usando tu servicio preferido
-
-4. Personalizar templates:
-   - Modificar 'generateInvitationTemplate()'
-   - Agregar tu logo y colores de marca
-   - Personalizar mensajes según tu organización
-
-5. Configurar dominio y URLs:
-   - Actualizar 'APP_URL' en EmailService
-   - Configurar redirecciones en tu servidor
-   - Agregar verificación de dominio en tu servicio de email
-
-¡El sistema ya está listo para usar en modo de desarrollo!
-    `);
-  }
 }

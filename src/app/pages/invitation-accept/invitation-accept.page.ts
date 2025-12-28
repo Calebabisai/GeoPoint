@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
@@ -35,6 +35,7 @@ import {
 import { InvitationService } from '../../shared/services/invitation.service';
 import { AuthService } from '../../auth/services/auth.service';
 
+type ValidationStatus = 'valid' | 'invalid' | 'expired' | '';
 @Component({
   selector: 'app-invitation-accept',
   templateUrl: './invitation-accept.page.html',
@@ -62,18 +63,27 @@ import { AuthService } from '../../auth/services/auth.service';
   ],
 })
 export class InvitationAcceptPage implements OnInit {
-  private invitationService = inject(InvitationService);
-  private authService = inject(AuthService);
-  private router = inject(Router);
-  private route = inject(ActivatedRoute);
-  private toastController = inject(ToastController);
+  private readonly invitationService = inject(InvitationService);
+  private readonly authService = inject(AuthService);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  private readonly toastController = inject(ToastController);
 
-  inviteCode = '';
-  loading = false;
-  inviteDetails: any = null;
-  isValidating = false;
-  validationMessage = '';
-  validationStatus: 'valid' | 'invalid' | 'expired' | '' = '';
+  readonly inviteCode = signal('');
+  readonly loading = signal(false);
+  readonly inviteDetails = signal<any>(null);
+  readonly isValidating = signal(false);
+  readonly validationMessage = signal('');
+  readonly validationStatus = signal<ValidationStatus>('');
+
+  //Computed
+  readonly isValid = computed(() => this.validationStatus() === 'valid');
+  readonly hasError = computed(() => 
+    this.validationStatus() === 'invalid' || this.validationStatus() === 'expired'
+  );
+  readonly canAccept = computed(() => 
+    this.isValid() && !this.loading() && this.inviteDetails() !== null
+  );
 
   constructor() {
     addIcons({
@@ -89,127 +99,114 @@ export class InvitationAcceptPage implements OnInit {
   }
 
   async ngOnInit() {
-    // Verificar si se pasó un código en la URL
     const codeFromUrl = this.route.snapshot.paramMap.get('code');
     if (codeFromUrl) {
-      this.inviteCode = codeFromUrl;
+      this.inviteCode.set(codeFromUrl);
       await this.validateCode();
     }
   }
 
-  /**
-   * Valida el código de invitación
-   */
-  async validateCode() {
-    if (!this.inviteCode.trim()) {
+  updateInviteCode(value: string): void {
+    this.inviteCode.set(value);
+    this.validateCode();
+  }
+
+  async validateCode(): Promise<void> {
+    const code = this.inviteCode().trim();
+    
+    if (!code) {
       this.resetValidation();
       return;
     }
 
-    this.isValidating = true;
-    this.validationMessage = '';
+    this.isValidating.set(true);
+    this.validationMessage.set('');
 
     try {
-      const invite = await this.invitationService.validateInviteCode(
-        this.inviteCode.trim()
-      );
+      const invite = await this.invitationService.validateInviteCode(code);
 
       if (invite) {
-        this.inviteDetails = invite;
-        this.validationStatus = 'valid';
-        this.validationMessage = `Invitación válida para unirse a "${invite.organizationName}"`;
+        this.inviteDetails.set(invite);
+        this.validationStatus.set('valid');
+        this.validationMessage.set(
+          `Invitación válida para unirse a "${invite.organizationName}"`
+        );
       } else {
-        this.validationStatus = 'invalid';
-        this.validationMessage = 'Código de invitación no válido';
+        this.validationStatus.set('invalid');
+        this.validationMessage.set('Código de invitación no válido');
       }
     } catch (error: any) {
-      this.validationStatus = 'invalid';
+      this.validationStatus.set('invalid');
       if (error.message?.includes('expired')) {
-        this.validationStatus = 'expired';
-        this.validationMessage = 'Este código de invitación ha expirado';
+        this.validationStatus.set('expired');
+        this.validationMessage.set('Este código de invitación ha expirado');
       } else {
-        this.validationMessage = 'Error al validar el código';
+        this.validationMessage.set('Error al validar el código');
       }
     } finally {
-      this.isValidating = false;
+      this.isValidating.set(false);
     }
   }
 
-  /**
-   * Acepta la invitación
-   */
-  async acceptInvitation() {
-    if (!this.inviteDetails || this.loading) return;
+  async acceptInvitation(): Promise<void> {
+    if (!this.canAccept()) return;
 
-    this.loading = true;
+    this.loading.set(true);
 
     try {
-      // Verificar si el usuario está logueado
-      const currentUser = await this.authService.getCurrentUser();
+      const currentUser = this.authService.currentUser();
 
       if (!currentUser) {
-        // Si no está logueado, redirigir al login con el código
         await this.showToast(
           'Debes iniciar sesión para aceptar la invitación',
           'warning'
         );
         this.router.navigate(['/auth/login'], {
-          queryParams: { inviteCode: this.inviteCode },
+          queryParams: { inviteCode: this.inviteCode() },
         });
         return;
       }
 
-      await this.invitationService.acceptInvitation(this.inviteCode);
+      await this.invitationService.acceptInvitation(this.inviteCode());
 
+      const details = this.inviteDetails();
       await this.showToast(
-        `¡Te has unido exitosamente a ${this.inviteDetails.organizationName}!`,
+        `Te has unido exitosamente a ${details?.organizationName}!`,
         'success'
       );
 
-      // Redirigir al home
       this.router.navigate(['/home']);
     } catch (error: any) {
-      console.error('Error accepting invitation:', error);
       await this.showToast(
         error.message || 'Error al aceptar la invitación',
         'danger'
       );
     } finally {
-      this.loading = false;
+      this.loading.set(false);
     }
   }
 
-  /**
-   * Rechaza la invitación
-   */
-  async rejectInvitation() {
-    if (!this.inviteDetails) return;
+  async rejectInvitation(): Promise<void> {
+    if (!this.inviteDetails()) return;
 
     try {
-      await this.invitationService.rejectInvitation(this.inviteCode);
+      await this.invitationService.rejectInvitation(this.inviteCode());
       await this.showToast('Invitación rechazada', 'medium');
       this.resetValidation();
-      this.inviteCode = '';
+      this.inviteCode.set('');
     } catch (error: any) {
-      console.error('Error rejecting invitation:', error);
       await this.showToast('Error al rechazar la invitación', 'danger');
     }
   }
 
-  /**
-   * Restablece el estado de validación
-   */
-  private resetValidation() {
-    this.inviteDetails = null;
-    this.validationStatus = '';
-    this.validationMessage = '';
+  private resetValidation(): void {
+    this.inviteDetails.set(null);
+    this.validationStatus.set('');
+    this.validationMessage.set('');
   }
 
-  /**
-   * Obtiene el color del estado de validación
-   */
   getValidationColor(): string {
-    switch (this.validationStatus) {
+    switch (this.validationStatus()) {
       case 'valid':
         return 'success';
       case 'invalid':
@@ -221,11 +218,8 @@ export class InvitationAcceptPage implements OnInit {
     }
   }
 
-  /**
-   * Obtiene el icono del estado de validación
-   */
   getValidationIcon(): string {
-    switch (this.validationStatus) {
+    switch (this.validationStatus()) {
       case 'valid':
         return 'checkmark-circle-outline';
       case 'invalid':
@@ -236,10 +230,10 @@ export class InvitationAcceptPage implements OnInit {
     }
   }
 
-  /**
-   * Muestra un toast
-   */
-  private async showToast(message: string, color: string = 'primary') {
+  private async showToast(
+    message: string,
+    color: 'primary' | 'success' | 'warning' | 'danger' | 'medium' = 'primary'
+  ): Promise<void> {
     const toast = await this.toastController.create({
       message,
       duration: 3000,
