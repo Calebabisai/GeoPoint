@@ -1,12 +1,11 @@
 <ion-header>
   <ion-toolbar>
-    <ion-title>📧 Vista Previa de Emails</ion-title>
+    <ion-title>Vista Previa de Emails</ion-title>
   </ion-toolbar>
 </ion-header>
 
 <ion-content class="ion-padding">
   <div class="email-preview-container">
-    <!-- Información general -->
     <ion-card class="info-card">
       <ion-card-header>
         <ion-card-title>
@@ -32,79 +31,89 @@
       </ion-card-content>
     </ion-card>
 
-    <!-- Lista de emails de ejemplo -->
-    <div class="email-samples">
-      <ion-card *ngFor="let email of sampleEmails" class="email-card">
-        <ion-card-header>
-          <ion-card-title>{{ email.title }}</ion-card-title>
-        </ion-card-header>
-        <ion-card-content>
-          <p>{{ email.description }}</p>
-
-          <div class="email-info">
-            <ion-list>
-              <ion-item>
-                <ion-label>
-                  <h3>Para:</h3>
-                  <p>{{ email.data.to }}</p>
-                </ion-label>
-              </ion-item>
-              <ion-item>
-                <ion-label>
-                  <h3>Asunto:</h3>
-                  <p>{{ email.data.subject }}</p>
-                </ion-label>
-              </ion-item>
-            </ion-list>
-          </div>
-
-          <div class="preview-actions">
-            <ion-button
-              expand="block"
-              fill="outline"
-              (click)="openHtmlPreview(email.data)"
-            >
-              <ion-icon name="open-outline" slot="start"></ion-icon>
-              Ver Preview HTML
-            </ion-button>
-          </div>
-
-          <!-- Preview del texto -->
-          <div class="text-preview">
-            <h4>Vista Previa del Texto:</h4>
-            <div class="text-content">
-              {{ email.data.text.substring(0, 200) }}...
-            </div>
-          </div>
+    @if (isGenerating()) {
+      <ion-card>
+        <ion-card-content class="loading-content">
+          <ion-spinner name="crescent"></ion-spinner>
+          <p>Generando emails de ejemplo...</p>
         </ion-card-content>
       </ion-card>
-    </div>
+    }
 
-    <!-- Información de implementación -->
+    @if (hasEmails()) {
+      <div class="email-samples">
+        @for (email of sampleEmails(); track email.type) {
+          <ion-card class="email-card">
+            <ion-card-header>
+              <ion-card-title>{{ email.title }}</ion-card-title>
+            </ion-card-header>
+            <ion-card-content>
+              <p>{{ email.description }}</p>
+
+              <div class="email-info">
+                <ion-list>
+                  <ion-item>
+                    <ion-label>
+                      <h3>Para:</h3>
+                      <p>{{ email.data.to }}</p>
+                    </ion-label>
+                  </ion-item>
+                  <ion-item>
+                    <ion-label>
+                      <h3>Asunto:</h3>
+                      <p>{{ email.data.subject }}</p>
+                    </ion-label>
+                  </ion-item>
+                </ion-list>
+              </div>
+
+              <div class="preview-actions">
+                <ion-button
+                  expand="block"
+                  fill="outline"
+                  (click)="openHtmlPreview(email.data)"
+                >
+                  <ion-icon name="open-outline" slot="start"></ion-icon>
+                  Ver Preview HTML
+                </ion-button>
+              </div>
+
+              <div class="text-preview">
+                <h4>Vista Previa del Texto:</h4>
+                <div class="text-content">
+                  {{ email.data.text.substring(0, 200) }}...
+                </div>
+              </div>
+            </ion-card-content>
+          </ion-card>
+        }
+      </div>
+    }
+
     <ion-card class="implementation-card">
       <ion-card-header>
-        <ion-card-title>🚀 Estado de Implementación</ion-card-title>
+        <ion-card-title>Estado de Implementación</ion-card-title>
       </ion-card-header>
       <ion-card-content>
         <div class="status-list">
           <div class="status-item completed">
-            <ion-badge color="success">✅</ion-badge>
+            <ion-badge color="success">Completo</ion-badge>
             <span>Templates de email creados</span>
           </div>
           <div class="status-item completed">
-            <ion-badge color="success">✅</ion-badge>
+            <ion-badge color="success">Completo</ion-badge>
             <span>Sistema de invitaciones implementado</span>
           </div>
           <div class="status-item completed">
-            <ion-badge color="success">✅</ion-badge>
+            <ion-badge color="success">Completo</ion-badge>
             <span>Interfaz de usuario lista</span>
           </div>
           <div class="status-item pending">
-            <ion-badge color="warning">⏳</ion-badge>
+            <ion-badge color="warning">Pendiente</ion-badge>
             <span>Configurar servicio de email externo</span>
           </div>
           <div class="status-item pending">
-            <ion-badge color="warning">⏳</ion-badge>
+            <ion-badge color="warning">Pendiente</ion-badge>
             <span>Configurar backend para envío real</span>
           </div>
         </div>
@@ -116,7 +125,7 @@
             <li>Configurar las credenciales en el EmailService</li>
             <li>Crear endpoint en tu backend para enviar emails</li>
             <li>Personalizar los templates con tu marca</li>
-            <li>¡Listo para usar en producción!</li>
+            <li>Listo para usar en producción!</li>
           </ol>
         </div>
       </ion-card-content>
