@@ -1,8 +1,7 @@
-import { Injectable, inject } from '@angular/core';
-import { Observable, BehaviorSubject, from, of, EMPTY } from 'rxjs';
-import { catchError, map, tap } from 'rxjs/operators';
+import { Injectable, inject, signal, computed, effect } from '@angular/core';
+import { Observable, from } from 'rxjs';
 import { Platform } from '@ionic/angular';
-import { Geolocation } from '@capacitor/geolocation';
+import { Geolocation, Position } from '@capacitor/geolocation';
 import { LatLng, MapService } from './map.service';
 import { LoggerService } from '../../shared/services/logger.service';
 
@@ -20,57 +19,238 @@ export interface UserLocation {
   speed?: number;
 }
 
+interface LocationConfig {
+  enableHighAccuracy: boolean;
+  timeout: number;
+  maximumAge: number;
+}
+
 @Injectable({ providedIn: 'root' })
 export class GeolocationService {
-  // Estado de la ubicación del usuario
-  private currentLocationSubject = new BehaviorSubject<UserLocation | null>(
-    null
-  );
-  private watchingLocationSubject = new BehaviorSubject<boolean>(false);
-  private permissionStatusSubject =
-    new BehaviorSubject<LocationPermissionStatus>({
-      granted: false,
-      denied: false,
-      restricted: false,
-    });
+  // Constantes de configuración
+  private readonly BUFFER_SIZE = 5;
+  private readonly MIN_DISTANCE_THRESHOLD = 3;
+  private readonly MAX_ACCURACY_THRESHOLD = 30;
+  private readonly STABLE_ACCURACY_THRESHOLD = 15;
+  private readonly MAX_CONSECUTIVE_UPDATES = 8;
+  private readonly BETTER_ACCURACY_RATIO = 0.8;
+  private readonly RETRY_DELAY_MS = 2000;
+  private readonly MAX_BROWSER_ACCURACY = 100;
 
-  // Observables públicos
-  currentLocation$ = this.currentLocationSubject.asObservable();
-  watchingLocation$ = this.watchingLocationSubject.asObservable();
-  permissionStatus$ = this.permissionStatusSubject.asObservable();
+  private readonly HIGH_PRECISION_CONFIG: LocationConfig = {
+    enableHighAccuracy: true,
+    timeout: 10000,
+    maximumAge: 0,
+  } as const;
 
+  private readonly STANDARD_CONFIG: LocationConfig = {
+    enableHighAccuracy: true,
+    timeout: 20000,
+    maximumAge: 1000,
+  } as const;
+
+  private readonly WATCH_CONFIG: LocationConfig = {
+    enableHighAccuracy: true,
+    timeout: 15000,
+    maximumAge: 5000,
+  } as const;
+
+  private readonly FALLBACK_CONFIG: LocationConfig = {
+    enableHighAccuracy: false,
+    timeout: 8000,
+    maximumAge: 10000,
+  } as const;
+
+  // Signals para estado reactivo
+  private readonly _currentLocation = signal<UserLocation | null>(null);
+  private readonly _isWatching = signal(false);
+  private readonly _permissionStatus = signal<LocationPermissionStatus>({
+    granted: false,
+    denied: false,
+    restricted: false,
+  });
+  private readonly _isLocationStable = signal(false);
+  private readonly _consecutiveUpdatesCount = signal(0);
+
+  // Estado interno
   private watchId: string | null = null;
-
-  // Variables para suavizado y filtrado de ubicación
   private lastKnownLocation: UserLocation | null = null;
   private locationBuffer: UserLocation[] = [];
-  private readonly BUFFER_SIZE = 5; // Promedio de últimas 5 ubicaciones para mayor estabilidad
-  private readonly MIN_DISTANCE_THRESHOLD = 3; // Metros mínimos para actualizar (más sensible)
-  private readonly MAX_ACCURACY_THRESHOLD = 30; // Rechazar ubicaciones menos precisas (más estricto)
 
-  // Optimizaciones para móvil
-  private readonly STABLE_ACCURACY_THRESHOLD = 15; // Consideramos ubicación "estable" con esta precisión
-  private readonly MAX_CONSECUTIVE_UPDATES = 8; // Máximo de actualizaciones consecutivas antes de estabilizar
-  private consecutiveUpdatesCount = 0;
-  private isLocationStable = false;
+  // Computed signals
+  readonly currentLocation = computed(() => this._currentLocation());
+  readonly isWatching = computed(() => this._isWatching());
+  readonly permissionStatus = computed(() => this._permissionStatus());
+  readonly isLocationStable = computed(() => this._isLocationStable());
 
-  private logger = inject(LoggerService);
+  readonly hasLocation = computed(() => this._currentLocation() !== null);
+  readonly locationAccuracy = computed(() => this._currentLocation()?.accuracy ?? 0);
+  readonly isHighAccuracy = computed(
+    () => this.locationAccuracy() <= this.STABLE_ACCURACY_THRESHOLD
+  );
 
-  constructor(private platform: Platform, private mapService: MapService) {
-    this.logger.geo('📍 GeolocationService initialized');
+  private readonly platform = inject(Platform);
+  private readonly mapService = inject(MapService);
+  private readonly logger = inject(LoggerService);
+
+  constructor() {
+    this.logger.geo('GeolocationService initialized');
     this.checkPermissions();
+
+    effect(() => {
+      const location = this._currentLocation();
+      if (location) {
+        this.logger.geo('Location updated:', {
+          coords: location.coords,
+          accuracy: `${location.accuracy}m`,
+          stable: this._isLocationStable(),
+        });
+      }
+    });
   }
 
-  /**
-   * Calcular distancia entre dos puntos GPS en metros
-   */
+  getCurrentLocation(): Observable<LatLng | null> {
+    this.logger.geo('Getting current location...');
+
+    if (!this.platform.is('capacitor')) {
+      return this.getBrowserLocation();
+    }
+
+    return from(this.getCapacitorLocation());
+  }
+
+  async startWatching(): Promise<void> {
+    this.logger.geo('Starting location watching...');
+
+    if (this._isWatching()) {
+      this.logger.warn('Already watching location');
+      return;
+    }
+
+    try {
+      const permissions = await this.requestPermissions();
+      if (!permissions.granted) {
+        this.logger.error('Location permissions not granted');
+        return;
+      }
+
+      this._isWatching.set(true);
+
+      if (this.platform.is('capacitor')) {
+        await this.startCapacitorWatch();
+      } else {
+        this.startBrowserWatch();
+      }
+    } catch (error) {
+      this.logger.error('Error starting location watch:', error);
+      this._isWatching.set(false);
+    }
+  }
+
+  async stopWatching(): Promise<void> {
+    this.logger.geo('Stopping location watching...');
+
+    if (this.watchId) {
+      if (this.platform.is('capacitor')) {
+        await Geolocation.clearWatch({ id: this.watchId });
+      } else {
+        navigator.geolocation.clearWatch(parseInt(this.watchId));
+      }
+      this.watchId = null;
+    }
+
+    this._isWatching.set(false);
+  }
+
+  resetLocationState(): void {
+    this.logger.geo('Resetting location state...');
+    this._isLocationStable.set(false);
+    this._consecutiveUpdatesCount.set(0);
+    this.locationBuffer = [];
+  }
+
+  async getHighPrecisionLocation(): Promise<LatLng | null> {
+    this.logger.geo('Getting high precision location...');
+
+    try {
+      if (this.platform.is('capacitor')) {
+        const position = await Geolocation.getCurrentPosition(
+          this.HIGH_PRECISION_CONFIG
+        );
+
+        const location = this.createCapacitorLocation(position);
+
+        this._currentLocation.set(location);
+        this.mapService.updateUserLocation(location.coords);
+        this.lastKnownLocation = location;
+
+        this._isLocationStable.set(false);
+        this._consecutiveUpdatesCount.set(0);
+
+        this.logger.geo('High precision location obtained:', location.coords);
+        return location.coords;
+      } else {
+        return this.getBrowserHighPrecisionLocation();
+      }
+    } catch (error) {
+      this.logger.error('Error getting high precision location:', error);
+      return null;
+    }
+  }
+
+  async centerMapOnUserLocation(): Promise<void> {
+    this.logger.geo('Getting single precise location...');
+
+    try {
+      if (this._isWatching()) {
+        this.logger.geo('Stopping continuous tracking for precise location...');
+        await this.stopWatching();
+      }
+
+      this.resetLocationState();
+
+      const coords = await this.getHighPrecisionLocation();
+
+      if (coords) {
+        this.logger.geo('Precise location obtained - updating marker');
+        this.mapService.updateUserLocation(coords);
+        this.mapService.centerMap(coords.lat, coords.lng, 17);
+
+        this._isLocationStable.set(true);
+        this._consecutiveUpdatesCount.set(this.MAX_CONSECUTIVE_UPDATES);
+      } else {
+        throw new Error('No se pudo obtener ubicación de alta precisión');
+      }
+    } catch (error) {
+      this.logger.error('Error centering map on user location:', error);
+
+      const currentLocation = this._currentLocation();
+      if (currentLocation) {
+        this.logger.geo('Using cached location as fallback...');
+        this.mapService.updateUserLocation(currentLocation.coords);
+        this.mapService.centerMap(
+          currentLocation.coords.lat,
+          currentLocation.coords.lng,
+          15
+        );
+        this._isLocationStable.set(true);
+      }
+    }
+  }
+
+  public destroy(): void {
+    this.stopWatching();
+    this.locationBuffer = [];
+    this.lastKnownLocation = null;
+  }
+
   private calculateDistance(
     lat1: number,
     lng1: number,
     lat2: number,
     lng2: number
   ): number {
-    const R = 6371e3; // Radio de la Tierra en metros
+    const R = 6371e3;
     const φ1 = (lat1 * Math.PI) / 180;
     const φ2 = (lat2 * Math.PI) / 180;
     const Δφ = ((lat2 - lat1) * Math.PI) / 180;
@@ -84,32 +264,23 @@ export class GeolocationService {
     return R * c;
   }
 
-  /**
-   * Suavizar ubicación usando promedio de buffer
-   */
   private smoothLocation(newLocation: UserLocation): UserLocation {
-    // Agregar nueva ubicación al buffer
     this.locationBuffer.push(newLocation);
 
-    // Mantener solo las últimas ubicaciones
     if (this.locationBuffer.length > this.BUFFER_SIZE) {
       this.locationBuffer.shift();
     }
 
-    // Si solo tenemos una ubicación, retornarla
     if (this.locationBuffer.length === 1) {
       return newLocation;
     }
 
-    // Calcular promedio ponderado (más peso a ubicaciones más recientes y precisas)
     let totalWeight = 0;
     let avgLat = 0;
     let avgLng = 0;
 
     this.locationBuffer.forEach((location, index) => {
-      // Peso basado en precisión (mejor precisión = mayor peso)
       const accuracyWeight = Math.max(1, 100 - location.accuracy);
-      // Peso basado en recencia (más reciente = mayor peso)
       const recencyWeight = index + 1;
       const weight = accuracyWeight * recencyWeight;
 
@@ -123,46 +294,36 @@ export class GeolocationService {
         lat: avgLat / totalWeight,
         lng: avgLng / totalWeight,
       },
-      accuracy: newLocation.accuracy, // Usar la precisión más reciente
+      accuracy: newLocation.accuracy,
       timestamp: newLocation.timestamp,
       heading: newLocation.heading,
       speed: newLocation.speed,
     };
   }
 
-  /**
-   * Determinar si debe actualizarse la ubicación en el mapa
-   */
   private shouldUpdateLocation(newLocation: UserLocation): boolean {
-    // Siempre actualizar si es la primera ubicación
     if (!this.lastKnownLocation) {
-      this.logger.geo('🎯 First location - updating immediately');
+      this.logger.geo('First location - updating immediately');
       return true;
     }
 
-    // Rechazar si la precisión es muy mala
     if (newLocation.accuracy > this.MAX_ACCURACY_THRESHOLD) {
       this.logger.geo(
-        '⚠️ Skipping location update - poor accuracy:',
-        newLocation.accuracy +
-          'm (threshold: ' +
-          this.MAX_ACCURACY_THRESHOLD +
-          'm)'
+        'Skipping location update - poor accuracy:',
+        `${newLocation.accuracy}m`
       );
       return false;
     }
 
-    // Verificar si la ubicación está estable
     if (
-      this.isLocationStable &&
+      this._isLocationStable() &&
       newLocation.accuracy > this.STABLE_ACCURACY_THRESHOLD &&
-      this.consecutiveUpdatesCount > this.MAX_CONSECUTIVE_UPDATES
+      this._consecutiveUpdatesCount() > this.MAX_CONSECUTIVE_UPDATES
     ) {
-      this.logger.geo('🔒 Location is stable - ignoring minor updates');
+      this.logger.geo('Location is stable - ignoring minor updates');
       return false;
     }
 
-    // Calcular distancia desde la última ubicación conocida
     const distance = this.calculateDistance(
       this.lastKnownLocation.coords.lat,
       this.lastKnownLocation.coords.lng,
@@ -170,321 +331,76 @@ export class GeolocationService {
       newLocation.coords.lng
     );
 
-    // Condiciones para actualizar
     const significantMovement = distance >= this.MIN_DISTANCE_THRESHOLD;
     const betterAccuracy =
-      newLocation.accuracy < this.lastKnownLocation.accuracy * 0.8;
+      newLocation.accuracy <
+      this.lastKnownLocation.accuracy * this.BETTER_ACCURACY_RATIO;
     const highAccuracyReading =
       newLocation.accuracy <= this.STABLE_ACCURACY_THRESHOLD;
 
-    // Lógica de estabilización
     if (
       highAccuracyReading &&
       !significantMovement &&
-      this.consecutiveUpdatesCount >= 3
+      this._consecutiveUpdatesCount() >= 3
     ) {
-      this.isLocationStable = true;
+      this._isLocationStable.set(true);
       this.logger.geo(
-        '✅ GPS location stabilized at accuracy:',
-        newLocation.accuracy + 'm'
+        'GPS location stabilized at accuracy:',
+        `${newLocation.accuracy}m`
       );
     }
 
     if (
       significantMovement ||
       betterAccuracy ||
-      (!this.isLocationStable && highAccuracyReading)
+      (!this._isLocationStable() && highAccuracyReading)
     ) {
-      this.consecutiveUpdatesCount++;
+      this._consecutiveUpdatesCount.update((count) => count + 1);
       this.logger.geo(
-        `📍 Location update: moved ${distance.toFixed(1)}m, accuracy: ${
-          newLocation.accuracy
-        }m, updates: ${this.consecutiveUpdatesCount}`
+        `Location update: moved ${distance.toFixed(1)}m, accuracy: ${newLocation.accuracy}m`
       );
       return true;
     }
 
-    this.logger.geo(`🔒 Skipping minor GPS variation: ${distance.toFixed(1)}m`);
+    this.logger.geo(`Skipping minor GPS variation: ${distance.toFixed(1)}m`);
     return false;
   }
 
-  /**
-   * Procesar nueva ubicación con filtros y suavizado
-   */
   private processLocationUpdate(rawLocation: UserLocation): void {
-    // BLOQUEAR ACTUALIZACIONES si la ubicación está estabilizada
-    if (this.isLocationStable) {
-      this.logger.geo(
-        '🔒 Location is stable - ignoring GPS update to prevent marker drift'
-      );
+    if (this._isLocationStable()) {
+      this.logger.geo('Location is stable - ignoring GPS update');
       return;
     }
 
-    // Verificar si debe actualizarse
     if (!this.shouldUpdateLocation(rawLocation)) {
       return;
     }
 
-    // Aplicar suavizado
     const smoothedLocation = this.smoothLocation(rawLocation);
 
-    // Actualizar estado
-    this.currentLocationSubject.next(smoothedLocation);
-
-    // Actualizar marcador en el mapa SOLO si no está estabilizado
-    this.logger.geo(
-      '🎯 Calling mapService.updateUserLocation with:',
-      smoothedLocation.coords
-    );
+    this._currentLocation.set(smoothedLocation);
     this.mapService.updateUserLocation(smoothedLocation.coords);
     this.lastKnownLocation = smoothedLocation;
-
-    this.logger.geo('📍 Location processed and updated:', {
-      coords: smoothedLocation.coords,
-      accuracy: `${smoothedLocation.accuracy}m`,
-      smoothed: this.locationBuffer.length > 1,
-      stable: this.isLocationStable,
-    });
   }
-
-  /**
-   * Obtener la ubicación actual una sola vez
-   */
-  getCurrentLocation(): Observable<LatLng | null> {
-    this.logger.geo('📍 Getting current location...');
-
-    if (!this.platform.is('capacitor')) {
-      // En el navegador, usar HTML5 Geolocation API
-      return this.getBrowserLocation();
-    }
-
-    // En dispositivo móvil, usar Capacitor Geolocation
-    return from(this.getCapacitorLocation());
-  }
-
-  /**
-   * Iniciar seguimiento de ubicación en tiempo real
-   */
-  async startWatching(): Promise<void> {
-    this.logger.geo('🔄 Starting location watching...');
-
-    if (this.watchingLocationSubject.value) {
-      this.logger.warn('⚠️ Already watching location');
-      return;
-    }
-
-    try {
-      // Verificar permisos primero
-      const permissions = await this.requestPermissions();
-      if (!permissions.granted) {
-        this.logger.error('❌ Location permissions not granted');
-        return;
-      }
-
-      this.watchingLocationSubject.next(true);
-
-      if (this.platform.is('capacitor')) {
-        await this.startCapacitorWatch();
-      } else {
-        this.startBrowserWatch();
-      }
-    } catch (error) {
-      this.logger.error('❌ Error starting location watch:', error);
-      this.watchingLocationSubject.next(false);
-    }
-  }
-
-  /**
-   * Detener seguimiento de ubicación
-   */
-  async stopWatching(): Promise<void> {
-    this.logger.geo('🛑 Stopping location watching...');
-
-    if (this.watchId) {
-      if (this.platform.is('capacitor')) {
-        await Geolocation.clearWatch({ id: this.watchId });
-      } else {
-        navigator.geolocation.clearWatch(parseInt(this.watchId));
-      }
-      this.watchId = null;
-    }
-
-    this.watchingLocationSubject.next(false);
-  }
-
-  /**
-   * Reiniciar estado de ubicación para permitir nuevas actualizaciones
-   */
-  resetLocationState(): void {
-    this.logger.geo('🔄 Resetting location state for new precise reading...');
-    this.isLocationStable = false;
-    this.consecutiveUpdatesCount = 0;
-    this.locationBuffer = [];
-  }
-
-  /**
-   * Obtener ubicación de alta precisión inmediata (para botón "marcar mi ubicación")
-   */
-  async getHighPrecisionLocation(): Promise<LatLng | null> {
-    this.logger.geo('🎯 Getting high precision location...');
-
-    try {
-      if (this.platform.is('capacitor')) {
-        const position = await Geolocation.getCurrentPosition({
-          enableHighAccuracy: true,
-          timeout: 10000, // Timeout más rápido para respuesta inmediata
-          maximumAge: 0, // Forzar nueva lectura GPS
-        });
-
-        const location: UserLocation = {
-          coords: {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          },
-          accuracy: position.coords.accuracy,
-          timestamp: position.timestamp,
-        };
-
-        // Actualizar directamente sin filtros para respuesta inmediata
-        this.currentLocationSubject.next(location);
-        this.mapService.updateUserLocation(location.coords);
-        this.lastKnownLocation = location;
-
-        // Resetear estado de estabilidad para permitir nuevas actualizaciones
-        this.isLocationStable = false;
-        this.consecutiveUpdatesCount = 0;
-
-        this.logger.geo(
-          '✅ High precision location obtained:',
-          location.coords
-        );
-        return location.coords;
-      } else {
-        // Para navegador
-        return new Promise((resolve, reject) => {
-          if (!navigator.geolocation) {
-            reject(new Error('Geolocation not supported'));
-            return;
-          }
-
-          navigator.geolocation.getCurrentPosition(
-            (position) => {
-              const coords = {
-                lat: position.coords.latitude,
-                lng: position.coords.longitude,
-              };
-
-              const location: UserLocation = {
-                coords,
-                accuracy: position.coords.accuracy,
-                timestamp: position.timestamp,
-              };
-
-              this.currentLocationSubject.next(location);
-              this.mapService.updateUserLocation(coords);
-              this.lastKnownLocation = location;
-              this.isLocationStable = false;
-              this.consecutiveUpdatesCount = 0;
-
-              resolve(coords);
-            },
-            (error) => reject(error),
-            {
-              enableHighAccuracy: true,
-              timeout: 10000,
-              maximumAge: 0,
-            }
-          );
-        });
-      }
-    } catch (error) {
-      this.logger.error('❌ Error getting high precision location:', error);
-      return null;
-    }
-  }
-
-  /**
-   * Centrar mapa en ubicación actual (modo fijo - sin tracking continuo)
-   */
-  async centerMapOnUserLocation(): Promise<void> {
-    this.logger.geo(
-      '🎯 Getting single precise location (no continuous tracking)...'
-    );
-
-    try {
-      // 1. DETENER cualquier tracking activo primero
-      if (this.watchingLocationSubject.value) {
-        this.logger.geo(
-          '🛑 Stopping continuous tracking for precise location...'
-        );
-        await this.stopWatching();
-      }
-
-      // 2. Reiniciar estado para permitir nueva actualización
-      this.resetLocationState();
-
-      // 3. Obtener UNA ubicación precisa
-      const coords = await this.getHighPrecisionLocation();
-
-      if (coords) {
-        this.logger.geo(
-          '✅ Precise location obtained - updating marker and stopping'
-        );
-
-        // 4. Actualizar el marcador con la ubicación precisa
-        this.mapService.updateUserLocation(coords);
-        this.mapService.centerMap(coords.lat, coords.lng, 17);
-
-        // 5. Marcar que la ubicación está estabilizada para evitar más actualizaciones
-        this.isLocationStable = true;
-        this.consecutiveUpdatesCount = this.MAX_CONSECUTIVE_UPDATES;
-
-        console.log('🔒 Location marker fixed at precise coordinates');
-      } else {
-        console.error('❌ Could not obtain high precision location');
-        throw new Error('No se pudo obtener ubicación de alta precisión');
-      }
-    } catch (error) {
-      console.error('❌ Error centering map on user location:', error);
-
-      // Fallback: usar ubicación en caché si está disponible
-      const currentLocation = this.currentLocationSubject.value;
-      if (currentLocation) {
-        console.log('📍 Using cached location as fallback (fixed mode)...');
-        this.mapService.updateUserLocation(currentLocation.coords);
-        this.mapService.centerMap(
-          currentLocation.coords.lat,
-          currentLocation.coords.lng,
-          15
-        );
-
-        // También marcar como estable en fallback
-        this.isLocationStable = true;
-      }
-    }
-  }
-
-  // === MÉTODOS PRIVADOS ===
 
   private async checkPermissions(): Promise<void> {
     try {
       if (this.platform.is('capacitor')) {
         const status = await Geolocation.checkPermissions();
-        this.permissionStatusSubject.next({
+        this._permissionStatus.set({
           granted: status.location === 'granted',
           denied: status.location === 'denied',
-          restricted: false, // Capacitor no usa 'denied-forever'
+          restricted: false,
         });
       } else {
-        // En navegador, asumimos permisos disponibles
-        this.permissionStatusSubject.next({
+        this._permissionStatus.set({
           granted: 'geolocation' in navigator,
           denied: false,
           restricted: false,
         });
       }
     } catch (error) {
-      console.error('❌ Error checking permissions:', error);
+      this.logger.error('Error checking permissions:', error);
     }
   }
 
@@ -495,13 +411,12 @@ export class GeolocationService {
         const permissionStatus = {
           granted: status.location === 'granted',
           denied: status.location === 'denied',
-          restricted: false, // Capacitor no usa 'denied-forever'
+          restricted: false,
         };
 
-        this.permissionStatusSubject.next(permissionStatus);
+        this._permissionStatus.set(permissionStatus);
         return permissionStatus;
       } else {
-        // En navegador, los permisos se solicitan automáticamente
         return {
           granted: 'geolocation' in navigator,
           denied: false,
@@ -509,163 +424,126 @@ export class GeolocationService {
         };
       }
     } catch (error) {
-      console.error('❌ Error requesting permissions:', error);
+      this.logger.error('Error requesting permissions:', error);
       return { granted: false, denied: true, restricted: false };
     }
   }
 
   private getBrowserLocation(): Observable<LatLng | null> {
     if (!('geolocation' in navigator)) {
-      console.error('❌ Geolocation not supported in browser');
-      return of(null);
+      this.logger.error('Geolocation not supported in browser');
+      return from(Promise.resolve(null));
     }
 
     return new Observable((observer) => {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          const location: UserLocation = {
-            coords: {
-              lat: position.coords.latitude,
-              lng: position.coords.longitude,
-            },
-            accuracy: position.coords.accuracy,
-            timestamp: position.timestamp,
-            heading: position.coords.heading || undefined,
-            speed: position.coords.speed || undefined,
-          };
+          const location = this.createBrowserLocation(position);
 
-          console.log('📍 Browser location obtained:', {
+          this.logger.geo('Browser location obtained:', {
             coords: location.coords,
             accuracy: `${location.accuracy}m`,
-            timestamp: new Date(location.timestamp).toLocaleTimeString(),
           });
 
-          // Procesar ubicación con filtros y suavizado
-          if (location.accuracy <= 100) {
+          if (location.accuracy <= this.MAX_BROWSER_ACCURACY) {
             this.processLocationUpdate(location);
             observer.next(location.coords);
-            observer.complete();
           } else {
-            console.warn(
-              '⚠️ Browser location too inaccurate:',
-              `${location.accuracy}m`
-            );
+            this.logger.warn('Browser location too inaccurate:', `${location.accuracy}m`);
             observer.next(null);
-            observer.complete();
           }
+          observer.complete();
         },
         (error) => {
-          // Reducir nivel de logging para errores de geolocalización en contextos no críticos
           if (window.location.pathname.includes('/admin/user-management')) {
-            console.debug(
-              '🔍 Geolocation not available in admin context:',
-              error.message
-            );
+            this.logger.debug('Geolocation not available in admin context');
           } else {
-            console.warn('⚠️ Browser geolocation error:', error.message);
+            this.logger.warn('Browser geolocation error:', error.message);
           }
           observer.next(null);
           observer.complete();
         },
-        {
-          enableHighAccuracy: true,
-          timeout: 20000, // Más tiempo para GPS de calidad
-          maximumAge: 2000, // Solo ubicaciones muy recientes
-        }
+        this.STANDARD_CONFIG
+      );
+    });
+  }
+
+  private getBrowserHighPrecisionLocation(): Promise<LatLng | null> {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error('Geolocation not supported'));
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const location = this.createBrowserLocation(position);
+
+          this._currentLocation.set(location);
+          this.mapService.updateUserLocation(location.coords);
+          this.lastKnownLocation = location;
+          this._isLocationStable.set(false);
+          this._consecutiveUpdatesCount.set(0);
+
+          resolve(location.coords);
+        },
+        (error) => reject(error),
+        this.HIGH_PRECISION_CONFIG
       );
     });
   }
 
   private async getCapacitorLocation(): Promise<LatLng | null> {
     try {
-      console.log('📍 Requesting high-accuracy GPS location...');
+      this.logger.geo('Requesting high-accuracy GPS location...');
 
-      const position = await Geolocation.getCurrentPosition({
-        enableHighAccuracy: true,
-        timeout: 20000, // Más tiempo para obtener mejor precisión
-        maximumAge: 1000, // Solo ubicaciones muy recientes (1 segundo)
-      });
+      const position = await Geolocation.getCurrentPosition(this.STANDARD_CONFIG);
+      const location = this.createCapacitorLocation(position);
 
-      const location: UserLocation = {
-        coords: {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        },
-        accuracy: position.coords.accuracy,
-        timestamp: position.timestamp,
-        heading: position.coords.heading || undefined,
-        speed: position.coords.speed || undefined,
-      };
-
-      console.log('📍 Capacitor location obtained:', {
+      this.logger.geo('Capacitor location obtained:', {
         coords: location.coords,
         accuracy: `${location.accuracy}m`,
-        timestamp: new Date(location.timestamp).toLocaleTimeString(),
       });
 
-      // Procesar ubicación con filtros y suavizado
-      if (location.accuracy <= 100) {
+      if (location.accuracy <= this.MAX_BROWSER_ACCURACY) {
         this.processLocationUpdate(location);
         return location.coords;
       } else {
-        console.warn('⚠️ Location accuracy too low:', `${location.accuracy}m`);
-        // Intentar de nuevo si la precisión es muy baja
+        this.logger.warn('Location accuracy too low:', `${location.accuracy}m`);
         return this.retryLocationWithBetterAccuracy();
       }
     } catch (error) {
-      console.error('❌ Capacitor geolocation error:', error);
+      this.logger.error('Capacitor geolocation error:', error);
+      return this.getFallbackLocation();
+    }
+  }
 
-      // Intentar con configuración alternativa si falla
-      try {
-        console.log('🔄 Retrying with fallback configuration...');
-        const fallbackPosition = await Geolocation.getCurrentPosition({
-          enableHighAccuracy: false, // Usar network location como fallback
-          timeout: 8000,
-          maximumAge: 10000,
-        });
+  private async getFallbackLocation(): Promise<LatLng | null> {
+    try {
+      this.logger.geo('Retrying with fallback configuration...');
+      const fallbackPosition = await Geolocation.getCurrentPosition(
+        this.FALLBACK_CONFIG
+      );
 
-        const fallbackLocation: UserLocation = {
-          coords: {
-            lat: fallbackPosition.coords.latitude,
-            lng: fallbackPosition.coords.longitude,
-          },
-          accuracy: fallbackPosition.coords.accuracy,
-          timestamp: fallbackPosition.timestamp,
-        };
-
-        console.log('📍 Fallback location obtained:', fallbackLocation);
-        this.processLocationUpdate(fallbackLocation);
-        return fallbackLocation.coords;
-      } catch (fallbackError) {
-        console.error('❌ Fallback geolocation also failed:', fallbackError);
-        return null;
-      }
+      const location = this.createCapacitorLocation(fallbackPosition);
+      this.logger.geo('Fallback location obtained:', location);
+      this.processLocationUpdate(location);
+      return location.coords;
+    } catch (error) {
+      this.logger.error('Fallback geolocation also failed:', error);
+      return null;
     }
   }
 
   private async retryLocationWithBetterAccuracy(): Promise<LatLng | null> {
     try {
-      console.log('🎯 Retrying for better accuracy...');
-      await new Promise((resolve) => setTimeout(resolve, 2000)); // Wait 2 seconds
+      this.logger.geo('Retrying for better accuracy...');
+      await new Promise((resolve) => setTimeout(resolve, this.RETRY_DELAY_MS));
 
-      const position = await Geolocation.getCurrentPosition({
-        enableHighAccuracy: true,
-        timeout: 20000,
-        maximumAge: 1000, // Very recent location only
-      });
+      const position = await Geolocation.getCurrentPosition(this.STANDARD_CONFIG);
+      const location = this.createCapacitorLocation(position);
 
-      const location: UserLocation = {
-        coords: {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        },
-        accuracy: position.coords.accuracy,
-        timestamp: position.timestamp,
-        heading: position.coords.heading || undefined,
-        speed: position.coords.speed || undefined,
-      };
-
-      console.log('📍 Retry location result:', {
+      this.logger.geo('Retry location result:', {
         coords: location.coords,
         accuracy: `${location.accuracy}m`,
       });
@@ -673,7 +551,7 @@ export class GeolocationService {
       this.processLocationUpdate(location);
       return location.coords;
     } catch (error) {
-      console.error('❌ Retry failed:', error);
+      this.logger.error('Retry failed:', error);
       return null;
     }
   }
@@ -683,29 +561,13 @@ export class GeolocationService {
 
     const watchId = navigator.geolocation.watchPosition(
       (position) => {
-        const location: UserLocation = {
-          coords: {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          },
-          accuracy: position.coords.accuracy,
-          timestamp: position.timestamp,
-          heading: position.coords.heading || undefined,
-          speed: position.coords.speed || undefined,
-        };
-
-        // Procesar ubicación con filtros y suavizado
+        const location = this.createBrowserLocation(position);
         this.processLocationUpdate(location);
       },
       (error) => {
-        console.error('❌ Browser watch error:', error);
-        // Don't stop watching on error, just log it
+        this.logger.error('Browser watch error:', error);
       },
-      {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 5000,
-      }
+      this.WATCH_CONFIG
     );
 
     this.watchId = watchId.toString();
@@ -714,38 +576,49 @@ export class GeolocationService {
   private async startCapacitorWatch(): Promise<void> {
     try {
       this.watchId = await Geolocation.watchPosition(
-        {
-          enableHighAccuracy: true,
-          timeout: 15000, // Tiempo moderado para mejor precisión en móvil
-          maximumAge: 5000, // Permite ubicaciones de hasta 5 segundos (reduce frecuencia de GPS)
-        },
+        this.WATCH_CONFIG,
         (position, err) => {
           if (err) {
-            console.error('❌ Capacitor watch error:', err);
-            // Don't stop watching on error, just log it
+            this.logger.error('Capacitor watch error:', err);
             return;
           }
 
           if (position) {
-            const location: UserLocation = {
-              coords: {
-                lat: position.coords.latitude,
-                lng: position.coords.longitude,
-              },
-              accuracy: position.coords.accuracy,
-              timestamp: position.timestamp,
-              heading: position.coords.heading || undefined,
-              speed: position.coords.speed || undefined,
-            };
-
-            // Procesar ubicación con filtros y suavizado
+            const location = this.createCapacitorLocation(position);
             this.processLocationUpdate(location);
           }
         }
       );
     } catch (error) {
-      console.error('❌ Error starting Capacitor watch:', error);
+      this.logger.error('Error starting Capacitor watch:', error);
       this.stopWatching();
     }
   }
+
+  private createBrowserLocation(position: GeolocationPosition): UserLocation {
+    return {
+      coords: {
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+      },
+      accuracy: position.coords.accuracy,
+      timestamp: position.timestamp,
+      heading: position.coords.heading ?? undefined,
+      speed: position.coords.speed ?? undefined,
+    };
+  }
+
+  private createCapacitorLocation(position: Position): UserLocation {
+    return {
+      coords: {
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+      },
+      accuracy: position.coords.accuracy,
+      timestamp: position.timestamp,
+      heading: position.coords.heading ?? undefined,
+      speed: position.coords.speed ?? undefined,
+    };
+  }
 }
+
