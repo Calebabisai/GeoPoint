@@ -1,4 +1,4 @@
-import { Component, inject, OnDestroy } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
@@ -22,7 +22,7 @@ import {
   colorPaletteOutline,
   navigateOutline,
 } from 'ionicons/icons';
-import { Subscription } from 'rxjs';
+import { MarkerForm, ZoneForm, RouteForm, ToastColor } from '../../../shared/models/admin-panel.model';
 import { FirestoreService } from '../../../services/firestore.service';
 import { MapService } from '../../services/map.service';
 import { AuthService } from '../../../auth/services/auth.service';
@@ -30,20 +30,20 @@ import { ValidationService } from '../../../shared/services/validation.service';
 import { MapMarker } from '../../../shared/models/marker.model';
 import { MapZone } from '../../../shared/models/zone.model';
 import { MapRoute } from '../../../shared/models/route.model';
-
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 /**
  * @component AdminPanelComponent
  * @description
  * Panel de administración para crear y gestionar elementos del mapa.
  *
  * **Funcionalidades principales:**
- * - ✅ Crear marcadores mediante clicks en el mapa
- * - ✅ Crear zonas poligonales con múltiples puntos
- * - ✅ Crear rutas con waypoints
- * - ✅ Validación de formularios antes de guardar
- * - ✅ Sanitización de datos para prevenir XSS
- * - ✅ Gestión de estados de modo (agregar marker, zona, ruta)
- * - ✅ Cleanup automático de subscripciones
+ * - Crear marcadores mediante clicks en el mapa
+ * - Crear zonas poligonales con múltiples puntos
+ * - Crear rutas con waypoints
+ * - Validación de formularios antes de guardar
+ * - Sanitización de datos para prevenir XSS
+ * - Gestión de estados de modo (agregar marker, zona, ruta)
+ * - Cleanup automático de subscripciones
  *
  * **Flujo de trabajo:**
  * 1. Usuario hace click en "Agregar Marcador/Zona/Ruta"
@@ -63,8 +63,6 @@ import { MapRoute } from '../../../shared/models/route.model';
  * @standalone true
  * @imports CommonModule, FormsModule, Ionic Components
  *
- * @author GeoPoint Team
- * @version 1.0.0
  */
 @Component({
   selector: 'app-admin-panel',
@@ -87,116 +85,123 @@ import { MapRoute } from '../../../shared/models/route.model';
     IonText,
   ],
 })
-export class AdminPanelComponent implements OnDestroy {
-  /** Servicio para operaciones CRUD en Firestore */
-  private firestoreService = inject(FirestoreService);
 
-  /** Servicio del mapa para capturar clicks y agregar elementos */
-  private mapService = inject(MapService);
+export class AdminPanelComponent {
+  private readonly DEFAULT_COLOR = '#FF0000';
+  private readonly DEFAULT_FILL_OPACITY = 0.3;
+  private readonly DEFAULT_ROUTE_WIDTH = 3;
+  private readonly MIN_ROUTE_WAYPOINTS = 2;
+  private readonly TOAST_DURATION_MS = 3000;
 
-  /** Servicio de autenticación para obtener usuario actual */
-  private authService = inject(AuthService);
+  private readonly firestoreService = inject(FirestoreService);
+  private readonly mapService = inject(MapService);
+  private readonly authService = inject(AuthService);
+  private readonly validationService = inject(ValidationService);
+  private readonly modalCtrl = inject(ModalController);
+  private readonly toastCtrl = inject(ToastController);
 
-  /** Servicio de validación y sanitización de datos */
-  private validationService = inject(ValidationService);
+  private readonly currentUser = this.authService.getCurrentUser();
+  private readonly _zoneCounter = signal(1);
+  private readonly _isAddingMarker = signal(false);
+  private readonly _isAddingZone = signal(false);
+  private readonly _isAddingRoute = signal(false);
 
-  /** Controlador de modales de Ionic */
-  private modalCtrl = inject(ModalController);
-
-  /** Controlador de mensajes toast de Ionic */
-  private toastCtrl = inject(ToastController);
-
-  /** Contenedor de subscripciones para cleanup automático en ngOnDestroy */
-  private subscriptions = new Subscription();
-
-  /** Contador autoincremental para números de zona */
-  private zoneCounter = 1;
-
-  /**
-   * Formulario para nuevo marcador.
-   * Se actualiza cuando el usuario hace click en el mapa (si isAddingMarker === true)
-   */
-  newMarker = {
+  private readonly _newMarker = signal<MarkerForm>({
     title: '',
     description: '',
     lat: 0,
     lng: 0,
-    color: '#FF0000',
-  };
+    color: this.DEFAULT_COLOR,
+  });
 
-  /**
-   * Formulario para nueva zona.
-   * Las coordenadas se agregan mediante clicks consecutivos en el mapa
-   */
-  newZone = {
+  private readonly _newZone = signal<ZoneForm>({
     name: '',
     description: '',
-    color: '#FF0000',
-    fillOpacity: 0.3,
-    coordinates: [] as [number, number][],
-  };
+    color: this.DEFAULT_COLOR,
+    fillOpacity: this.DEFAULT_FILL_OPACITY,
+    coordinates: [],
+  });
 
-  /**
-   * Formulario para nueva ruta.
-   * Los waypoints se agregan mediante clicks consecutivos en el mapa
-   */
-  newRoute = {
+  private readonly _newRoute = signal<RouteForm>({
     name: '',
     description: '',
-    color: '#FF0000',
-    width: 3,
-    waypoints: [] as [number, number][],
-  };
+    color: this.DEFAULT_COLOR,
+    width: this.DEFAULT_ROUTE_WIDTH,
+    waypoints: [],
+  });
 
-  /** Indica si el componente está en modo de agregar marcador */
-  isAddingMarker = false;
+  readonly isAddingMarker = computed(() => this._isAddingMarker());
+  readonly isAddingZone = computed(() => this._isAddingZone());
+  readonly isAddingRoute = computed(() => this._isAddingRoute());
 
-  /** Indica si el componente está en modo de agregar zona */
-  isAddingZone = false;
+  readonly newMarker = computed(() => this._newMarker());
+  readonly newZone = computed(() => this._newZone());
+  readonly newRoute = computed(() => this._newRoute());
 
-  /** Indica si el componente está en modo de agregar ruta */
-  isAddingRoute = false;
+  readonly isAnyModeActive = computed(
+    () => this._isAddingMarker() || this._isAddingZone() || this._isAddingRoute()
+  );
+
+  readonly canSaveMarker = computed(() => {
+    const marker = this._newMarker();
+    return marker.title.trim() !== '' && marker.lat !== 0 && marker.lng !== 0;
+  });
+
+  readonly canSaveZone = computed(() => {
+    const zone = this._newZone();
+    return zone.name.trim() !== '' && zone.coordinates.length >= 3;
+  });
+
+  readonly canSaveRoute = computed(() => {
+    const route = this._newRoute();
+    return (
+      route.name.trim() !== '' &&
+      route.waypoints.length >= this.MIN_ROUTE_WAYPOINTS
+    );
+  });
 
   constructor() {
     addIcons({ addOutline, colorPaletteOutline, navigateOutline });
     this.subscribeToMapClicks();
   }
 
-  // ✅ Cleanup de suscripciones al destruir el componente
-  ngOnDestroy(): void {
-    this.subscriptions.unsubscribe();
+  private subscribeToMapClicks(): void {
+    this.mapService.mapClick$.pipe(takeUntilDestroyed()).subscribe((latlng) => {
+      if (this._isAddingMarker() && latlng) {
+        this._newMarker.update((marker) => ({
+          ...marker,
+          lat: latlng.lat,
+          lng: latlng.lng,
+        }));
+      } else if (this._isAddingZone() && latlng) {
+        this._newZone.update((zone) => ({
+          ...zone,
+          coordinates: [...zone.coordinates, [latlng.lat, latlng.lng]],
+        }));
+      } else if (this._isAddingRoute() && latlng) {
+        this._newRoute.update((route) => ({
+          ...route,
+          waypoints: [...route.waypoints, [latlng.lat, latlng.lng]],
+        }));
+      }
+    });
   }
 
-  private subscribeToMapClicks() {
-    // ✅ Agregar suscripción a la cola para cleanup automático
-    this.subscriptions.add(
-      this.mapService.mapClick$.subscribe((latlng) => {
-        if (this.isAddingMarker && latlng) {
-          this.newMarker.lat = latlng.lat;
-          this.newMarker.lng = latlng.lng;
-        } else if (this.isAddingZone && latlng) {
-          this.newZone.coordinates.push([latlng.lat, latlng.lng]);
-        } else if (this.isAddingRoute && latlng) {
-          this.newRoute.waypoints.push([latlng.lat, latlng.lng]);
-        }
-      })
-    );
-  }
-
-  startAddingMarker() {
-    this.isAddingMarker = true;
+  startAddingMarker(): void {
+    this._isAddingMarker.set(true);
     this.resetOtherModes();
     this.showToast('Haz clic en el mapa para colocar el marcador', 'primary');
   }
 
-  async saveMarker() {
-    // ✅ Validar formulario antes de guardar
+  async saveMarker(): Promise<void> {
+    const marker = this._newMarker();
+
     const validation = this.validationService.validateMarkerForm({
-      title: this.newMarker.title,
-      description: this.newMarker.description,
-      lat: this.newMarker.lat,
-      lng: this.newMarker.lng,
-      color: this.newMarker.color,
+      title: marker.title,
+      description: marker.description,
+      lat: marker.lat,
+      lng: marker.lng,
+      color: marker.color,
     });
 
     if (!validation.valid) {
@@ -205,55 +210,55 @@ export class AdminPanelComponent implements OnDestroy {
     }
 
     try {
-      const user: any = await this.getCurrentUser();
-      if (!user) return;
+      const user = this.currentUser(); 
+      if (!user?.uid) {
+        this.showToast('Usuario no autenticado', 'danger');
+        return;
+      }
 
-      // Sanitizar datos antes de guardar
-      const titleValidation = this.validationService.validateTitle(
-        this.newMarker.title
-      );
+      const titleValidation = this.validationService.validateTitle(marker.title);
       const descValidation = this.validationService.validateDescription(
-        this.newMarker.description
+        marker.description
       );
 
-      const marker: Omit<MapMarker, 'id'> = {
+      const newMarker: Omit<MapMarker, 'id'> = {
         title: titleValidation.sanitized!,
         description: descValidation.sanitized!,
-        lat: this.newMarker.lat,
-        lng: this.newMarker.lng,
-        color: this.newMarker.color,
+        lat: marker.lat,
+        lng: marker.lng,
+        color: marker.color,
         type: 'marker',
-        createdBy: user?.uid,
+        createdBy: user.uid,
         organizationId: '',
         createdAt: new Date(),
       };
 
-      await this.firestoreService.addMarker(marker);
+      await this.firestoreService.addMarker(newMarker);
       this.resetMarkerForm();
       this.showToast('Marcador agregado exitosamente', 'success');
     } catch (error) {
-      console.error('Error agregando marcador:', error);
       this.showToast('Error al agregar marcador', 'danger');
     }
   }
 
-  startAddingZone() {
-    this.isAddingZone = true;
+  startAddingZone(): void {
+    this._isAddingZone.set(true);
     this.resetOtherModes();
-    this.newZone.coordinates = [];
+    this._newZone.update((zone) => ({ ...zone, coordinates: [] }));
     this.showToast(
       'Haz clic en el mapa para definir los puntos de la zona',
       'primary'
     );
   }
 
-  async saveZone() {
-    // ✅ Validar formulario antes de guardar
+  async saveZone(): Promise<void> {
+    const zone = this._newZone();
+
     const validation = this.validationService.validateZoneForm({
-      name: this.newZone.name,
-      description: this.newZone.description,
-      coordinates: this.newZone.coordinates,
-      color: this.newZone.color,
+      name: zone.name,
+      description: zone.description,
+      coordinates: zone.coordinates,
+      color: zone.color,
     });
 
     if (!validation.valid) {
@@ -262,155 +267,191 @@ export class AdminPanelComponent implements OnDestroy {
     }
 
     try {
-      const user: any = await this.getCurrentUser();
-      if (!user) return;
+      const user = this.currentUser();
+      if (!user?.uid) {
+        this.showToast('Usuario no autenticado', 'danger');
+        return;
+      }
 
-      // Sanitizar datos antes de guardar
-      const nameValidation = this.validationService.validateTitle(
-        this.newZone.name
-      );
+      const nameValidation = this.validationService.validateTitle(zone.name);
       const descValidation = this.validationService.validateDescription(
-        this.newZone.description
+        zone.description
       );
 
-      const zone: Omit<MapZone, 'id'> = {
+      const newZone: Omit<MapZone, 'id'> = {
         name: nameValidation.sanitized!,
         description: descValidation.sanitized!,
-        coordinates: this.newZone.coordinates.map((coord: any) =>
-          typeof coord === 'object' && 'lat' in coord && 'lng' in coord
-            ? coord
-            : { lat: coord[0], lng: coord[1] }
-        ),
-        color: this.newZone.color,
+        coordinates: zone.coordinates.map((coord) => ({
+          lat: coord[0],
+          lng: coord[1],
+        })),
+        color: zone.color,
         number: this.getNextZoneNumber(),
         type: 'zone',
-        createdBy: user?.uid,
+        createdBy: user.uid,
         organizationId: '',
         createdAt: new Date(),
       };
 
-      await this.firestoreService.addZone(zone);
+      await this.firestoreService.addZone(newZone);
       this.resetZoneForm();
       this.showToast('Zona agregada exitosamente', 'success');
     } catch (error) {
-      console.error('Error agregando zona:', error);
       this.showToast('Error al agregar zona', 'danger');
     }
   }
 
-  startAddingRoute() {
-    this.isAddingRoute = true;
+  startAddingRoute(): void {
+    this._isAddingRoute.set(true);
     this.resetOtherModes();
-    this.newRoute.waypoints = [];
+    this._newRoute.update((route) => ({ ...route, waypoints: [] }));
     this.showToast(
       'Haz clic en el mapa para definir los puntos de la ruta',
       'primary'
     );
   }
 
-  async saveRoute() {
-    if (!this.newRoute.name || this.newRoute.waypoints.length < 2) {
+  async saveRoute(): Promise<void> {
+    const route = this._newRoute();
+
+    if (!route.name || route.waypoints.length < this.MIN_ROUTE_WAYPOINTS) {
       this.showToast('Ingresa un nombre y define al menos 2 puntos', 'warning');
       return;
     }
+
     try {
-      const user: any = await this.getCurrentUser();
-      if (!user) return;
-      const route: Omit<MapRoute, 'id'> = {
-        name: this.newRoute.name,
-        description: this.newRoute.description,
-        waypoints: this.newRoute.waypoints,
-        color: this.newRoute.color,
-        width: this.newRoute.width,
-        createdBy: user?.uid,
+      const user = this.currentUser();
+      if (!user?.uid) {
+        this.showToast('Usuario no autenticado', 'danger');
+        return;
+      }
+
+      const newRoute: Omit<MapRoute, 'id'> = {
+        name: route.name,
+        description: route.description,
+        waypoints: route.waypoints,
+        color: route.color,
+        width: route.width,
+        createdBy: user.uid,
         createdAt: new Date(),
       };
-      await this.firestoreService.addRoute(route);
+
+      await this.firestoreService.addRoute(newRoute);
       this.resetRouteForm();
       this.showToast('Ruta agregada exitosamente', 'success');
     } catch (error) {
-      console.error('Error agregando ruta:', error);
       this.showToast('Error al agregar ruta', 'danger');
     }
   }
 
-  cancelCurrentAction() {
+  cancelCurrentAction(): void {
     this.resetAllModes();
     this.showToast('Acción cancelada', 'medium');
   }
 
-  private resetOtherModes() {
-    if (this.isAddingMarker) this.isAddingMarker = false;
-    if (this.isAddingZone) this.isAddingZone = false;
-    if (this.isAddingRoute) this.isAddingRoute = false;
+  updateMarkerTitle(title: string): void {
+    this._newMarker.update((marker) => ({ ...marker, title }));
   }
 
-  private resetAllModes() {
-    this.isAddingMarker = false;
-    this.isAddingZone = false;
-    this.isAddingRoute = false;
+  updateMarkerDescription(description: string): void {
+    this._newMarker.update((marker) => ({ ...marker, description }));
   }
 
-  private resetMarkerForm() {
-    this.newMarker = {
+  updateMarkerColor(color: string): void {
+    this._newMarker.update((marker) => ({ ...marker, color }));
+  }
+
+  updateZoneName(name: string): void {
+    this._newZone.update((zone) => ({ ...zone, name }));
+  }
+
+  updateZoneDescription(description: string): void {
+    this._newZone.update((zone) => ({ ...zone, description }));
+  }
+
+  updateZoneColor(color: string): void {
+    this._newZone.update((zone) => ({ ...zone, color }));
+  }
+
+  updateRouteName(name: string): void {
+    this._newRoute.update((route) => ({ ...route, name }));
+  }
+
+  updateRouteDescription(description: string): void {
+    this._newRoute.update((route) => ({ ...route, description }));
+  }
+
+  updateRouteColor(color: string): void {
+    this._newRoute.update((route) => ({ ...route, color }));
+  }
+
+  updateRouteWidth(width: number): void {
+    this._newRoute.update((route) => ({ ...route, width }));
+  }
+
+  private resetOtherModes(): void {
+    if (this._isAddingMarker()) this._isAddingMarker.set(false);
+    if (this._isAddingZone()) this._isAddingZone.set(false);
+    if (this._isAddingRoute()) this._isAddingRoute.set(false);
+  }
+
+  private resetAllModes(): void {
+    this._isAddingMarker.set(false);
+    this._isAddingZone.set(false);
+    this._isAddingRoute.set(false);
+  }
+
+  private resetMarkerForm(): void {
+    this._newMarker.set({
       title: '',
       description: '',
       lat: 0,
       lng: 0,
-      color: '#FF0000',
-    };
-    this.isAddingMarker = false;
-  }
-
-  private resetZoneForm() {
-    this.newZone = {
-      name: '',
-      description: '',
-      color: '#FF0000',
-      fillOpacity: 0.3,
-      coordinates: [],
-    };
-    this.isAddingZone = false;
-  }
-
-  private resetRouteForm() {
-    this.newRoute = {
-      name: '',
-      description: '',
-      color: '#FF0000',
-      width: 3,
-      waypoints: [],
-    };
-    this.isAddingRoute = false;
-  }
-
-  private async getCurrentUser() {
-    return new Promise((resolve) => {
-      // ✅ Agregar suscripción temporal al cleanup
-      const sub = this.authService.getCurrentUser().subscribe((user) => {
-        resolve(user);
-        sub.unsubscribe(); // Unsubscribe inmediato después de obtener el valor
-      });
+      color: this.DEFAULT_COLOR,
     });
+    this._isAddingMarker.set(false);
+  }
+
+  private resetZoneForm(): void {
+    this._newZone.set({
+      name: '',
+      description: '',
+      color: this.DEFAULT_COLOR,
+      fillOpacity: this.DEFAULT_FILL_OPACITY,
+      coordinates: [],
+    });
+    this._isAddingZone.set(false);
+  }
+
+  private resetRouteForm(): void {
+    this._newRoute.set({
+      name: '',
+      description: '',
+      color: this.DEFAULT_COLOR,
+      width: this.DEFAULT_ROUTE_WIDTH,
+      waypoints: [],
+    });
+    this._isAddingRoute.set(false);
   }
 
   private getNextZoneNumber(): number {
-    // Retorna el siguiente número disponible
-    return this.zoneCounter++;
+    const current = this._zoneCounter();
+    this._zoneCounter.set(current + 1);
+    return current;
   }
 
-  private async showToast(message: string, color: string) {
+  private async showToast(message: string, color: ToastColor): Promise<void> {
     const toast = await this.toastCtrl.create({
       message,
-      duration: 3000,
+      duration: this.TOAST_DURATION_MS,
       color,
       position: 'top',
       cssClass: 'custom-toast',
     });
-    toast.present();
+    await toast.present();
   }
 
-  async dismiss() {
+  async dismiss(): Promise<void> {
     await this.modalCtrl.dismiss();
   }
 }
