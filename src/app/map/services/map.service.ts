@@ -1,5 +1,5 @@
-import { Injectable } from '@angular/core';
-import { Observable, Subject } from 'rxjs';
+import { computed, Injectable, signal } from '@angular/core';
+import { Subject } from 'rxjs';
 import * as L from 'leaflet';
 import { Capacitor } from '@capacitor/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
@@ -11,87 +11,186 @@ export interface LatLng {
   lng: number;
 }
 
+interface MemoryStats {
+  markers: { count: number; limit: number; percentage: number };
+  zones: { count: number; limit: number; percentage: number };
+  isMobile: boolean;
+}
+
+interface ExtendedPolygon extends L.Polygon {
+  popupContent?: string;
+  zoneLabel?: L.Marker;
+}
+
+type ZoneColorKey = 'red' | 'blue' | 'green' | 'yellow' | 'purple' | 'orange';
+
 @Injectable({ providedIn: 'root' })
 export class MapService {
+  // Constantes de configuración
+  private readonly MAP_INIT_DELAY_MS = 100;
+  private readonly REFRESH_DELAY_MS = 100;
+  private readonly ZONE_LABEL_SIZE: [number, number] = [30, 30];
+  private readonly ZONE_LABEL_ANCHOR: [number, number] = [15, 15];
+
+  private readonly MOBILE_MAP_CONFIG = {
+    center: [25.6866, -100.3161] as L.LatLngTuple,
+    zoom: 12,
+    minZoom: 8,
+    maxZoom: 18,
+    zoomControl: false,
+    attributionControl: false,
+    tap: true,
+    tapTolerance: 15,
+    touchZoom: true,
+    bounceAtZoomLimits: false,
+    wheelPxPerZoomLevel: 120,
+    zoomSnap: 0.5,
+    zoomDelta: 0.5,
+  } as const;
+
+  private readonly DESKTOP_MAP_CONFIG = {
+    center: [25.6866, -100.3161] as L.LatLngTuple,
+    zoom: 13,
+    zoomControl: false,
+    attributionControl: false,
+  } as const;
+
+  private readonly MOBILE_TILE_CONFIG = {
+    maxZoom: 18,
+    minZoom: 8,
+    attribution: '© OpenStreetMap contributors',
+    updateWhenIdle: false,
+    updateInterval: 150,
+    keepBuffer: 2,
+    maxNativeZoom: 18,
+    tileSize: 256,
+    zoomOffset: 0,
+    crossOrigin: true,
+  } as const;
+
+  private readonly DESKTOP_TILE_CONFIG = {
+    maxZoom: 18,
+    attribution: '© OpenStreetMap contributors',
+  } as const;
+
+  private readonly ZONE_COLORS: Record<ZoneColorKey, string> = {
+    red: '#FF6B6B',
+    blue: '#4ECDC4',
+    green: '#45B7D1',
+    yellow: '#FFA07A',
+    purple: '#D6A2E8',
+    orange: '#FFB347',
+  } as const;
+
   private map: L.Map | undefined;
   private userMarker: L.Marker | undefined;
   private markers: Map<string, L.Marker> = new Map();
-  private markerData: Map<string, MapMarker> = new Map(); // Almacenar datos originales
-  private zones: Map<string, L.Polygon> = new Map();
-  private zoneData: Map<string, MapZone> = new Map(); // Almacenar datos originales de zonas
+  private markerData: Map<string, MapMarker> = new Map();
+  private zones: Map<string, ExtendedPolygon> = new Map();
+  private zoneData: Map<string, MapZone> = new Map();
 
+  // Subjects para eventos
   mapClick$ = new Subject<LatLng>();
   markerClick$ = new Subject<MapMarker>();
   zoneClick$ = new Subject<MapZone>();
   markerDelete$ = new Subject<string>();
   zoneDelete$ = new Subject<string>();
 
-  // Modo de eliminación
-  private deleteMode = false;
+  // Signals para estado reactivo
+  private readonly _deleteMode = signal(false);
+  private readonly _isCreatingMarker = signal(false);
+  private readonly _isCreatingZone = signal(false);
+  private readonly _markersLoadedCount = signal(0);
+  private readonly _zonesLoadedCount = signal(0);
 
-  // Estado de creación
-  private isCreatingMarker = false;
-  private isCreatingZone = false;
+  // Signals de configuración
+  private readonly _isMobile = signal(Capacitor.isNativePlatform());
+  private readonly _isTouchDevice = signal(
+    'ontouchstart' in window || navigator.maxTouchPoints > 0
+  );
+  private readonly _maxMarkersOnMobile = signal(50);
+  private readonly _maxZonesOnMobile = signal(20);
 
-  // Detección de plataforma móvil
-  private isMobile = Capacitor.isNativePlatform();
-  private isTouchDevice =
-    'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  // Computed signals para valores derivados
+  readonly isMobilePlatform = computed(
+    () => this._isMobile() || this._isTouchDevice()
+  );
 
-  // Gestión de memoria para móvil
-  private maxMarkersOnMobile = 50; // Límite de marcadores en móvil
-  private maxZonesOnMobile = 20; // Límite de zonas en móvil
-  private markersLoadedCount = 0;
-  private zonesLoadedCount = 0;
+  readonly deleteMode = computed(() => this._deleteMode());
+  readonly isCreatingMarker = computed(() => this._isCreatingMarker());
+  readonly isCreatingZone = computed(() => this._isCreatingZone());
 
-  // Método público para consultar si es móvil
-  get isMobilePlatform(): boolean {
-    return this.isMobile || this.isTouchDevice;
-  }
+  readonly iconSize = computed<[number, number]>(() =>
+    this.isMobilePlatform() ? [40, 52] : [32, 42]
+  );
 
-  // Métodos para feedback háptico
-  private async hapticLight() {
-    if (this.isMobile) {
+  readonly iconAnchor = computed<[number, number]>(() =>
+    this.isMobilePlatform() ? [20, 52] : [16, 42]
+  );
+
+  readonly memoryStats = computed<MemoryStats>(() => ({
+    markers: {
+      count: this._markersLoadedCount(),
+      limit: this._maxMarkersOnMobile(),
+      percentage: Math.round(
+        (this._markersLoadedCount() / this._maxMarkersOnMobile()) * 100
+      ),
+    },
+    zones: {
+      count: this._zonesLoadedCount(),
+      limit: this._maxZonesOnMobile(),
+      percentage: Math.round(
+        (this._zonesLoadedCount() / this._maxZonesOnMobile()) * 100
+      ),
+    },
+    isMobile: this.isMobilePlatform(),
+  }));
+
+  readonly shouldCheckMemoryLimits = computed(
+    () =>
+      this._markersLoadedCount() > this._maxMarkersOnMobile() ||
+      this._zonesLoadedCount() > this._maxZonesOnMobile()
+  );
+
+  readonly hasMarkers = computed(() => this._markersLoadedCount() > 0);
+  readonly hasZones = computed(() => this._zonesLoadedCount() > 0);
+
+  private async hapticLight(): Promise<void> {
+    if (this._isMobile()) {
       try {
         await Haptics.impact({ style: ImpactStyle.Light });
-      } catch (error) {
-        console.log('Haptics not available:', error);
+      } catch {
+        // Haptics not available
       }
     }
   }
 
-  private async hapticMedium() {
-    if (this.isMobile) {
+  private async hapticMedium(): Promise<void> {
+    if (this._isMobile()) {
       try {
         await Haptics.impact({ style: ImpactStyle.Medium });
-      } catch (error) {
-        console.log('Haptics not available:', error);
+      } catch {
+        // Haptics not available
       }
     }
   }
 
-  private async hapticHeavy() {
-    if (this.isMobile) {
+  private async hapticHeavy(): Promise<void> {
+    if (this._isMobile()) {
       try {
         await Haptics.impact({ style: ImpactStyle.Heavy });
-      } catch (error) {
-        console.log('Haptics not available:', error);
+      } catch {
+        // Haptics not available
       }
     }
   }
 
-  // Gestión de memoria móvil
   private checkMemoryLimits(): void {
-    if (this.isMobile || this.isTouchDevice) {
-      // Verificar límites de marcadores
-      if (this.markersLoadedCount > this.maxMarkersOnMobile) {
-        console.warn('⚠️ Marker limit exceeded on mobile, cleaning up...');
+    if (this.isMobilePlatform() && this.shouldCheckMemoryLimits()) {
+      if (this._markersLoadedCount() > this._maxMarkersOnMobile()) {
         this.cleanupOldMarkers();
       }
-
-      // Verificar límites de zonas
-      if (this.zonesLoadedCount > this.maxZonesOnMobile) {
-        console.warn('⚠️ Zone limit exceeded on mobile, cleaning up...');
+      if (this._zonesLoadedCount() > this._maxZonesOnMobile()) {
         this.cleanupOldZones();
       }
     }
@@ -99,210 +198,128 @@ export class MapService {
 
   private cleanupOldMarkers(): void {
     const markerIds = Array.from(this.markers.keys());
-    const excessCount = markerIds.length - this.maxMarkersOnMobile;
+    const excessCount = markerIds.length - this._maxMarkersOnMobile();
 
     if (excessCount > 0) {
-      // Remover los marcadores más antiguos (primeros agregados)
       const markersToRemove = markerIds.slice(0, excessCount);
       markersToRemove.forEach((id) => {
         this.removeMarker(id);
       });
-      console.log(
-        `🧹 Cleaned up ${excessCount} old markers for memory optimization`
-      );
     }
   }
 
   private cleanupOldZones(): void {
     const zoneIds = Array.from(this.zones.keys());
-    const excessCount = zoneIds.length - this.maxZonesOnMobile;
+    const excessCount = zoneIds.length - this._maxZonesOnMobile();
 
     if (excessCount > 0) {
-      // Remover las zonas más antiguas (primeras agregadas)
       const zonesToRemove = zoneIds.slice(0, excessCount);
       zonesToRemove.forEach((id) => {
         this.removeZone(id);
       });
-      console.log(
-        `🧹 Cleaned up ${excessCount} old zones for memory optimization`
-      );
     }
   }
 
-  // Método público para limpiar memoria manualmente
   public cleanupMemory(): void {
-    if (this.isMobile || this.isTouchDevice) {
+    if (this.isMobilePlatform()) {
       this.cleanupOldMarkers();
       this.cleanupOldZones();
 
-      // Forzar garbage collection si está disponible
       if ((window as any).gc) {
         (window as any).gc();
       }
-
-      console.log('🧹 Memory cleanup completed');
     }
   }
 
-  // Método público para obtener estadísticas de memoria
-  public getMemoryStats(): {
-    markers: { count: number; limit: number; percentage: number };
-    zones: { count: number; limit: number; percentage: number };
-    isMobile: boolean;
-  } {
-    return {
-      markers: {
-        count: this.markersLoadedCount,
-        limit: this.maxMarkersOnMobile,
-        percentage: Math.round(
-          (this.markersLoadedCount / this.maxMarkersOnMobile) * 100
-        ),
-      },
-      zones: {
-        count: this.zonesLoadedCount,
-        limit: this.maxZonesOnMobile,
-        percentage: Math.round(
-          (this.zonesLoadedCount / this.maxZonesOnMobile) * 100
-        ),
-      },
-      isMobile: this.isMobile || this.isTouchDevice,
-    };
+  public getMemoryStats(): MemoryStats {
+    return this.memoryStats();
   }
 
-  // Colores predefinidos para zonas
-  private zoneColors = {
-    red: '#FF6B6B',
-    blue: '#4ECDC4',
-    green: '#45B7D1',
-    yellow: '#FFA07A',
-    purple: '#D6A2E8',
-    orange: '#FFB347',
-  };
+  public destroy(): void {
+    this.markers.forEach((marker) => this.map?.removeLayer(marker));
+    this.markers.clear();
+    this.markerData.clear();
 
-  initMap(containerId: string) {
+    this.zones.forEach((zone) => {
+      if (zone.zoneLabel) {
+        this.map?.removeLayer(zone.zoneLabel);
+      }
+      this.map?.removeLayer(zone);
+    });
+    this.zones.clear();
+    this.zoneData.clear();
+
+    this.mapClick$.complete();
+    this.markerClick$.complete();
+    this.zoneClick$.complete();
+    this.markerDelete$.complete();
+    this.zoneDelete$.complete();
+
+    this.map?.remove();
+    this.map = undefined;
+
+    this._markersLoadedCount.set(0);
+    this._zonesLoadedCount.set(0);
+  }
+
+  initMap(containerId: string): void {
     const container = document.getElementById(containerId);
     if (!container) {
-      console.error(`Container with id ${containerId} not found`);
       return;
     }
 
-    // Asegurarse de que el contenedor tiene dimensiones
     if (container.offsetHeight === 0 || container.offsetWidth === 0) {
-      console.warn('Container has no dimensions, setting minimum size');
       container.style.height = '100vh';
       container.style.width = '100%';
     }
 
-    // Configuración del mapa optimizada para móvil
-    const mapConfig =
-      this.isMobile || this.isTouchDevice
-        ? {
-            center: [25.6866, -100.3161] as L.LatLngTuple,
-            zoom: 12, // Zoom inicial menor en móvil
-            minZoom: 8,
-            maxZoom: 18,
-            zoomControl: false,
-            attributionControl: false,
-            // Optimizaciones táctiles
-            tap: true,
-            tapTolerance: 15, // Mayor tolerancia para taps en móvil
-            touchZoom: true,
-            bounceAtZoomLimits: false,
-            wheelPxPerZoomLevel: 120, // Zoom más suave
-            zoomSnap: 0.5, // Permitir zooms intermedios
-            zoomDelta: 0.5,
-          }
-        : {
-            center: [25.6866, -100.3161] as L.LatLngTuple,
-            zoom: 13,
-            zoomControl: false,
-            attributionControl: false,
-          };
+    const mapConfig = this.isMobilePlatform()
+      ? this.MOBILE_MAP_CONFIG
+      : this.DESKTOP_MAP_CONFIG;
 
     this.map = L.map(containerId, mapConfig);
 
-    // Configuración de tiles optimizada para móvil
-    const tileLayerOptions =
-      this.isMobile || this.isTouchDevice
-        ? {
-            maxZoom: 18,
-            minZoom: 8,
-            attribution: '© OpenStreetMap contributors',
-            // Optimizaciones para móvil
-            updateWhenIdle: false, // Actualizar mientras se mueve
-            updateInterval: 150, // Reducir interval para móvil
-            keepBuffer: 2, // Buffer menor para ahorrar memoria
-            maxNativeZoom: 18,
-            tileSize: 256,
-            zoomOffset: 0,
-            // Loading optimizado para móvil
-            crossOrigin: true,
-          }
-        : {
-            maxZoom: 18,
-            attribution: '© OpenStreetMap contributors',
-          };
+    const tileLayerOptions = this.isMobilePlatform()
+      ? this.MOBILE_TILE_CONFIG
+      : this.DESKTOP_TILE_CONFIG;
 
     L.tileLayer(
       'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
       tileLayerOptions
     ).addTo(this.map);
 
-    // Esperar a que el mapa se renderice completamente antes de agregar listeners
     setTimeout(() => {
-      // Escuchar clicks en el mapa
       this.map!.on('click', (e: L.LeafletMouseEvent) => {
-        console.log('🗺️ LEAFLET CLICK EVENT:', e.latlng);
         this.mapClick$.next({
           lat: e.latlng.lat,
           lng: e.latlng.lng,
         });
       });
 
-      // Invalidar el tamaño para asegurar renderizado correcto
       this.map!.invalidateSize();
-
-      console.log('✅ Mapa inicializado correctamente en', containerId);
-    }, 100);
+    }, this.MAP_INIT_DELAY_MS);
   }
 
-  updateUserLocation(coords: LatLng) {
+  updateUserLocation(coords: LatLng): void {
     if (!this.map) {
-      console.error('❌ Cannot update user location: map not initialized');
       return;
     }
 
-    console.log('🗺️  Updating user location marker at:', coords);
-
-    // Limpiar referencia de marcador anterior (si existía)
     if (this.userMarker) {
-      console.log('🗑️ Cleaning up previous user marker reference');
       this.map.removeLayer(this.userMarker);
       this.userMarker = undefined;
     }
 
-    // MARCADOR DE USUARIO DESACTIVADO - Solo mantener funcionalidad GPS
-    console.log('📍 GPS coordinates updated (marker disabled):', coords);
-
-    // NO crear marcador visual - solo registrar las coordenadas para centrado
-    // El GPS funciona pero sin mostrar punto azul
-
-    console.log(
-      'ℹ️ User location marker disabled - GPS tracking active without visual marker'
-    );
-
-    // Forzar refresco del mapa para móviles (especialmente Xiaomi)
     setTimeout(() => {
       if (this.map) {
         this.map.invalidateSize();
-        // Pequeño ajuste de vista para forzar re-renderizado en dispositivos móviles
-        if (this.isMobile || this.isTouchDevice) {
+        if (this.isMobilePlatform()) {
           const currentZoom = this.map.getZoom();
           this.map.setView(coords, currentZoom, { animate: false });
           this.map.fire('refresh');
         }
       }
-    }, 100);
+    }, this.REFRESH_DELAY_MS);
   }
 
   addMarker(marker: MapMarker): string {
@@ -310,7 +327,6 @@ export class MapService {
 
     const markerId = marker.id || this.generateId();
 
-    // Crear diferentes iconos según el tipo
     let icon: L.DivIcon;
     switch (marker.type) {
       case 'house':
@@ -327,19 +343,15 @@ export class MapService {
       this.map
     );
 
-    // Crear popup con información
     const popupContent = this.createMarkerPopup(marker);
     leafletMarker.bindPopup(popupContent);
 
-    // Configurar eventos según el modo actual
     this.configureMarkerEvents(leafletMarker, markerId, marker);
 
-    // Almacenar el marcador y sus datos
     this.markers.set(markerId, leafletMarker);
     this.markerData.set(markerId, marker);
 
-    // Actualizar contador y verificar límites de memoria
-    this.markersLoadedCount++;
+    this._markersLoadedCount.update((count) => count + 1);
     this.checkMemoryLimits();
 
     return markerId;
@@ -359,158 +371,107 @@ export class MapService {
       fillColor: zone.color,
       fillOpacity: 0.3,
       weight: 2,
-    }).addTo(this.map);
+    }).addTo(this.map) as ExtendedPolygon;
 
-    // Marcar el elemento DOM del polígono con el id de zona para facilitar hit-testing
-    try {
-      const el = polygon.getElement() as HTMLElement | null;
-      if (el) {
-        el.setAttribute('data-zone-id', zoneId);
-      }
-    } catch (err) {
-      // Si por alguna razón el elemento no está disponible aún, lo ignoramos
-      console.warn('Could not set data-zone-id on polygon element', err);
-    }
+    const el = polygon.getElement() as HTMLElement | null;
+    el?.setAttribute('data-zone-id', zoneId);
 
-    // NO bindear popup automáticamente - lo manejaremos manualmente
     const popupContent = this.createZonePopup(zone);
-    // Guardar el contenido del popup en el polígono para uso posterior
-    (polygon as any).popupContent = popupContent;
+    polygon.popupContent = popupContent;
 
-    // Agregar etiqueta con el número de la zona en el centro
     if (zone.number) {
       const center = polygon.getBounds().getCenter();
       const zoneLabel = L.marker(center, {
         icon: L.divIcon({
           className: 'zone-label',
           html: `<div class="zone-number-label">${zone.number}</div>`,
-          iconSize: [30, 30],
-          iconAnchor: [15, 15],
+          iconSize: this.ZONE_LABEL_SIZE,
+          iconAnchor: this.ZONE_LABEL_ANCHOR,
         }),
       }).addTo(this.map);
 
-      // Guardar la etiqueta junto con el polígono
-      (polygon as any).zoneLabel = zoneLabel;
-      // Marcar la etiqueta con el id de zona para permitir hit-testing
-      try {
-        const labelEl = zoneLabel.getElement() as HTMLElement | null;
-        if (labelEl) {
-          labelEl.setAttribute('data-zone-id', zoneId);
-          // Asegurar que la etiqueta permite pointer events
-          labelEl.style.pointerEvents = 'auto';
-        }
-      } catch (err) {
-        console.warn('Could not set data-zone-id on zone label', err);
+      polygon.zoneLabel = zoneLabel;
+      const labelEl = zoneLabel.getElement() as HTMLElement | null;
+      if (labelEl) {
+        labelEl.setAttribute('data-zone-id', zoneId);
+        labelEl.style.pointerEvents = 'auto';
       }
     }
 
-    // Manejar click en zona
     this.configureZoneEvents(polygon, zoneId, zone);
 
     this.zones.set(zoneId, polygon);
-    // Guardar también los datos originales de la zona
     this.zoneData.set(zoneId, zone);
 
-    // Actualizar contador y verificar límites de memoria
-    this.zonesLoadedCount++;
+    this._zonesLoadedCount.update((count) => count + 1);
     this.checkMemoryLimits();
 
     return zoneId;
   }
 
-  removeMarker(id: string) {
+  removeMarker(id: string): void {
     const marker = this.markers.get(id);
     if (marker && this.map) {
       this.map.removeLayer(marker);
       this.markers.delete(id);
-      this.markerData.delete(id); // También limpiar los datos
-
-      // Decrementar contador
-      this.markersLoadedCount = Math.max(0, this.markersLoadedCount - 1);
+      this.markerData.delete(id);
+      this._markersLoadedCount.update((count) => Math.max(0, count - 1));
     }
   }
 
-  removeZone(id: string) {
+  removeZone(id: string): void {
     const zone = this.zones.get(id);
     if (zone && this.map) {
-      // Remover la etiqueta si existe
-      if ((zone as any).zoneLabel) {
-        this.map.removeLayer((zone as any).zoneLabel);
+      if (zone.zoneLabel) {
+        this.map.removeLayer(zone.zoneLabel);
       }
-      // Remover el polígono
       this.map.removeLayer(zone);
       this.zones.delete(id);
-      // Remover los datos asociados
       this.zoneData.delete(id);
-
-      // Decrementar contador
-      this.zonesLoadedCount = Math.max(0, this.zonesLoadedCount - 1);
+      this._zonesLoadedCount.update((count) => Math.max(0, count - 1));
     }
+  }
+
+  private createIcon(
+    className: string,
+    iconName: string,
+    color: string,
+    extraHtml: string = '',
+    extraClass: string = ''
+  ): L.DivIcon {
+    return L.divIcon({
+      className,
+      html: `
+        <div class="marker-container ${extraClass}" style="--marker-color: ${color}">
+          ${extraHtml}
+          <div class="marker-background ${extraClass.includes('poi') ? 'poi-background' : ''}"></div>
+          <ion-icon name="${iconName}" class="marker-icon ${extraClass || 'default-icon'}"></ion-icon>
+        </div>
+      `,
+      iconSize: this.iconSize(),
+      iconAnchor: this.iconAnchor(),
+    });
   }
 
   private createHouseIcon(color: string): L.DivIcon {
-    // Tamaños optimizados para móvil
-    const iconSize: [number, number] =
-      this.isMobile || this.isTouchDevice ? [40, 52] : [32, 42];
-    const iconAnchor: [number, number] =
-      this.isMobile || this.isTouchDevice ? [20, 52] : [16, 42];
-
-    return L.divIcon({
-      className: 'house-marker-icon',
-      html: `
-        <div class="marker-container" style="--marker-color: ${color}">
-          <div class="marker-background"></div>
-          <ion-icon name="home" class="marker-icon house-icon"></ion-icon>
-        </div>
-      `,
-      iconSize,
-      iconAnchor,
-    });
+    return this.createIcon('house-marker-icon', 'home', color, '', 'house-icon');
   }
 
   private createPoiIcon(color: string): L.DivIcon {
-    // Tamaños optimizados para móvil
-    const iconSize: [number, number] =
-      this.isMobile || this.isTouchDevice ? [40, 52] : [32, 42];
-    const iconAnchor: [number, number] =
-      this.isMobile || this.isTouchDevice ? [20, 52] : [16, 42];
-
-    return L.divIcon({
-      className: 'poi-marker-icon',
-      html: `
-        <div class="marker-container poi-pulse-container" style="--marker-color: ${color}">
-          <div class="poi-pulse-ring"></div>
-          <div class="marker-background poi-background"></div>
-          <ion-icon name="star" class="marker-icon poi-icon"></ion-icon>
-        </div>
-      `,
-      iconSize,
-      iconAnchor,
-    });
+    return this.createIcon(
+      'poi-marker-icon',
+      'star',
+      color,
+      '<div class="poi-pulse-ring"></div>',
+      'poi-pulse-container poi-icon'
+    );
   }
 
   private createMarkerIcon(color: string): L.DivIcon {
-    // Tamaños optimizados para móvil
-    const iconSize: [number, number] =
-      this.isMobile || this.isTouchDevice ? [40, 52] : [32, 42];
-    const iconAnchor: [number, number] =
-      this.isMobile || this.isTouchDevice ? [20, 52] : [16, 42];
-
-    return L.divIcon({
-      className: 'custom-marker-icon',
-      html: `
-        <div class="marker-container" style="--marker-color: ${color}">
-          <div class="marker-background"></div>
-          <ion-icon name="location" class="marker-icon default-icon"></ion-icon>
-        </div>
-      `,
-      iconSize,
-      iconAnchor,
-    });
+    return this.createIcon('custom-marker-icon', 'location', color);
   }
 
   private createMarkerPopup(marker: MapMarker): string {
-    // Si es un POI, crear popup especial con enlace a Google Maps
     if (marker.type === 'poi') {
       return this.createPoiPopup(marker);
     }
@@ -544,7 +505,7 @@ export class MapService {
             Cómo llegar
           </button>
           <div class="poi-coords">
-            <small>📍 ${marker.lat.toFixed(6)}, ${marker.lng.toFixed(6)}</small>
+            <small>${marker.lat.toFixed(6)}, ${marker.lng.toFixed(6)}</small>
           </div>
         </div>
       </div>
@@ -564,32 +525,26 @@ export class MapService {
   }
 
   private generateId(): string {
-    return Math.random().toString(36).substr(2, 9);
+    return Math.random().toString(36).substring(2, 11);
   }
 
-  // Métodos de utilidad
-  getZoneColors() {
-    return this.zoneColors;
+  getZoneColors(): Record<ZoneColorKey, string> {
+    return this.ZONE_COLORS;
   }
 
-  centerMap(lat: number, lng: number, zoom: number = 15) {
-    if (this.map) {
-      this.map.setView([lat, lng], zoom);
-    }
+  getZoneColor(key: ZoneColorKey): string {
+    return this.ZONE_COLORS[key];
   }
 
-  // Métodos para modo de eliminación
-  setDeleteMode(enabled: boolean) {
-    this.deleteMode = enabled;
-    console.log('🗑️ Delete mode:', enabled ? 'ENABLED' : 'DISABLED');
+  centerMap(lat: number, lng: number, zoom: number = 15): void {
+    this.map?.setView([lat, lng], zoom);
+  }
 
-    // Limpiar cursor del mapa primero
+  setDeleteMode(enabled: boolean): void {
+    this._deleteMode.set(enabled);
     this.resetMapCursor();
-
-    // Actualizar el cursor y estilos visuales de todos los elementos
     this.updateElementsForDeleteMode();
 
-    // Aplicar o quitar clase delete-mode del contenedor del mapa
     if (this.map) {
       const mapContainer = this.map.getContainer();
       if (enabled) {
@@ -600,16 +555,12 @@ export class MapService {
     }
   }
 
-  private resetMapCursor() {
+  private resetMapCursor(): void {
     if (this.map) {
       const mapContainer = this.map.getContainer();
-      // Restaurar cursor predeterminado
       mapContainer.style.cursor = '';
-
-      // Limpiar cualquier clase relacionada con delete-mode del contenedor
       mapContainer.classList.remove('delete-mode');
 
-      // También limpiar del elemento leaflet-container si existe
       const leafletContainer = mapContainer.querySelector('.leaflet-container');
       if (leafletContainer) {
         leafletContainer.classList.remove('delete-mode');
@@ -622,124 +573,76 @@ export class MapService {
     leafletMarker: L.Marker,
     markerId: string,
     marker: MapMarker
-  ) {
-    if (this.deleteMode) {
-      // Configurar para modo eliminación
+  ): void {
+    if (this._deleteMode()) {
       (leafletMarker.getElement() as HTMLElement)?.classList.add('delete-mode');
       leafletMarker.on('click', (e: L.LeafletMouseEvent) => {
         e.originalEvent.stopPropagation();
-        console.log('🗑️ Marker clicked for deletion:', markerId);
-        // Feedback háptico para eliminación (vibraición fuerte)
         this.hapticHeavy();
         this.markerDelete$.next(markerId);
       });
     } else {
-      // Configurar eventos normales
       leafletMarker.on('click', (e: L.LeafletMouseEvent) => {
         e.originalEvent?.stopPropagation();
-        console.log('📍 Marker clicked (initial config):', markerId);
-        // Feedback háptico suave para interacción normal
         this.hapticLight();
         this.markerClick$.next({ ...marker, id: markerId });
-        // Abrir el popup explícitamente
         leafletMarker.openPopup();
       });
     }
   }
 
   private configureZoneEvents(
-    polygon: L.Polygon,
+    polygon: ExtendedPolygon,
     zoneId: string,
     zone: MapZone
-  ) {
-    if (this.deleteMode) {
-      // Configurar para modo eliminación - detener propagación para evitar crear marcadores
+  ): void {
+    if (this._deleteMode()) {
       (polygon.getElement() as HTMLElement)?.classList.add('delete-mode');
       polygon.on('click', (e: L.LeafletMouseEvent) => {
         e.originalEvent.stopPropagation();
-        console.log('🗑️ Zone clicked for deletion:', zoneId);
         this.zoneDelete$.next(zoneId);
       });
     } else {
-      // Configurar eventos normales
       polygon.on('click', (e: L.LeafletMouseEvent) => {
-        // Mejor manejo de clicks en zonas solapadas: usar elementsFromPoint
         try {
           const original = e.originalEvent as MouseEvent;
-          const clientX = original.clientX;
-          const clientY = original.clientY;
-
-          // elementsFromPoint devuelve elementos ordenados del más cercano al más lejano
           const elements = document.elementsFromPoint(
-            clientX,
-            clientY
+            original.clientX,
+            original.clientY
           ) as HTMLElement[];
 
-          // Buscar el primer elemento que tenga data-zone-id y que no sea el mismo
           const zoneElements = elements.filter(
-            (el) => el.hasAttribute && el.hasAttribute('data-zone-id')
+            (el) => el.hasAttribute?.('data-zone-id')
           );
 
           let targetZoneId: string | null = null;
           if (zoneElements.length > 0) {
-            // Si hay múltiples, elegir el más cercano que no sea el que disparó si el usuario mantiene Shift
-            if (original.shiftKey && zoneElements.length > 1) {
-              // Elegir el siguiente elemento debajo (segundo en la lista)
-              targetZoneId = zoneElements[1].getAttribute('data-zone-id');
-            } else {
-              // Por defecto tomar el primero (el que está encima)
-              targetZoneId = zoneElements[0].getAttribute('data-zone-id');
-            }
+            targetZoneId = original.shiftKey && zoneElements.length > 1
+              ? zoneElements[1].getAttribute('data-zone-id')
+              : zoneElements[0].getAttribute('data-zone-id');
           }
 
-          // Si targetZoneId existe y no es el actual, delegar el manejo a la zona correspondiente
           if (targetZoneId && targetZoneId !== zoneId) {
-            const underlyingZone = this.zones.get(targetZoneId!);
-            if (underlyingZone) {
-              const popupContent = (underlyingZone as any).popupContent;
-              if (popupContent) {
-                underlyingZone.bindPopup(popupContent).openPopup();
-              }
-              this.zoneClick$.next({ ...(zone as any), id: targetZoneId });
+            const underlyingZone = this.zones.get(targetZoneId);
+            if (underlyingZone?.popupContent) {
+              underlyingZone.bindPopup(underlyingZone.popupContent).openPopup();
+              this.zoneClick$.next({ ...zone, id: targetZoneId });
               e.originalEvent?.stopPropagation();
               return;
             }
           }
 
-          if (this.isCreatingMarker) {
-            // Si estamos creando un marcador, NO procesar el click de zona y permitir propagación
-            console.log(
-              '📍 Zone clicked but marker creation mode active - allowing marker placement'
-            );
-            // NO llamar ningún método, solo dejar que el evento se propague al mapa
-          } else {
-            // Solo mostrar popup de zona si no estamos creando marcadores
-            console.log(
-              '🏗️ Zone clicked (normal mode) - showing zone info:',
-              zoneId
-            );
-
-            // Mostrar popup manualmente
-            const popupContent = (polygon as any).popupContent;
-            if (popupContent) {
-              polygon.bindPopup(popupContent).openPopup();
+          if (!this._isCreatingMarker()) {
+            if (polygon.popupContent) {
+              polygon.bindPopup(polygon.popupContent).openPopup();
             }
-
             this.zoneClick$.next({ ...zone, id: zoneId });
-            // Detener propagación solo cuando queremos mostrar info de zona
             e.originalEvent?.stopPropagation();
           }
-        } catch (err) {
-          console.warn('Error handling polygon click overlap detection', err);
-          // Fallback al comportamiento original
-          if (this.isCreatingMarker) {
-            console.log(
-              '📍 Zone clicked but marker creation mode active - allowing marker placement'
-            );
-          } else {
-            const popupContent = (polygon as any).popupContent;
-            if (popupContent) {
-              polygon.bindPopup(popupContent).openPopup();
+        } catch {
+          if (!this._isCreatingMarker()) {
+            if (polygon.popupContent) {
+              polygon.bindPopup(polygon.popupContent).openPopup();
             }
             this.zoneClick$.next({ ...zone, id: zoneId });
             e.originalEvent?.stopPropagation();
@@ -749,99 +652,66 @@ export class MapService {
     }
   }
 
-  private updateElementsForDeleteMode() {
-    // Actualizar markers existentes
+  private updateElementsForDeleteMode(): void {
     this.markers.forEach((marker, id) => {
-      // Limpiar eventos existentes completamente
       marker.off('click');
       marker.off('mouseover');
       marker.off('mouseout');
 
       const markerElement = marker.getElement() as HTMLElement;
 
-      // Reconfigurar eventos y estilos
-      if (this.deleteMode) {
+      if (this._deleteMode()) {
         markerElement?.classList.add('delete-mode');
         marker.on('click', (e: L.LeafletMouseEvent) => {
           e.originalEvent.stopPropagation();
-          console.log('🗑️ Marker clicked for deletion:', id);
           this.markerDelete$.next(id);
         });
       } else {
-        // LIMPIEZA COMPLETA al salir del modo delete
         markerElement?.classList.remove('delete-mode');
-
-        // Restaurar cursor del elemento específico
         if (markerElement) {
           markerElement.style.cursor = '';
         }
 
-        // Restaurar popup y evento normal de click
         const markerData = this.markerData.get(id);
         if (markerData) {
-          // Recrear y vincular el popup con los datos originales
           const popupContent = this.createMarkerPopup(markerData);
           marker.bindPopup(popupContent);
-          console.log('✅ Popup restored for marker:', id);
         }
 
         marker.on('click', (e: L.LeafletMouseEvent) => {
           e.originalEvent?.stopPropagation();
-          console.log('📍 Marker clicked (normal mode):', id);
-          // Feedback háptico suave para interacción restaurada
           this.hapticLight();
-          // Abrir el popup explícitamente
           marker.openPopup();
         });
       }
     });
 
-    // Actualizar zones existentes
     this.zones.forEach((zone, id) => {
-      // Limpiar eventos existentes completamente
       zone.off('click');
       zone.off('mouseover');
       zone.off('mouseout');
 
       const zoneElement = zone.getElement() as HTMLElement;
 
-      // Reconfigurar eventos y estilos
-      if (this.deleteMode) {
+      if (this._deleteMode()) {
         zoneElement?.classList.add('delete-mode');
-        // Evitar que el polígono bloquee completamente clicks de elementos superiores
         if (zoneElement) {
           zoneElement.style.pointerEvents = 'auto';
         }
         zone.on('click', (e: L.LeafletMouseEvent) => {
           e.originalEvent.stopPropagation();
-          console.log('🗑️ Zone clicked for deletion:', id);
           this.zoneDelete$.next(id);
         });
       } else {
-        // LIMPIEZA COMPLETA al salir del modo delete
         zoneElement?.classList.remove('delete-mode');
-
-        // Restaurar cursor del elemento específico
         if (zoneElement) {
           zoneElement.style.cursor = '';
           zoneElement.style.pointerEvents = 'auto';
         }
 
-        // Reconfigurar evento normal de click
         zone.on('click', (e: L.LeafletMouseEvent) => {
-          if (this.isCreatingMarker) {
-            // Si estamos creando un marcador, permitir propagación
-            console.log('📍 Zone clicked but marker creation mode active');
-          } else {
-            // Solo mostrar info de zona si no estamos creando marcadores
-            console.log('🏗️ Zone clicked (normal mode):', id);
-
-            // Mostrar popup manualmente si existe
-            const popupContent = (zone as any).popupContent;
-            if (popupContent) {
-              zone.bindPopup(popupContent).openPopup();
-            }
-
+          if (!this._isCreatingMarker() && zone.popupContent) {
+            zone.bindPopup(zone.popupContent).openPopup();
             e.originalEvent?.stopPropagation();
           }
         });
@@ -849,14 +719,11 @@ export class MapService {
     });
   }
 
-  // Métodos para controlar estados de creación
-  setCreatingMarkerMode(enabled: boolean) {
-    this.isCreatingMarker = enabled;
-    console.log('📍 Creating marker mode:', enabled ? 'ENABLED' : 'DISABLED');
+  setCreatingMarkerMode(enabled: boolean): void {
+    this._isCreatingMarker.set(enabled);
   }
 
-  setCreatingZoneMode(enabled: boolean) {
-    this.isCreatingZone = enabled;
-    console.log('🏗️ Creating zone mode:', enabled ? 'ENABLED' : 'DISABLED');
+  setCreatingZoneMode(enabled: boolean): void {
+    this._isCreatingZone.set(enabled);
   }
 }
