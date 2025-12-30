@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import {
@@ -7,6 +7,8 @@ import {
   FormBuilder,
   FormGroup,
   Validators,
+  AbstractControl,
+  ValidationErrors,
 } from '@angular/forms';
 import {
   IonContent,
@@ -16,7 +18,7 @@ import {
   IonSpinner,
   IonCard,
   IonCardHeader,
-  IonCardTitle,
+  IonCardTitle, 
   IonCardContent,
   IonItem,
   IonLabel,
@@ -35,12 +37,14 @@ import {
   logInOutline,
   businessOutline,
   personOutline,
-  shieldCheckmarkOutline,
-  peopleOutline,
+  arrowForwardOutline,
 } from 'ionicons/icons';
 
 export type AccountType = 'admin' | 'user';
 
+interface ErrorMessages {
+  [key: string]: string;
+}
 @Component({
   selector: 'app-register',
   templateUrl: './register.page.html',
@@ -66,42 +70,74 @@ export type AccountType = 'admin' | 'user';
   ],
 })
 export class RegisterPage implements OnInit {
-  private authService = inject(AuthService);
-  private organizationService = inject(OrganizationService);
-  private toastController = inject(ToastController);
-  private alertController = inject(AlertController);
-  private router = inject(Router);
+  private readonly authService = inject(AuthService);
+  private readonly organizationService = inject(OrganizationService);
+  private readonly toastController = inject(ToastController);
+  private readonly alertController = inject(AlertController);
+  private readonly router = inject(Router);
+  private readonly fb = inject(FormBuilder);
 
-  // Formulario y estado
+  // Signals
+  readonly loading = signal(false);
+  readonly errorMessage = signal<string | null>(null);
+  readonly currentStep = signal(1);
+  readonly selectedAccountType = signal<AccountType>('user');
+
+  // Constants
+  readonly totalSteps = 3;
+
+  // Form
   registerForm: FormGroup;
-  loading = false;
-  errorMessage: string | null = null;
-  currentStep = 1;
-  totalSteps = 3;
 
-  // Tipo de cuenta seleccionado
-  selectedAccountType: AccountType = 'user';
+  // Computed
+  readonly progress = computed(() => (this.currentStep() / this.totalSteps) * 100);
+  readonly isAccountTypeStep = computed(() => this.currentStep() === 1);
+  readonly isUserInfoStep = computed(() => this.currentStep() === 2);
+  readonly isOrganizationStep = computed(() => this.currentStep() === 3);
+  readonly isAdmin = computed(() => this.selectedAccountType() === 'admin');
+  
+  readonly isLastStep = computed(() => 
+    this.selectedAccountType() === 'user' 
+      ? this.currentStep() === 2 
+      : this.currentStep() === 3
+  );
 
-  // Datos de la organización (para admins)
-  organizationData = {
-    name: '',
-    description: '',
-    acceptTerms: false,
-  };
+  readonly canProceed = computed(() => {
+    switch (this.currentStep()) {
+      case 1:
+        return !!this.selectedAccountType();
+      case 2:
+        return this.canProceedFromUserInfo();
+      case 3:
+        return this.canProceedFromOrganization();
+      default:
+        return false;
+    }
+  });
 
-  constructor(private fb: FormBuilder) {
+  readonly stepTitle = computed(() => {
+    switch (this.currentStep()) {
+      case 1:
+        return 'Selecciona tu tipo de cuenta';
+      case 2:
+        return 'Completa tu información personal';
+      case 3:
+        return 'Configura tu organización';
+      default:
+        return '';
+    }
+  });
+
+  constructor() {
     addIcons({
       arrowBackOutline,
+      arrowForwardOutline,
       personAddOutline,
       alertCircleOutline,
       logInOutline,
       businessOutline,
       personOutline,
-      shieldCheckmarkOutline,
-      peopleOutline,
-    });
-
-    this.registerForm = this.fb.group(
+    });this.registerForm = this.fb.group(
       {
         email: ['', [Validators.required, Validators.email]],
         password: ['', [Validators.required, Validators.minLength(6)]],
@@ -118,32 +154,23 @@ export class RegisterPage implements OnInit {
     );
   }
 
-  ngOnInit() {
-    console.log('🔐 RegisterPage initialized');
-  }
+  ngOnInit() {}
 
-  // Validador personalizado para confirmar contraseña
-  passwordMatchValidator(form: FormGroup) {
-    const password = form.get('password');
-    const confirmPassword = form.get('confirmPassword');
+  private passwordMatchValidator(control: AbstractControl): ValidationErrors | null {
+    const password = control.get('password');
+    const confirmPassword = control.get('confirmPassword');
 
-    if (
-      password &&
-      confirmPassword &&
-      password.value !== confirmPassword.value
-    ) {
+    if (password && confirmPassword && password.value !== confirmPassword.value) {
       return { passwordMismatch: true };
     }
 
     return null;
   }
 
-  // Selección del tipo de cuenta
-  onAccountTypeChange(accountType: AccountType) {
-    this.selectedAccountType = accountType;
+  selectAccountType(accountType: AccountType): void {
+    this.selectedAccountType.set(accountType);
     this.registerForm.patchValue({ accountType });
 
-    // Actualizar validaciones según el tipo de cuenta
     const orgNameControl = this.registerForm.get('organizationName');
     if (accountType === 'admin') {
       orgNameControl?.setValidators([Validators.required]);
@@ -151,25 +178,41 @@ export class RegisterPage implements OnInit {
       orgNameControl?.clearValidators();
     }
     orgNameControl?.updateValueAndValidity();
-
-    console.log('📋 Account type selected:', accountType);
   }
 
-  // Navegación entre pasos - DEPRECATED (usar nextStep/previousStep)
-  goToNextStep() {
-    this.nextStep();
+  handleStepSubmit(): void {
+    const step = this.currentStep();
+    
+    if (step === 1) {
+      if (this.canProceed()) {
+        this.nextStep();
+      }
+    } else if (step === 2) {
+      if (this.canProceed()) {
+        if (this.selectedAccountType() === 'admin') {
+          this.nextStep();
+        } else {
+          this.register();
+        }
+      }
+    } else if (step === 3) {
+      this.register();
+    }
   }
 
-  goToPreviousStep() {
-    this.previousStep();
+  nextStep(): void {
+    if (this.currentStep() < this.totalSteps) {
+      this.currentStep.update(step => step + 1);
+    }
   }
 
-  // Validaciones por paso
-  canProceedFromAccountType(): boolean {
-    return !!this.selectedAccountType;
+  previousStep(): void {
+    if (this.currentStep() > 1) {
+      this.currentStep.update(step => step - 1);
+    }
   }
 
-  canProceedFromUserInfo(): boolean {
+  private canProceedFromUserInfo(): boolean {
     const emailControl = this.registerForm.get('email');
     const passwordControl = this.registerForm.get('password');
     const confirmPasswordControl = this.registerForm.get('confirmPassword');
@@ -186,15 +229,14 @@ export class RegisterPage implements OnInit {
     );
   }
 
-  canProceedFromOrganization(): boolean {
-    if (this.selectedAccountType !== 'admin') return true;
+  private canProceedFromOrganization(): boolean {
+    if (this.selectedAccountType() !== 'admin') return true;
 
     const orgNameControl = this.registerForm.get('organizationName');
     return !!orgNameControl?.value?.trim();
   }
 
-  // Registro de usuario
-  async register() {
+  async register(): Promise<void> {
     if (!this.canProceed()) {
       await this.showErrorAlert(
         'Formulario incompleto',
@@ -204,23 +246,13 @@ export class RegisterPage implements OnInit {
       return;
     }
 
-    this.loading = true;
-    this.errorMessage = null;
+    this.loading.set(true);
+    this.errorMessage.set(null);
 
     try {
       const formData = this.registerForm.value;
+      const accountType = formData.accountType || this.selectedAccountType();
 
-      console.log('🚀 Starting registration process...');
-      console.log(
-        '📋 Account type from selectedAccountType:',
-        this.selectedAccountType
-      );
-      console.log('📋 Account type from form:', formData.accountType);
-
-      // Usar el valor del formulario para determinar el rol
-      const accountType = formData.accountType || this.selectedAccountType;
-
-      // Registrar usuario con el tipo de cuenta seleccionado
       const user = await this.authService.register(
         formData.email,
         formData.password,
@@ -232,12 +264,7 @@ export class RegisterPage implements OnInit {
         throw new Error('Error al crear la cuenta');
       }
 
-      console.log('✅ User registered successfully with role:', accountType);
-
-      // Si es administrador, crear la organización
       if (accountType === 'admin') {
-        console.log('🏢 Creating organization...');
-
         await this.organizationService.createOrganization({
           name: formData.organizationName,
           description:
@@ -259,71 +286,48 @@ export class RegisterPage implements OnInit {
           },
         });
 
-        console.log('✅ Organization created successfully');
         await this.showSuccessAlert(
-          '¡Bienvenido!',
+          'Bienvenido!',
           `Hola ${formData.displayName}! Tu cuenta de administrador y organización han sido creadas exitosamente. Ya puedes comenzar a usar GeoPoint.`,
           'Comenzar'
         );
       } else {
         await this.showSuccessAlert(
-          '¡Cuenta creada!',
+          'Cuenta creada!',
           `Hola ${formData.displayName}! Tu cuenta ha sido creada exitosamente. Ya puedes acceder a todas las funciones de GeoPoint.`,
           'Comenzar'
         );
       }
-
-      // La redirección se maneja en el botón del alert
     } catch (error: any) {
-      console.error('❌ Registration error:', error);
       await this.showErrorAlert(
         'Error en el registro',
         this.getErrorMessage(error),
         'Intentar de nuevo'
       );
     } finally {
-      this.loading = false;
+      this.loading.set(false);
     }
-  }
-
-  // Utilidades
-  private showError(message: string) {
-    this.errorMessage = message;
-    setTimeout(() => {
-      this.errorMessage = null;
-    }, 5000);
-  }
-
-  private async showToast(message: string, color: string = 'primary') {
-    const toast = await this.toastController.create({
-      message,
-      duration: 3000,
-      color,
-      position: 'bottom',
-    });
-    await toast.present();
   }
 
   private async showSuccessAlert(
     title: string,
     message: string,
     buttonText: string = 'OK'
-  ) {
+  ): Promise<void> {
     const alert = await this.alertController.create({
       header: title,
-      message: message,
+      message,
       cssClass: 'success-alert',
       buttons: [
         {
           text: buttonText,
           cssClass: 'success-button',
           handler: () => {
-            // Redirigir inmediatamente al aceptar
             this.router.navigate(['/home']);
           },
         },
       ],
-      backdropDismiss: false, // Evitar cerrar tocando fuera
+      backdropDismiss: false,
     });
 
     await alert.present();
@@ -333,10 +337,10 @@ export class RegisterPage implements OnInit {
     title: string,
     message: string,
     buttonText: string = 'OK'
-  ) {
+  ): Promise<void> {
     const alert = await this.alertController.create({
       header: title,
-      message: message,
+      message,
       cssClass: 'error-alert',
       buttons: [
         {
@@ -352,8 +356,7 @@ export class RegisterPage implements OnInit {
   private getErrorMessage(error: any): string {
     if (!error) return 'Ha ocurrido un error inesperado';
 
-    // Mensajes de error específicos de Firebase Auth
-    const errorMessages: Record<string, string> = {
+    const errorMessages: ErrorMessages = {
       'auth/email-already-in-use':
         'Este correo ya está registrado. Intenta iniciar sesión o usa otro correo.',
       'auth/weak-password': 'La contraseña debe tener al menos 6 caracteres.',
@@ -371,7 +374,6 @@ export class RegisterPage implements OnInit {
       return errorMessages[errorCode];
     }
 
-    // Fallback a mensaje genérico
     return (
       error?.message || 'Error al crear la cuenta. Por favor, intenta de nuevo.'
     );
@@ -386,120 +388,6 @@ export class RegisterPage implements OnInit {
     return descriptions[type];
   }
 
-  // Getters para el template
-  get isAccountTypeStep() {
-    return this.currentStep === 1;
-  }
-  get isUserInfoStep() {
-    return this.currentStep === 2;
-  }
-  get isOrganizationStep() {
-    return this.currentStep === 3;
-  }
-  get isAdmin() {
-    return this.selectedAccountType === 'admin';
-  }
-
-  /**
-   * Selecciona el tipo de cuenta
-   */
-  selectAccountType(accountType: AccountType) {
-    this.selectedAccountType = accountType;
-    this.registerForm.patchValue({ accountType });
-
-    // Actualizar validaciones según el tipo de cuenta
-    const orgNameControl = this.registerForm.get('organizationName');
-    if (accountType === 'admin') {
-      orgNameControl?.setValidators([Validators.required]);
-    } else {
-      orgNameControl?.clearValidators();
-    }
-    orgNameControl?.updateValueAndValidity();
-  }
-
-  /**
-   * Maneja el envío de cada paso del formulario
-   */
-  handleStepSubmit() {
-    if (this.currentStep === 1) {
-      if (this.canProceed()) {
-        this.nextStep();
-      }
-    } else if (this.currentStep === 2) {
-      if (this.canProceed()) {
-        if (this.selectedAccountType === 'admin') {
-          this.nextStep();
-        } else {
-          this.register();
-        }
-      }
-    } else if (this.currentStep === 3) {
-      this.register();
-    }
-  }
-
-  /**
-   * Avanza al siguiente paso del registro
-   */
-  nextStep() {
-    if (this.currentStep < this.totalSteps) {
-      this.currentStep++;
-    }
-  }
-
-  /**
-   * Regresa al paso anterior
-   */
-  previousStep() {
-    if (this.currentStep > 1) {
-      this.currentStep--;
-    }
-  }
-
-  /**
-   * Verifica si se puede proceder desde el paso actual
-   */
-  canProceed(): boolean {
-    switch (this.currentStep) {
-      case 1:
-        return this.canProceedFromAccountType();
-      case 2:
-        return this.canProceedFromUserInfo();
-      case 3:
-        return this.canProceedFromOrganization();
-      default:
-        return false;
-    }
-  }
-
-  /**
-   * Verifica si es el último paso
-   */
-  isLastStep(): boolean {
-    return this.selectedAccountType === 'user'
-      ? this.currentStep === 2
-      : this.currentStep === 3;
-  }
-
-  /**
-   * Obtiene el título del paso actual
-   */
-  getStepTitle(): string {
-    switch (this.currentStep) {
-      case 1:
-        return 'Selecciona tu tipo de cuenta';
-      case 2:
-        return 'Completa tu información personal';
-      case 3:
-        return 'Configura tu organización';
-      default:
-        return '';
-    }
-  }
-
-  /**
-   * Verifica si un campo específico es inválido y fue tocado
-   */
   isFieldInvalid(fieldName: string): boolean {
     const field = this.registerForm.get(fieldName);
     return !!(field && field.invalid && (field.dirty || field.touched));
