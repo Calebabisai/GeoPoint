@@ -1,6 +1,7 @@
-import { Component, OnInit, OnDestroy, inject } from '@angular/core';
+import { Component, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import {
   IonHeader,
   IonToolbar,
@@ -18,7 +19,6 @@ import {
   IonTitle,
   ModalController,
   MenuController,
-  ToastController,
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import {
@@ -45,13 +45,24 @@ import {
 import { MapViewComponent } from '../map/components/map-view/map-view.component';
 import { GeolocationService } from '../map/services/geolocation.service';
 import { UiService } from '../shared/services/ui.service';
-import { FirestoreService } from '../services/firestore.service';
 import { AuthService } from '../auth/services/auth.service';
 import { AuthorizationService } from '../auth/services/authorization.service';
 import { MapDataService } from '../shared/services/map-data.service';
-import { User } from '../shared/models/user.model';
 import { AdminPanelComponent } from '../map/components/admin-panel/admin-panel.component';
-import { Subscription, Observable } from 'rxjs';
+
+// Constants
+const MAP_CENTER_DELAY_MS = 2000;
+const ROLE_NAMES = {
+  admin: 'Administrador',
+  user: 'Usuario',
+} as const;
+
+const ROLE_COLORS = {
+  admin: 'primary',
+  user: 'medium',
+} as const;
+
+type UserRole = 'admin' | 'user' | null;
 
 @Component({
   selector: 'app-home',
@@ -77,33 +88,44 @@ import { Subscription, Observable } from 'rxjs';
     MapViewComponent,
   ],
 })
-export class HomePage implements OnInit, OnDestroy {
-  private geolocationService = inject(GeolocationService);
-  private firestoreService = inject(FirestoreService);
-  private authService = inject(AuthService);
-  private authorizationService = inject(AuthorizationService);
-  private mapDataService = inject(MapDataService);
-  private menuController = inject(MenuController);
-  private modalController = inject(ModalController);
-  private toastController = inject(ToastController);
-  private uiService = inject(UiService);
-  private router = inject(Router);
+export class HomePage {
+  private readonly geolocationService = inject(GeolocationService);
+  private readonly authService = inject(AuthService);
+  private readonly authorizationService = inject(AuthorizationService);
+  private readonly mapDataService = inject(MapDataService);
+  private readonly menuController = inject(MenuController);
+  private readonly modalController = inject(ModalController);
+  private readonly uiService = inject(UiService);
+  private readonly router = inject(Router);
 
-  // Propiedades del componente
-  isAdmin = false;
-  userRole: 'admin' | 'user' | null = null;
-  currentUserEmail: string | null = null;
-  locationWatching = false;
+  // Signals from services (already signals, no toSignal needed)
+  readonly userRole = this.authorizationService.currentUserRole;
+  readonly currentUser = this.authService.currentUser;
+  readonly locationWatching = this.geolocationService.isWatching;
+  readonly currentLocation = this.geolocationService.currentLocation;
 
-  // Contadores para el dashboard
-  markersCount = 0;
-  zonesCount = 0;
+  // Local signals (toSignal for Observables)
+  private readonly _markers = toSignal(this.mapDataService.getMarkers(), {
+    initialValue: [],
+  });
+  private readonly _zones = toSignal(this.mapDataService.getZones(), {
+    initialValue: [],
+  });
 
-  // Observables
-  userRole$!: Observable<'admin' | 'user' | null>;
-
-  // Suscripciones
-  private subscriptions = new Subscription();
+  // Computed signals
+  readonly isAdmin = computed(() => this.userRole() === 'admin');
+  readonly currentUserEmail = computed(() => this.currentUser()?.email ?? null);
+  readonly markersCount = computed(() => this._markers().length);
+  readonly zonesCount = computed(() => this._zones().length);
+  readonly hasLocation = computed(() => !!this.currentLocation());
+  readonly roleDisplayName = computed(() => {
+    const role = this.userRole();
+    return role ? this.getRoleDisplayName(role) : '';
+  });
+  readonly roleColor = computed(() => {
+    const role = this.userRole();
+    return role ? this.getRoleColor(role) : 'medium';
+  });
 
   constructor() {
     addIcons({
@@ -128,123 +150,32 @@ export class HomePage implements OnInit, OnDestroy {
       shapesOutline,
     });
 
-    // Inicializar observables
-    this.userRole$ = this.authorizationService.getCurrentUserRole();
-  }
-
-  ngOnInit() {
-    console.log('🏠 HomePage initialized');
-    this.loadUserData();
+    // Auto-initialize location tracking
     this.initializeLocation();
-    this.setupUserRoleSubscription();
-    this.loadDashboardData();
+
+    // Auto-center map on startup
+    this.autoCenterMapOnStartup();
   }
 
-  ngOnDestroy() {
-    console.log('🧹 HomePage destroyed - cleaning up');
-    this.subscriptions.unsubscribe();
-    this.geolocationService.stopWatching();
+  private initializeLocation(): void {
+    // No need for manual subscription - we use toSignal for reactive state
+    // Location watching starts automatically via GeolocationService initialization
   }
 
-  private setupUserRoleSubscription() {
-    const roleSub = this.userRole$.subscribe((role) => {
-      this.userRole = role;
-      this.isAdmin = role === 'admin';
-    });
-
-    const userSub = this.authService.getCurrentUser().subscribe((user) => {
-      this.currentUserEmail = user?.email || null;
-    });
-
-    this.subscriptions.add(roleSub);
-    this.subscriptions.add(userSub);
-  }
-
-  private initializeLocation() {
-    // Suscribirse al estado de seguimiento de ubicación
-    const watchingSub = this.geolocationService.watchingLocation$.subscribe(
-      (watching: boolean) => {
-        this.locationWatching = watching;
-        console.log('📍 Location watching status:', watching);
+  private autoCenterMapOnStartup(): void {
+    setTimeout(async () => {
+      try {
+        await this.geolocationService.centerMapOnUserLocation();
+        await this.showSuccess('Mapa centrado en tu ubicación');
+      } catch (error) {
+        // Silent fail - don't annoy user if GPS is disabled
       }
-    );
-
-    // Suscribirse a cambios de ubicación
-    const locationSub = this.geolocationService.currentLocation$.subscribe(
-      (location: any) => {
-        if (location) {
-          console.log('📍 User location updated:', location);
-        }
-      }
-    );
-
-    this.subscriptions.add(watchingSub);
-    this.subscriptions.add(locationSub);
-
-    // Auto-centrar mapa en ubicación del usuario al abrir la app
-    this.startLocationTracking();
+    }, MAP_CENTER_DELAY_MS);
   }
 
-  private async startLocationTracking() {
-    try {
-      console.log('🚀 Auto-centering map on user location at startup...');
+  async openAdminPanel(): Promise<void> {
+    if (!this.isAdmin()) return;
 
-      // Esperar un momento para que el mapa esté completamente cargado
-      setTimeout(async () => {
-        try {
-          // Centrar automáticamente en la ubicación del usuario al abrir la app
-          await this.geolocationService.centerMapOnUserLocation();
-          console.log('✅ App automatically centered on user location');
-
-          // Mostrar notificación de éxito
-          this.showToast('📍 Mapa centrado en tu ubicación', 'success');
-        } catch (error) {
-          console.log('ℹ️ Could not auto-center map - GPS may be disabled');
-          // No mostrar error al usuario para no ser molesto
-        }
-      }, 2000); // Delay de 2 segundos para asegurar que todo esté cargado
-    } catch (error) {
-      console.error('❌ Error in auto-location startup:', error);
-    }
-  }
-
-  private loadUserData() {
-    this.authService.getCurrentUser().subscribe((user: User | null) => {
-      this.isAdmin = !!(user && user.role === 'admin');
-    });
-  }
-
-  private loadDashboardData() {
-    console.log('📊 Loading dashboard data...');
-
-    // Cargar contadores de marcadores
-    const markersSub = this.mapDataService.getMarkers().subscribe({
-      next: (markers) => {
-        console.log('📍 Dashboard: Received markers:', markers.length);
-        this.markersCount = markers.length;
-      },
-      error: (error) => {
-        console.error('❌ Dashboard: Error loading markers:', error);
-      },
-    });
-
-    // Cargar contadores de zonas
-    const zonesSub = this.mapDataService.getZones().subscribe({
-      next: (zones) => {
-        console.log('🏗️ Dashboard: Received zones:', zones.length);
-        this.zonesCount = zones.length;
-      },
-      error: (error) => {
-        console.error('❌ Dashboard: Error loading zones:', error);
-      },
-    });
-
-    this.subscriptions.add(markersSub);
-    this.subscriptions.add(zonesSub);
-  }
-
-  async openAdminPanel() {
-    if (!this.isAdmin) return;
     const modal = await this.modalController.create({
       component: AdminPanelComponent,
       presentingElement: await this.modalController.getTop(),
@@ -252,114 +183,91 @@ export class HomePage implements OnInit, OnDestroy {
     await modal.present();
   }
 
-  async logout() {
+  async logout(): Promise<void> {
     await this.authService.logout();
   }
 
-  async recenterMap() {
-    console.log('🎯 Recentering map on user location (high precision mode)...');
-
+  async recenterMap(): Promise<void> {
     try {
-      // Mostrar indicador de carga
-      this.showToast('🔍 Obteniendo ubicación precisa...', 'warning');
-
-      // Usar método de alta precisión para respuesta inmediata y precisa
+      await this.showWarning('Obteniendo ubicación precisa...');
       await this.geolocationService.centerMapOnUserLocation();
 
-      // Asegurar que el tracking esté activo después de obtener ubicación precisa
-      if (!this.locationWatching) {
-        console.log(
-          '📍 Starting location tracking after high precision fix...'
-        );
+      // Ensure tracking is active after high precision fix
+      if (!this.locationWatching()) {
         await this.geolocationService.startWatching();
       }
 
-      this.showToast('✅ Ubicación actualizada con precisión GPS', 'success');
+      await this.showSuccess('Ubicación actualizada con precisión GPS');
     } catch (error) {
-      console.error('❌ Error recentering map:', error);
-      this.showToast('❌ No se pudo obtener ubicación GPS precisa', 'danger');
+      await this.showError('No se pudo obtener ubicación GPS precisa');
     }
   }
 
-  private async showToast(
-    message: string,
-    color: 'success' | 'danger' | 'warning' = 'success'
-  ) {
-    // Usar el nuevo servicio UI con toasts centrados
-    if (color === 'success') {
-      await this.uiService.showSuccess(message);
-    } else if (color === 'danger') {
-      await this.uiService.showError(message);
-    } else {
-      await this.uiService.showWarning(message);
-    }
-  }
-
-  private async showLocationError() {
-    await this.showToast(
-      '❌ No se pudo acceder a tu ubicación. Verifica los permisos.',
-      'danger'
-    );
-  }
-
-  async openMenu() {
+  async openMenu(): Promise<void> {
     await this.menuController.open();
   }
 
-  // Métodos para el menú lateral
-  async closeMenu() {
+  async closeMenu(): Promise<void> {
     await this.menuController.close();
   }
 
-  async navigateToUserManagement() {
+  // Navigation methods
+  async navigateToUserManagement(): Promise<void> {
     await this.closeMenu();
     this.router.navigate(['/admin/users']);
   }
 
-  async navigateToOrganizations() {
+  async navigateToOrganizations(): Promise<void> {
     await this.closeMenu();
-    this.showToast('Funcionalidad en desarrollo', 'warning');
+    await this.showWarning('Funcionalidad en desarrollo');
   }
 
-  async navigateToInvitations() {
+  async navigateToInvitations(): Promise<void> {
     await this.closeMenu();
     this.router.navigate(['/admin/invitations']);
   }
 
-  async viewAnalytics() {
+  async viewAnalytics(): Promise<void> {
     await this.closeMenu();
-    this.showToast('Análisis y reportes - Próximamente', 'warning');
+    await this.showWarning('Análisis y reportes - Próximamente');
   }
 
-  async toggleMapLayers() {
+  async toggleMapLayers(): Promise<void> {
     await this.closeMenu();
-    this.showToast('Configuración de capas - Próximamente', 'warning');
+    await this.showWarning('Configuración de capas - Próximamente');
   }
 
-  async openSettings() {
+  async openSettings(): Promise<void> {
     await this.closeMenu();
-    this.showToast('Configuración - Próximamente', 'warning');
+    await this.showWarning('Configuración - Próximamente');
   }
 
-  async showProfile() {
+  async showProfile(): Promise<void> {
     await this.closeMenu();
-    this.showToast('Perfil de usuario - Próximamente', 'warning');
+    await this.showWarning('Perfil de usuario - Próximamente');
   }
 
-  // Métodos utilitarios
-  getRoleDisplayName(role: string): string {
-    const roleNames = {
-      admin: 'Administrador',
-      user: 'Usuario',
-    };
-    return roleNames[role as keyof typeof roleNames] || role;
+  // Utility methods
+  getRoleDisplayName(role: UserRole): string {
+    if (!role) return '';
+    return ROLE_NAMES[role] || role;
   }
 
-  getRoleColor(role: string): string {
-    const roleColors = {
-      admin: 'primary',
-      user: 'medium',
-    };
-    return roleColors[role as keyof typeof roleColors] || 'medium';
+  getRoleColor(role: UserRole): string {
+    if (!role) return 'medium';
+    return ROLE_COLORS[role] || 'medium';
+  }
+
+  // Toast helpers
+  private async showSuccess(message: string): Promise<void> {
+    await this.uiService.showSuccess(message);
+  }
+
+  private async showError(message: string): Promise<void> {
+    await this.uiService.showError(message);
+  }
+
+  private async showWarning(message: string): Promise<void> {
+    await this.uiService.showWarning(message);
   }
 }
