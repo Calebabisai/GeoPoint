@@ -1,30 +1,27 @@
-import { Component } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { Router, RouterModule } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
   IonContent,
-  IonHeader,
-  IonToolbar,
-  IonTitle,
-  IonItem,
-  IonLabel,
   IonInput,
   IonButton,
-  IonIcon,
-  ToastController,
-} from '@ionic/angular/standalone';
+  IonIcon, IonSpinner } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { location } from 'ionicons/icons';
+import { location, logInOutline, personAddOutline } from 'ionicons/icons';
 import { AuthService } from 'src/app/auth/services/auth.service';
 import { UiService } from 'src/app/shared/services/ui.service';
+
+interface ErrorMessages {
+  [key: string]: string;
+}
 
 @Component({
   selector: 'app-login',
   templateUrl: './login.page.html',
   styleUrls: ['./login.page.scss'],
   standalone: true,
-  imports: [
+  imports: [IonSpinner, 
     CommonModule,
     FormsModule,
     RouterModule,
@@ -35,63 +32,66 @@ import { UiService } from 'src/app/shared/services/ui.service';
   ],
 })
 export class LoginPage {
-  email: string = '';
-  password: string = '';
+  private readonly authService = inject(AuthService);
+  private readonly router = inject(Router);
+  private readonly uiService = inject(UiService);
 
-  constructor(
-    private authService: AuthService,
-    private router: Router,
-    private toastController: ToastController,
-    private uiService: UiService
-  ) {
-    addIcons({ location });
+  // Signals
+  readonly email = signal('');
+  readonly password = signal('');
+  readonly loading = signal(false);
+
+  // Computed
+  readonly canSubmit = computed(() => 
+    this.email().trim().length > 0 && this.password().trim().length > 0 && !this.loading()
+  );
+
+  constructor() {
+    addIcons({ 
+      location, 
+      logInOutline, 
+      personAddOutline
+    });
   }
 
-  async login() {
+  updateEmail(value: string): void {
+    this.email.set(value);
+  }
+
+  updatePassword(value: string): void {
+    this.password.set(value);
+  }
+
+  async login(): Promise<void> {
+    if (!this.canSubmit()) return;
+
+    this.loading.set(true);
+
     try {
-      await this.authService.login(this.email, this.password);
-      await this.showToast('¡Bienvenido!', 'success');
+      await this.authService.login(this.email(), this.password());
+      await this.uiService.showSuccess('Bienvenido!');
       this.router.navigate(['/map']);
     } catch (err: any) {
-      console.error('Error en login:', err);
       const errorMessage = this.getErrorMessage(err.code);
-      await this.showToast(errorMessage, 'danger');
+      await this.uiService.showError(errorMessage);
+    } finally {
+      this.loading.set(false);
     }
   }
 
   private getErrorMessage(errorCode: string): string {
-    const errorMessages: { [key: string]: string } = {
-      'auth/invalid-email': '📧 El correo electrónico no es válido',
-      'auth/user-disabled': '🚫 Esta cuenta ha sido deshabilitada',
-      'auth/user-not-found':
-        '❌ No existe una cuenta con este correo electrónico',
-      'auth/wrong-password': '🔒 La contraseña es incorrecta',
-      'auth/invalid-credential': '❌ Correo o contraseña incorrectos',
-      'auth/too-many-requests':
-        '⏳ Demasiados intentos fallidos. Intenta de nuevo más tarde',
-      'auth/network-request-failed':
-        '📡 Error de conexión. Verifica tu internet',
-      'auth/email-already-in-use': '📧 Este correo ya está registrado',
-      'auth/weak-password': '🔐 La contraseña debe tener al menos 6 caracteres',
+    const errorMessages: ErrorMessages = {
+      'auth/invalid-email': 'El correo electrónico no es válido',
+      'auth/user-disabled': 'Esta cuenta ha sido deshabilitada',
+      'auth/user-not-found': 'No existe una cuenta con este correo electrónico',
+      'auth/wrong-password': 'La contraseña es incorrecta',
+      'auth/invalid-credential': 'Correo o contraseña incorrectos',
+      'auth/too-many-requests': 'Demasiados intentos fallidos. Intenta de nuevo más tarde',
+      'auth/network-request-failed': 'Error de conexión. Verifica tu internet',
+      'auth/email-already-in-use': 'Este correo ya está registrado',
+      'auth/weak-password': 'La contraseña debe tener al menos 6 caracteres',
     };
 
-    return (
-      errorMessages[errorCode] ||
-      '❌ Error al iniciar sesión. Verifica tus credenciales'
-    );
-  }
-
-  private async showToast(
-    message: string,
-    color: 'success' | 'danger' | 'warning'
-  ) {
-    // Usar servicio UI con toasts centrados
-    if (color === 'success') {
-      await this.uiService.showSuccess(message);
-    } else if (color === 'danger') {
-      await this.uiService.showError(message);
-    } else {
-      await this.uiService.showWarning(message);
-    }
+    return errorMessages[errorCode] || 'Error al iniciar sesión. Verifica tus credenciales';
   }
 }

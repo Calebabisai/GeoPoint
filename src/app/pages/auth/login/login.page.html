@@ -1,6 +1,5 @@
 <ion-content class="login-page">
   <div class="login-container">
-    <!-- Logo y título -->
     <div class="brand-section animate-fadeIn">
       <div class="brand-logo">
         <ion-icon name="location" class="logo-icon"></ion-icon>
@@ -9,17 +8,18 @@
       <p class="brand-subtitle">Mapeo inteligente para tu negocio</p>
     </div>
 
-    <!-- Formulario -->
     <form (ngSubmit)="login()" class="login-form animate-slideInUp">
       <div class="form-group">
         <label class="form-label">Correo electrónico</label>
         <ion-input
-          [(ngModel)]="email"
+          [value]="email()"
+          (ionInput)="updateEmail($any($event.target).value)"
           name="email"
           type="email"
           placeholder="tu@email.com"
           fill="outline"
           class="uber-input"
+          [disabled]="loading()"
           required
         ></ion-input>
       </div>
@@ -27,12 +27,14 @@
       <div class="form-group">
         <label class="form-label">Contraseña</label>
         <ion-input
-          [(ngModel)]="password"
+          [value]="password()"
+          (ionInput)="updatePassword($any($event.target).value)"
           name="password"
           type="password"
           placeholder="••••••••"
           fill="outline"
           class="uber-input"
+          [disabled]="loading()"
           required
         ></ion-input>
       </div>
@@ -43,9 +45,15 @@
           size="large"
           type="submit"
           class="login-button"
-          [disabled]="!email || !password"
+          [disabled]="!canSubmit()"
         >
-          <span>Iniciar Sesión</span>
+          @if (loading()) {
+            <ion-spinner name="crescent"></ion-spinner>
+            <span>Iniciando sesión...</span>
+          } @else {
+            <ion-icon name="log-in-outline" slot="start"></ion-icon>
+            <span>Iniciar Sesión</span>
+          }
         </ion-button>
 
         <div class="divider">
@@ -58,13 +66,14 @@
           size="large"
           routerLink="/register"
           class="register-button"
+          [disabled]="loading()"
         >
+          <ion-icon name="person-add-outline" slot="start"></ion-icon>
           <span>Crear nueva cuenta</span>
         </ion-button>
       </div>
     </form>
 
-    <!-- Footer -->
     <div class="login-footer">
       <p class="footer-text">
         Al continuar, aceptas nuestros
