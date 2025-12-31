@@ -163,52 +163,104 @@ export class OrganizationService {
   ];
 
   constructor() {
-    this.initializeUserOrganization();
-
-    // Effect para sincronizar organizaciones cuando el usuario cambia
+    // Effect para cargar la organización cuando el usuario cambia
     effect(() => {
-      const user = this.authService.getCurrentUser()();
+      const user = this.authService.currentUser();
+      
       if (user) {
-        this.loadUserOrganizationsToSignal();
-      }
-    });
-
-    // Effect para sincronizar el rol del usuario
-    effect(() => {
-      const user = this.authService.getCurrentUser()();
-      if (user) {
-        const userOrgRole = (user as any).organizationRole;
-        this.organizationRoleSignal.set(userOrgRole || null);
+        // Cargar organización del usuario desde Firebase
+        this.loadCurrentUserOrganization(user.uid);
       } else {
+        // Sin usuario, limpiar o usar demo
+        if (this.isDevelopmentMode()) {
+          this.currentOrganizationSignal.set(this.developmentOrganizations[0]);
+        } else {
+          this.currentOrganizationSignal.set(null);
+        }
         this.organizationRoleSignal.set(null);
       }
     });
 
+    // Debug tools (mantener si lo necesitas)
     if (typeof window !== 'undefined') {
       (window as any).organizationService = this;
-      (window as any).debugInviteSystem = async () => {
-        const currentUser = this.authService.getCurrentUser()();
-        const currentOrg = this.currentOrganizationSignal();
+    }
+  }
 
-        if (currentOrg && currentUser) {
-          const testInvite = {
-            organizationId: currentOrg.id,
-            organizationName: currentOrg.name,
-            invitedEmail: 'test@example.com',
-            invitedBy: currentUser.uid,
-            role: 'user' as const,
-            department: 'Test',
-            message: 'Test invitation',
-            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-          };
+  /**
+   * Carga la organización actual del usuario desde Firebase
+   */
+  private async loadCurrentUserOrganization(userId: string): Promise<void> {
+    this.isLoadingSignal.set(true);
+    this.lastErrorSignal.set(null);
 
-          try {
-            await this.createInvitationInFirebase(testInvite);
-          } catch (error) {
-            console.error('Test invitation failed:', error);
-          }
+    try {
+      // Primero, intentar obtener el organizationId del signal del usuario
+      const currentUser = this.authService.currentUser();
+      let organizationId = currentUser?.organizationId;
+
+      // Si no está en el signal, buscarlo en Firestore
+      if (!organizationId) {
+        console.log('📄 organizationId not in signal, fetching from Firestore...');
+        const userDocRef = doc(this.firestore, `users/${userId}`);
+        const userSnapshot = await getDoc(userDocRef);
+
+        if (!userSnapshot.exists()) {
+          console.warn('❌ User document not found in Firestore');
+          this.currentOrganizationSignal.set(null);
+          return;
         }
-      };
+
+        const userData = userSnapshot.data();
+        organizationId = userData['organizationId'];
+      }
+
+      if (!organizationId) {
+        console.log('⚠️ User has no organization assigned');
+        this.currentOrganizationSignal.set(null);
+        return;
+      }
+
+      console.log('🏢 Loading organization:', organizationId);
+
+      // Cargar la organización
+      const orgDoc = doc(this.firestore, `organizations/${organizationId}`);
+      const orgSnapshot = await getDoc(orgDoc);
+
+      if (!orgSnapshot.exists()) {
+        console.warn('❌ Organization not found:', organizationId);
+        this.currentOrganizationSignal.set(null);
+        return;
+      }
+
+      const data = orgSnapshot.data();
+      const organization: Organization = {
+        ...data,
+        id: orgSnapshot.id,
+        createdAt: data['createdAt']?.toDate() || new Date(),
+        updatedAt: data['updatedAt']?.toDate() || new Date(),
+        members: data['members']?.map((member: any) => ({
+          ...member,
+          joinedAt: member.joinedAt?.toDate() || new Date(),
+          lastActiveAt: member.lastActiveAt?.toDate() || new Date(),
+        })) || [],
+      } as Organization;
+
+      // Obtener el rol del usuario en la organización
+      const userMember = organization.members.find(m => m.userId === userId);
+      if (userMember) {
+        this.organizationRoleSignal.set(userMember.role as any);
+      }
+
+      this.currentOrganizationSignal.set(organization);
+      console.log('✅ Organization loaded:', organization.name);
+
+    } catch (error) {
+      console.error('❌ Error loading user organization:', error);
+      this.lastErrorSignal.set(error instanceof Error ? error.message : 'Error loading organization');
+      this.currentOrganizationSignal.set(null);
+    } finally {
+      this.isLoadingSignal.set(false);
     }
   }
 
