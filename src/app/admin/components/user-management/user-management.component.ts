@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
@@ -46,7 +46,35 @@ import {
 import {
   getUserDisplayName,
   getUserShortName,
+  User,
 } from '../../../shared/models/user.model';
+
+// Constants
+const INIT_TIMEOUT_MS = 2000;
+const LOAD_TIMEOUT_MS = 10000;
+
+const ORG_ROLE_COLORS: Record<string, string> = {
+  owner: 'warning',
+  admin: 'danger',
+  moderator: 'secondary',
+  user: 'primary',
+};
+
+const ORG_ROLE_ICONS: Record<string, string> = {
+  owner: 'ribbon-outline',
+  admin: 'shield-checkmark-outline',
+  moderator: 'shield-outline',
+  user: 'person-outline',
+};
+
+const ORG_ROLE_NAMES: Record<string, string> = {
+  owner: 'Propietario',
+  admin: 'Admin',
+  moderator: 'Moderador',
+  user: 'Miembro',
+};
+
+type OrgRole = 'owner' | 'admin' | 'moderator' | 'user';
 
 @Component({
   selector: 'app-user-management',
@@ -77,24 +105,30 @@ import {
   ],
 })
 export class UserManagementComponent {
-  private userManagementService = inject(UserManagementService);
-  private authService = inject(AuthService);
-  private alertController = inject(AlertController);
-  private toastController = inject(ToastController);
-  private actionSheetController = inject(ActionSheetController);
+  private readonly userManagementService = inject(UserManagementService);
+  private readonly authService = inject(AuthService);
+  private readonly alertController = inject(AlertController);
+  private readonly toastController = inject(ToastController);
+  private readonly actionSheetController = inject(ActionSheetController);
 
   // Signals
-  users = signal<UserWithOrganization[]>([]);
-  isLoading = signal(true);
-  currentUserId = signal<string | null>(null);
+  readonly users = signal<UserWithOrganization[]>([]);
+  readonly isLoading = signal(true);
 
+  // Use service signal directly
+  readonly currentUser = this.authService.currentUser;
+
+  // Computed signals
+  readonly currentUserId = computed(() => this.currentUser()?.uid ?? null);
+  readonly hasUsers = computed(() => this.users().length > 0);
+  readonly usersCount = computed(() => this.users().length);
 
   constructor() {
     this.initializeIcons();
     this.initializeComponent();
   }
 
-  private initializeIcons() {
+  private initializeIcons(): void {
     addIcons({
       person,
       shield,
@@ -117,24 +151,16 @@ export class UserManagementComponent {
     });
   }
 
-  private async initializeComponent() {
-
+  private async initializeComponent(): Promise<void> {
     const timeoutId = setTimeout(() => {
       if (this.isLoading()) {
         this.isLoading.set(false);
       }
-    }, 2000);
+    }, INIT_TIMEOUT_MS);
 
     try {
-      console.log('⚡ Starting quick initialization...');
-
-      const currentUser = await this.getCurrentUserWithTimeout();
-      this.currentUserId.set(currentUser?.uid || null);
-
-      await this.loadDevelopmentData();
-
+      await this.loadUsers();
     } catch (error) {
-      console.error('Error during initialization:', error);
       this.isLoading.set(false);
       await this.showToast('Error de inicialización', 'danger');
     } finally {
@@ -142,73 +168,15 @@ export class UserManagementComponent {
     }
   }
 
-  private async getCurrentUserWithTimeout(timeout = 1000) {
-    return Promise.race([
-      this.authService.getCurrentUser().toPromise(),
-      new Promise<null>((resolve) => {
-        setTimeout(() => {
-          resolve(null);
-        }, timeout);
-      }),
-    ]);
-  }
-
-  private loadTestData() {
-
-    const testUsers: UserWithOrganization[] = [
-      {
-        uid: 'test-admin-1',
-        email: 'admin@test.com',
-        displayName: 'Juan Carlos Administrador',
-        role: 'admin',
-        organizationId: 'test-org',
-        organizationRole: 'owner',
-        organizationName: 'Organización de Prueba',
-        createdAt: new Date('2024-01-01'),
-        lastActivity: new Date(),
-        isOnline: true,
-      },
-      {
-        uid: 'test-user-1',
-        email: 'usuario@test.com',
-        displayName: 'María López García',
-        role: 'user',
-        organizationId: 'test-org',
-        organizationRole: 'user',
-        organizationName: 'Organización de Prueba',
-        createdAt: new Date('2024-02-01'),
-        lastActivity: new Date(),
-        isOnline: false,
-      },
-      {
-        uid: 'test-moderator-1',
-        email: 'moderador@test.com',
-        displayName: 'Pedro Moderador',
-        role: 'user',
-        organizationId: 'test-org',
-        organizationRole: 'moderator',
-        organizationName: 'Organización de Prueba',
-        createdAt: new Date('2024-03-01'),
-        lastActivity: new Date(),
-        isOnline: true,
-      },
-    ];
-
-    this.userManagementService.setUsers(testUsers);
-    this.users.set(testUsers);
-  }
-
-  private async loadDevelopmentData() {
-
+  private async loadUsers(): Promise<void> {
     const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(
         () => reject(new Error('Timeout: La carga tardó más de 10 segundos')),
-        10000
+        LOAD_TIMEOUT_MS
       );
     });
 
     try {
-
       const users = await Promise.race([
         this.userManagementService.getSimpleOrganizationUsers(),
         timeoutPromise,
@@ -221,63 +189,31 @@ export class UserManagementComponent {
       } else {
         await this.showToast('No se encontraron usuarios', 'warning');
       }
-
-      this.isLoading.set(false);
     } catch (error) {
       await this.showToast(
         error instanceof Error ? error.message : 'Error cargando datos',
         'danger'
       );
+    } finally {
       this.isLoading.set(false);
     }
   }
 
+  // Utility methods using constants
   getOrgRoleColor(role: string): string {
-    const colors: Record<string, string> = {
-      owner: 'warning',
-      admin: 'danger',
-      moderator: 'secondary',
-      user: 'primary',
-    };
-    return colors[role] || 'medium';
+    return ORG_ROLE_COLORS[role] ?? 'medium';
   }
 
   getOrgRoleIcon(role: string): string {
-    const icons: Record<string, string> = {
-      owner: 'ribbon-outline',
-      admin: 'shield-checkmark-outline',
-      moderator: 'shield-outline',
-      user: 'person-outline',
-    };
-    return icons[role] || 'help-outline';
+    return ORG_ROLE_ICONS[role] ?? 'help-outline';
   }
 
   getOrgRoleDisplayName(role: string): string {
-    const names: Record<string, string> = {
-      owner: 'Propietario',
-      admin: 'Admin',
-      moderator: 'Moderador',
-      user: 'Miembro',
-    };
-    return names[role] || 'Sin rol';
+    return ORG_ROLE_NAMES[role] ?? 'Sin rol';
   }
 
   isCurrentUser(user: UserWithOrganization): boolean {
     return this.currentUserId() === user.uid;
-  }
-
-  private async showToast(
-    message: string,
-    color: 'success' | 'warning' | 'danger' = 'success'
-  ) {
-    const toast = await this.toastController.create({
-      message,
-      duration: 3000,
-      position: 'top',
-      color,
-      cssClass: 'custom-toast',
-    });
-    await toast.present();
   }
 
   getUserDisplayName(user: UserWithOrganization): string {
@@ -294,100 +230,95 @@ export class UserManagementComponent {
 
     if (words.length >= 2) {
       return `${words[0][0]}${words[1][0]}`.toUpperCase();
-    } else if (words.length === 1) {
+    }
+    if (words.length === 1) {
       return words[0][0].toUpperCase();
     }
     return 'U';
   }
 
-  async openRoleSelector(user: UserWithOrganization) {
+  // Permission check helper
+  private hasManagementPermission(user: User | null): boolean {
+    if (!user) return false;
+    return (
+      user.organizationRole === 'owner' ||
+      user.organizationRole === 'admin' ||
+      user.role === 'admin'
+    );
+  }
 
-    try {
-      const currentUser = await this.getCurrentUserWithTimeout(2000);
+  async openRoleSelector(user: UserWithOrganization): Promise<void> {
+    const currentUser = this.currentUser();
 
-      if (!currentUser) {
-        console.error('❌ No se pudo obtener el usuario actual');
-        await this.showToast('Error al verificar permisos', 'danger');
-        return;
-      }
-
-      const hasPermission =
-        currentUser.organizationRole === 'owner' ||
-        currentUser.organizationRole === 'admin' ||
-        currentUser.role === 'admin';
-
-      if (!hasPermission) {
-        await this.showToast(
-          'Solo los propietarios y administradores pueden cambiar roles',
-          'warning'
-        );
-        return;
-      }
-
-      if (currentUser.uid === user.uid) {
-        await this.showToast('No puedes cambiar tu propio rol', 'warning');
-        return;
-      }
-
-      const alert = await this.alertController.create({
-        header: 'Cambiar Rol de Usuario',
-        subHeader: this.getUserDisplayName(user),
-        message: 'Selecciona el nuevo rol para este usuario:',
-        inputs: [
-          {
-            type: 'radio',
-            label: 'Propietario',
-            value: 'owner',
-            checked: user.organizationRole === 'owner',
-          },
-          {
-            type: 'radio',
-            label: 'Administrador',
-            value: 'admin',
-            checked: user.organizationRole === 'admin',
-          },
-          {
-            type: 'radio',
-            label: 'Moderador',
-            value: 'moderator',
-            checked: user.organizationRole === 'moderator',
-          },
-          {
-            type: 'radio',
-            label: 'Usuario',
-            value: 'user',
-            checked: user.organizationRole === 'user',
-          },
-        ],
-        buttons: [
-          {
-            text: 'Cancelar',
-            role: 'cancel',
-          },
-          {
-            text: 'Cambiar',
-            handler: async (newRole) => {
-              if (newRole && newRole !== user.organizationRole) {
-                await this.changeUserRole(user, newRole);
-              }
-            },
-          },
-        ],
-      });
-
-      await alert.present();
-    } catch (error) {
-      console.error('Error opening role selector:', error);
-      await this.showToast('Error al abrir selector de roles', 'danger');
+    if (!currentUser) {
+      await this.showToast('Error al verificar permisos', 'danger');
+      return;
     }
+
+    if (!this.hasManagementPermission(currentUser)) {
+      await this.showToast(
+        'Solo los propietarios y administradores pueden cambiar roles',
+        'warning'
+      );
+      return;
+    }
+
+    if (currentUser.uid === user.uid) {
+      await this.showToast('No puedes cambiar tu propio rol', 'warning');
+      return;
+    }
+
+    const alert = await this.alertController.create({
+      header: 'Cambiar Rol de Usuario',
+      subHeader: this.getUserDisplayName(user),
+      message: 'Selecciona el nuevo rol para este usuario:',
+      inputs: [
+        {
+          type: 'radio',
+          label: 'Propietario',
+          value: 'owner',
+          checked: user.organizationRole === 'owner',
+        },
+        {
+          type: 'radio',
+          label: 'Administrador',
+          value: 'admin',
+          checked: user.organizationRole === 'admin',
+        },
+        {
+          type: 'radio',
+          label: 'Moderador',
+          value: 'moderator',
+          checked: user.organizationRole === 'moderator',
+        },
+        {
+          type: 'radio',
+          label: 'Usuario',
+          value: 'user',
+          checked: user.organizationRole === 'user',
+        },
+      ],
+      buttons: [
+        { text: 'Cancelar', role: 'cancel' },
+        {
+          text: 'Cambiar',
+          handler: async (newRole: OrgRole) => {
+            if (newRole && newRole !== user.organizationRole) {
+              await this.changeUserRole(user, newRole);
+            }
+          },
+        },
+      ],
+    });
+
+    await alert.present();
   }
 
   private async changeUserRole(
     user: UserWithOrganization,
-    newRole: 'owner' | 'admin' | 'moderator' | 'user'
-  ) {
+    newRole: OrgRole
+  ): Promise<void> {
     try {
-
       await this.userManagementService.updateUserOrganizationRole(
         user.uid,
         newRole
@@ -398,92 +329,70 @@ export class UserManagementComponent {
         'success'
       );
 
-      this.loadTestData();
+      // Reload users instead of loading test data
+      await this.loadUsers();
     } catch (error) {
       await this.showToast('Error al cambiar el rol del usuario', 'danger');
     }
   }
 
-  async openUserOptions(user: UserWithOrganization) {
+  async openUserOptions(user: UserWithOrganization): Promise<void> {
+    const currentUser = this.currentUser();
 
-    try {
-      const currentUser = await this.getCurrentUserWithTimeout(2000);
-
-      if (!currentUser) {
-        await this.showToast('Error al verificar permisos', 'danger');
-        return;
-      }
-
-      const hasPermission =
-        currentUser.organizationRole === 'owner' ||
-        currentUser.organizationRole === 'admin' ||
-        currentUser.role === 'admin';
-
-      if (!hasPermission) {
-        await this.showToast(
-          'Solo los propietarios y administradores pueden gestionar usuarios',
-          'warning'
-        );
-        return;
-      }
-
-      if (currentUser.uid === user.uid) {
-        await this.showToast(
-          'No puedes eliminarte a ti mismo de la organización',
-          'warning'
-        );
-        return;
-      }
-
-      const actionSheet = await this.actionSheetController.create({
-        header: this.getUserDisplayName(user),
-        subHeader: user.email || '',
-        buttons: [
-          {
-            text: 'Cambiar Rol',
-            icon: 'swap-horizontal',
-            handler: () => {
-              this.openRoleSelector(user);
-            },
-          },
-          {
-            text: 'Eliminar de la Organización',
-            icon: 'trash',
-            role: 'destructive',
-            handler: () => {
-              this.confirmRemoveUser(user);
-            },
-          },
-          {
-            text: 'Cancelar',
-            icon: 'close',
-            role: 'cancel',
-          },
-        ],
-      });
-
-      await actionSheet.present();
-    } catch (error) {
-      await this.showToast('Error al abrir menú de opciones', 'danger');
+    if (!currentUser) {
+      await this.showToast('Error al verificar permisos', 'danger');
+      return;
     }
+
+    if (!this.hasManagementPermission(currentUser)) {
+      await this.showToast(
+        'Solo los propietarios y administradores pueden gestionar usuarios',
+        'warning'
+      );
+      return;
+    }
+
+    if (currentUser.uid === user.uid) {
+      await this.showToast(
+        'No puedes eliminarte a ti mismo de la organización',
+        'warning'
+      );
+      return;
+    }
+
+    const actionSheet = await this.actionSheetController.create({
+      header: this.getUserDisplayName(user),
+      subHeader: user.email ?? '',
+      buttons: [
+        {
+          text: 'Cambiar Rol',
+          icon: 'swap-horizontal',
+          handler: () => this.openRoleSelector(user),
+        },
+        {
+          text: 'Eliminar de la Organización',
+          icon: 'trash',
+          role: 'destructive',
+          handler: () => this.confirmRemoveUser(user),
+        },
+        { text: 'Cancelar', icon: 'close', role: 'cancel' },
+      ],
+    });
+
+    await actionSheet.present();
   }
 
-  private async confirmRemoveUser(user: UserWithOrganization) {
+  private async confirmRemoveUser(user: UserWithOrganization): Promise<void> {
     const alert = await this.alertController.create({
       header: '¿Eliminar Usuario?',
       subHeader: this.getUserDisplayName(user),
       message: `¿Estás seguro de que deseas eliminar a ${user.email} de la organización? Esta acción no se puede deshacer.`,
       buttons: [
-        {
-          text: 'Cancelar',
-          role: 'cancel',
-        },
+        { text: 'Cancelar', role: 'cancel' },
         {
           text: 'Eliminar',
           role: 'destructive',
-          handler: async () => {
-            await this.removeUser(user);
-          },
+          handler: () => this.removeUser(user),
         },
       ],
     });
@@ -491,9 +400,8 @@ export class UserManagementComponent {
     await alert.present();
   }
 
-  private async removeUser(user: UserWithOrganization) {
+  private async removeUser(user: UserWithOrganization): Promise<void> {
     try {
-
       await this.userManagementService.removeUserFromOrganization(user.uid);
 
       await this.showToast(
@@ -501,9 +409,24 @@ export class UserManagementComponent {
         'success'
       );
 
-      this.loadTestData();
+      // Reload users instead of loading test data
+      await this.loadUsers();
     } catch (error) {
       await this.showToast('Error al eliminar el usuario', 'danger');
     }
+  }
+
+  private async showToast(
+    message: string,
+    color: 'success' | 'warning' | 'danger' = 'success'
+  ): Promise<void> {
+    const toast = await this.toastController.create({
+      message,
+      duration: 3000,
+      position: 'top',
+      color,
+      cssClass: 'custom-toast',
+    });
+    await toast.present();
   }
 }
