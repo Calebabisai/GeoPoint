@@ -188,22 +188,23 @@
           </div>
 
           <div class="form-group checkbox-group">
-            <ion-item lines="none" class="checkbox-item">
-              <ion-checkbox
-                formControlName="acceptTerms"
-                slot="start"
-              ></ion-checkbox>
-              <ion-label>
-                Acepto los
-                <a href="#" class="link">términos y condiciones</a>
-              </ion-label>
-            </ion-item>
-            @if (isFieldInvalid('acceptTerms')) {
-              <div class="error-message">
-                <ion-icon name="alert-circle-outline"></ion-icon>
-                Debes aceptar los términos y condiciones
-              </div>
-            }
+          <ion-item lines="none" class="checkbox-item">
+            <ion-checkbox
+              [checked]="registerForm.get('acceptTerms')?.value"
+              (ionChange)="onTermsChange($event)"
+              slot="start"
+            ></ion-checkbox>
+            <ion-label>
+              Acepto los
+              <a href="#" class="link">términos y condiciones</a>
+            </ion-label>
+          </ion-item>
+          @if (isFieldInvalid('acceptTerms')) {
+            <div class="error-message">
+              <ion-icon name="alert-circle-outline"></ion-icon>
+              Debes aceptar los términos y condiciones
+            </div>
+          }
           </div>
         </div>
       }
@@ -264,7 +265,7 @@
         <ion-button
           type="submit"
           expand="block"
-          [disabled]="!canProceed() || loading()"
+          [disabled]="!canProceed || loading()"
           class="primary-button"
         >
           @if (loading()) {

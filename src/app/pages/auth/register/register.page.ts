@@ -23,7 +23,6 @@ import {
   IonItem,
   IonLabel,
   IonCheckbox,
-  ToastController,
   AlertController,
 } from '@ionic/angular/standalone';
 import { RouterModule } from '@angular/router';
@@ -72,7 +71,6 @@ interface ErrorMessages {
 export class RegisterPage implements OnInit {
   private readonly authService = inject(AuthService);
   private readonly organizationService = inject(OrganizationService);
-  private readonly toastController = inject(ToastController);
   private readonly alertController = inject(AlertController);
   private readonly router = inject(Router);
   private readonly fb = inject(FormBuilder);
@@ -102,7 +100,7 @@ export class RegisterPage implements OnInit {
       : this.currentStep() === 3
   );
 
-  readonly canProceed = computed(() => {
+  get canProceed(): boolean {
     switch (this.currentStep()) {
       case 1:
         return !!this.selectedAccountType();
@@ -113,7 +111,7 @@ export class RegisterPage implements OnInit {
       default:
         return false;
     }
-  });
+  }
 
   readonly stepTitle = computed(() => {
     switch (this.currentStep()) {
@@ -180,25 +178,31 @@ export class RegisterPage implements OnInit {
     orgNameControl?.updateValueAndValidity();
   }
 
+  onTermsChange(event: CustomEvent): void {
+  const checked = event.detail.checked;
+  this.registerForm.patchValue({ acceptTerms: checked });
+  this.registerForm.get('acceptTerms')?.markAsTouched();
+}
+
   handleStepSubmit(): void {
-    const step = this.currentStep();
-    
-    if (step === 1) {
-      if (this.canProceed()) {
-        this.nextStep();
-      }
-    } else if (step === 2) {
-      if (this.canProceed()) {
-        if (this.selectedAccountType() === 'admin') {
-          this.nextStep();
-        } else {
-          this.register();
-        }
-      }
-    } else if (step === 3) {
-      this.register();
+  const step = this.currentStep();
+  
+  if (step === 1) {
+    if (this.canProceed) { 
+      this.nextStep();
     }
+  } else if (step === 2) {
+    if (this.canProceed) { 
+      if (this.selectedAccountType() === 'admin') {
+        this.nextStep();
+      } else {
+        this.register();
+      }
+    }
+  } else if (step === 3) {
+    this.register();
   }
+}
 
   nextStep(): void {
     if (this.currentStep() < this.totalSteps) {
@@ -237,7 +241,7 @@ export class RegisterPage implements OnInit {
   }
 
   async register(): Promise<void> {
-    if (!this.canProceed()) {
+    if (!this.canProceed) {
       await this.showErrorAlert(
         'Formulario incompleto',
         'Por favor, completa todos los campos correctamente antes de continuar.',
