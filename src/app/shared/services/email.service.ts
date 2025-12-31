@@ -73,15 +73,6 @@ export class EmailService {
 
       const emailTemplate = EMAIL_TEMPLATES.invitationTemplate(config);
 
-      if (this.isDevelopmentMode()) {
-        this.logEmailToConsole({
-          to: invite.invitedEmail,
-          subject: emailTemplate.subject,
-          html: emailTemplate.htmlBody,
-          text: emailTemplate.textBody,
-        });
-      }
-
       if (this.EMAILJS_SERVICE_ID === 'service_gx21jeg') {
         await this.sendEmailViaEmailJS(
           invite.invitedEmail,
@@ -145,31 +136,6 @@ export class EmailService {
   }
 
   /**
-   * Muestra el email en la consola para desarrollo
-   */
-  private logEmailToConsole(emailData: any): void {
-    console.log('\n EMAIL PREVIEW (Development Mode)');
-    console.log('=====================================');
-    console.log('To:', emailData.to);
-    console.log('Subject:', emailData.subject);
-    console.log('Text:', emailData.text);
-    console.log('=====================================\n');
-
-    window.dispatchEvent(
-      new CustomEvent('emailPreview', {
-        detail: { email: emailData, timestamp: new Date() },
-      })
-    );
-  }
-
-  /**
-   * Verifica si estamos en modo desarrollo
-   */
-  private isDevelopmentMode(): boolean {
-    return !environment.production || window.location.hostname === 'localhost';
-  }
-
-  /**
    * Envía un email de bienvenida
    */
   async sendWelcomeEmail(
@@ -185,16 +151,6 @@ export class EmailService {
         organizationName,
         userRole
       );
-
-      if (this.isDevelopmentMode()) {
-        this.logEmailToConsole({
-          to: userEmail,
-          subject: welcomeTemplate.subject,
-          html: welcomeTemplate.htmlBody,
-          text: welcomeTemplate.textBody,
-        });
-        return;
-      }
 
       if (this.EMAILJS_SERVICE_ID === 'service_gx21jeg') {
         await this.sendEmailViaEmailJS(userEmail, welcomeTemplate, {
@@ -244,16 +200,6 @@ export class EmailService {
 
       const template = EMAIL_TEMPLATES.invitationTemplate(reminderConfig);
       template.subject = `Recordatorio: ${template.subject}`;
-
-      if (this.isDevelopmentMode()) {
-        this.logEmailToConsole({
-          to: invite.invitedEmail,
-          subject: template.subject,
-          html: template.htmlBody,
-          text: template.textBody,
-        });
-        return;
-      }
 
       if (this.EMAILJS_SERVICE_ID === 'service_gx21jeg') {
         await this.sendEmailViaEmailJS(invite.invitedEmail, template, reminderConfig);

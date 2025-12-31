@@ -201,12 +201,12 @@ export class OrganizationService {
 
       // Si no está en el signal, buscarlo en Firestore
       if (!organizationId) {
-        console.log('📄 organizationId not in signal, fetching from Firestore...');
+        console.log(' organizationId not in signal, fetching from Firestore...');
         const userDocRef = doc(this.firestore, `users/${userId}`);
         const userSnapshot = await getDoc(userDocRef);
 
         if (!userSnapshot.exists()) {
-          console.warn('❌ User document not found in Firestore');
+          console.warn(' User document not found in Firestore');
           this.currentOrganizationSignal.set(null);
           return;
         }
@@ -216,19 +216,19 @@ export class OrganizationService {
       }
 
       if (!organizationId) {
-        console.log('⚠️ User has no organization assigned');
+        console.log(' User has no organization assigned');
         this.currentOrganizationSignal.set(null);
         return;
       }
 
-      console.log('🏢 Loading organization:', organizationId);
+      console.log(' Loading organization:', organizationId);
 
       // Cargar la organización
       const orgDoc = doc(this.firestore, `organizations/${organizationId}`);
       const orgSnapshot = await getDoc(orgDoc);
 
       if (!orgSnapshot.exists()) {
-        console.warn('❌ Organization not found:', organizationId);
+        console.warn(' Organization not found:', organizationId);
         this.currentOrganizationSignal.set(null);
         return;
       }
@@ -253,10 +253,10 @@ export class OrganizationService {
       }
 
       this.currentOrganizationSignal.set(organization);
-      console.log('✅ Organization loaded:', organization.name);
+      console.log(' Organization loaded:', organization.name);
 
     } catch (error) {
-      console.error('❌ Error loading user organization:', error);
+      console.error(' Error loading user organization:', error);
       this.lastErrorSignal.set(error instanceof Error ? error.message : 'Error loading organization');
       this.currentOrganizationSignal.set(null);
     } finally {
@@ -509,24 +509,31 @@ export class OrganizationService {
   ): Promise<OrganizationInvite[]> {
     try {
       const invitationsCollection = collection(this.firestore, 'invitations');
+      
       const invitationsQuery = query(
         invitationsCollection,
         where('organizationId', '==', organizationId),
-        where('status', '==', 'pending'),
-        orderBy('createdAt', 'desc')
+        where('status', '==', 'pending')
       );
 
       const snapshot = await getDocs(invitationsQuery);
       const invitations: OrganizationInvite[] = [];
 
-      snapshot.docs.forEach((doc) => {
-        const inviteData = { id: doc.id, ...doc.data() } as OrganizationInvite;
-        invitations.push(inviteData);
+      snapshot.docs.forEach((docSnap) => {
+        const data = docSnap.data();
+        invitations.push({
+          id: docSnap.id,
+          ...data,
+          createdAt: data['createdAt']?.toDate?.() || new Date(),
+          expiresAt: data['expiresAt']?.toDate?.() || new Date(),
+        } as OrganizationInvite);
       });
 
-      return invitations;
+      return invitations.sort((a, b) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
     } catch (error) {
-      console.error('Error getting invitations from Firebase:', error);
+      console.warn('Could not fetch invitations from Firebase:', error);
       return [];
     }
   }
