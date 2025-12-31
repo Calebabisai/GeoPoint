@@ -426,43 +426,15 @@ export class EmailInvitationManagerComponent implements OnInit {
       const formValue = this.inviteForm.value;
       const results: BulkInviteResult = { successful: [], failed: [] };
 
+      // inviteUserWithEmail genera el código correctamente
       for (const email of validEmails) {
         try {
-          const invitationData = {
-            organizationId: org.id,
-            organizationName: org.name,
-            invitedEmail: email,
-            role: formValue.role,
-            invitedBy: user.uid,
-            department: formValue.department,
-            message: formValue.personalMessage,
-            expiresAt: new Date(
-              Date.now() + formValue.expirationDays * 24 * 60 * 60 * 1000
-            ),
-          };
-
-          let invite: any;
-          try {
-            invite = await this.organizationService.createInvitationInFirebase(
-              invitationData
-            );
-
-            invite = {
-              id: invite,
-              ...invitationData,
-              createdAt: new Date(),
-              status: 'pending',
-            };
-          } catch (firebaseError) {
-            console.error('Firebase invitation failed, using fallback:', firebaseError);
-
-            invite = await this.organizationService.inviteUserWithEmail(
-              email,
-              formValue.role,
-              formValue.department,
-              formValue.personalMessage
-            );
-          }
+          const invite = await this.organizationService.inviteUserWithEmail(
+            email,
+            formValue.role,
+            formValue.department,
+            formValue.personalMessage
+          );
 
           results.successful.push(invite);
         } catch (error) {

@@ -46,7 +46,7 @@ import { InvitationService } from '../../../shared/services/invitation.service';
 import { OrganizationService } from '../../../shared/services/organization.service';
 import { OrganizationInvite } from '../../../shared/models/organization.model';
 import { INVITATION_MODAL_TEMPLATES } from './invitation-modal-templates';
-import { NgModel, FormsModule } from '@angular/forms';
+import { FormsModule } from '@angular/forms';
 
 @Component({
   selector: 'app-invitation-manager',
