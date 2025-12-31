@@ -52,14 +52,6 @@ export const routes: Routes = [
     ...canActivate(redirectUnauthorizedToLogin),
   },
   {
-    path: 'email-preview',
-    loadComponent: () =>
-      import('./pages/email-preview/email-preview.page').then(
-        (m) => m.EmailPreviewPage
-      ),
-    ...canActivate(redirectUnauthorizedToLogin),
-  },
-  {
     path: 'admin',
     children: [
       {
