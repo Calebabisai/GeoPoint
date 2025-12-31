@@ -148,24 +148,22 @@ export class InvitationManagerComponent {
   /**
    * Carga las invitaciones pendientes de la organización
    */
-  private async loadPendingInvites() {
-    try {
-      const currentOrg = await firstValueFrom(
-        this.organizationService.getCurrentOrganization()
-      );
+  private async loadPendingInvites(): Promise<void> {
+  try {
+    const currentOrg = await firstValueFrom(
+      this.organizationService.getCurrentOrganization()
+    );
 
-      if (currentOrg) {
-        this.invitationService
-          .getOrganizationInvitations(currentOrg.id)
-          .subscribe((invites) => {
-            const filtered = invites.filter((inv) => inv.status === 'pending');
-            this.pendingInvites.set(filtered);
-          });
-      }
-    } catch (error) {
-      console.error('Error loading pending invites:', error);
+    if (currentOrg) {
+      // getOrganizationInvitations returns OrganizationInvite[] directly, not Observable
+      const invites = this.invitationService.getOrganizationInvitations(currentOrg.id);
+      const filtered = invites.filter((inv: OrganizationInvite) => inv.status === 'pending');
+      this.pendingInvites.set(filtered);
     }
+  } catch (error) {
+    console.error('Error loading pending invites:', error);
   }
+}
 
   /**
    * Carga el código de la organización
@@ -219,17 +217,16 @@ export class InvitationManagerComponent {
    * Carga estadísticas de la organización
    */
   private loadOrganizationStats(): void {
-    try {
-
-      const orgId = this.organization()?.id || 'org-1';
-      this.organizationService.getOrganizationStats(orgId).subscribe((stats) => {
-        this.organizationStats.set(stats);
-        console.log('Organization stats loaded');
-      });
-    } catch (error) {
-      console.error('Error loading organization stats:', error);
-    }
+  try {
+    const orgId = this.organization()?.id || 'org-1';
+    // getOrganizationStats returns Signal, not Observable
+    const statsSignal = this.organizationService.getOrganizationStats(orgId);
+    // Get current value from signal
+    this.organizationStats.set(statsSignal());
+  } catch (error) {
+    console.error('Error loading organization stats:', error);
   }
+}
 
   /**
    * Envía una invitación por email

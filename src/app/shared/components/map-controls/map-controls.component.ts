@@ -165,6 +165,44 @@ export class MapControlsComponent implements OnInit, OnDestroy {
 
   private zoneCounter = 1;
 
+  // Marker form updates
+  updateMarkerTitle(title: string): void {
+    this.markerFormSignal.update(form => ({ ...form, title }));
+  }
+
+  updateMarkerDescription(description: string): void {
+    this.markerFormSignal.update(form => ({ ...form, description }));
+  }
+
+  updateMarkerType(type: 'marker' | 'house' | 'poi'): void {
+    this.markerFormSignal.update(form => ({ ...form, type }));
+  }
+
+  updateMarkerColor(color: string): void {
+    this.markerFormSignal.update(form => ({ ...form, color }));
+  }
+
+  // Zone form updates
+  updateZoneName(name: string): void {
+    this.zoneFormSignal.update(form => ({ ...form, name }));
+  }
+
+  updateZoneDescription(description: string): void {
+    this.zoneFormSignal.update(form => ({ ...form, description }));
+  }
+
+  updateZoneNumber(number: number): void {
+    this.zoneFormSignal.update(form => ({ ...form, number }));
+  }
+
+  updateZoneType(type: 'zone' | 'area' | 'sector'): void {
+    this.zoneFormSignal.update(form => ({ ...form, type }));
+  }
+
+  updateZoneColor(color: string): void {
+    this.zoneFormSignal.update(form => ({ ...form, color }));
+  }
+
   constructor() {
     addIcons({
       add,

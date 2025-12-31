@@ -5,6 +5,7 @@ import {
   createUserWithEmailAndPassword,
   signOut,
   User as FirebaseUser,
+  onAuthStateChanged,
 } from '@angular/fire/auth';
 import {
   Firestore,
@@ -27,20 +28,43 @@ export class AuthService {
   //Signals
   private firebaseUserSignal = signal<FirebaseUser | null>(null);
   private currentUserSignal = signal<User | null>(null);
-  private isLoadingSignal = signal(false);
+  private isLoadingSignal = signal(true);
   private errorSignal = signal<string | null>(null);
+  private authReadySignal = signal(false);
   
   //Readonly exports
   readonly firebaseUser = this.firebaseUserSignal.asReadonly();
   readonly currentUser = this.currentUserSignal.asReadonly();
   readonly isLoading = this.isLoadingSignal.asReadonly();
   readonly error = this.errorSignal.asReadonly();
+  readonly authReady = this.authReadySignal.asReadonly();
 
   //Computed
   readonly isAuthenticated = computed(() => this.currentUserSignal() !== null);
   readonly isAdmin = computed(() => this.currentUserSignal()?.role === 'admin');
 
   constructor() {
+    this.initAuthStateListener();
+  }
+
+   private initAuthStateListener(): void {
+    onAuthStateChanged(this.auth, async (firebaseUser) => {
+      this.logger.auth('Auth state changed:', firebaseUser?.email ?? 'No user');
+      
+      this.firebaseUserSignal.set(firebaseUser);
+      
+      if (firebaseUser) {
+        // User is logged in - load their data
+        await this.loadUserDataFromFirestore(firebaseUser);
+      } else {
+        // User is logged out
+        this.currentUserSignal.set(null);
+      }
+      
+      // Mark auth as ready (first check complete)
+      this.authReadySignal.set(true);
+      this.isLoadingSignal.set(false);
+    });
   }
 
   /**

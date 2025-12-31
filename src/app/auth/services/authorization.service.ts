@@ -11,16 +11,16 @@ export class AuthorizationService {
   //Signal para rol de desarrollo(Solo para testing)
   private developmentRoleSignal = signal<'admin' | 'user' | null>(null);
 
-  //Computed Signals
-  readonly currentUser = computed(() => this.authService.getCurrentUser()());
+  //Computed Signals - Use authService.currentUser directly (it's already a signal)
+  readonly currentUser = computed(() => this.authService.currentUser());
   readonly isAuthenticated = computed(() => this.currentUser() !== null);
   readonly isAdmin = computed(() => this.currentUser()?.role === 'admin');
   readonly isUser = computed(() => this.currentUser()?.role === 'user');
   readonly hasElevatedPermissions = computed(() => this.isAdmin());
-  readonly currentUserRole = computed(() => this.currentUser()?.role || null);
+  readonly currentUserRole = computed(() => this.currentUser()?.role ?? null);
   readonly userPermissions = computed(() => {
-    const user = this.currentUser();  // ← Agregar ()
-    if(!user) return [];
+    const user = this.currentUser();
+    if (!user) return [];
     return this.getPermissionsByRole(user.role);
   });
 

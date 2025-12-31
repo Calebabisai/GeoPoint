@@ -130,7 +130,8 @@
     <div class="form-compact">
       <ion-item lines="none" class="form-item">
         <ion-input
-          [(ngModel)]="markerForm().title"
+          [value]="markerForm().title"
+          (ionInput)="updateMarkerTitle($any($event.target).value)"
           placeholder="Nombre del marcador *"
           fill="outline"
           clearInput="true"
@@ -140,7 +141,8 @@
 
       <ion-item lines="none" class="form-item">
         <ion-textarea
-          [(ngModel)]="markerForm().description"
+          [value]="markerForm().description"
+          (ionInput)="updateMarkerDescription($any($event.target).value)"
           placeholder="Descripción (opcional)"
           fill="outline"
           rows="2"
@@ -156,7 +158,7 @@
           <ion-button
             [fill]="markerForm().type === 'marker' ? 'solid' : 'outline'"
             size="small"
-            (click)="markerForm().type = 'marker'"
+            (click)="updateMarkerType('marker')"
           >
             <ion-icon name="location" slot="start" size="small"></ion-icon>
             Marcador
@@ -166,7 +168,7 @@
             [fill]="markerForm().type === 'house' ? 'solid' : 'outline'"
             size="small"
             color="secondary"
-            (click)="markerForm().type = 'house'"
+            (click)="updateMarkerType('house')"
           >
             <ion-icon name="home" slot="start" size="small"></ion-icon>
             Casa
@@ -176,7 +178,7 @@
             [fill]="markerForm().type === 'poi' ? 'solid' : 'outline'"
             size="small"
             color="tertiary"
-            (click)="markerForm().type = 'poi'"
+            (click)="updateMarkerType('poi')"
           >
             <ion-icon name="star" slot="start" size="small"></ion-icon>
             POI
@@ -194,7 +196,7 @@
             [class.selected]="markerForm().color === color.value"
             [style.background-color]="color.value"
             [title]="color.name"
-            (click)="markerForm().color = color.value"
+            (click)="updateMarkerColor(color.value)"
           ></button>
           }
         </div>
@@ -291,9 +293,11 @@
 
     <!-- Formulario compacto -->
     <div class="form-compact">
+      <!-- LÍNEA 279-286: Cambiado de [(ngModel)] a [value] + (ionInput) -->
       <ion-item lines="none" class="form-item">
         <ion-input
-          [(ngModel)]="zoneForm().name"
+          [value]="zoneForm().name"
+          (ionInput)="updateZoneName($any($event.target).value)"
           placeholder="Nombre de la zona *"
           fill="outline"
           clearInput="true"
@@ -301,9 +305,11 @@
         </ion-input>
       </ion-item>
 
+      <!-- LÍNEA 288-298: Cambiado de [(ngModel)] a [value] + (ionInput) con conversión a número -->
       <ion-item lines="none" class="form-item">
         <ion-input
-          [(ngModel)]="zoneForm().number"
+          [value]="zoneForm().number"
+          (ionInput)="updateZoneNumber(+$any($event.target).value)"
           placeholder="Número de zona *"
           fill="outline"
           type="number"
@@ -315,9 +321,11 @@
         </ion-input>
       </ion-item>
 
+      <!-- LÍNEA 300-308: Cambiado de [(ngModel)] a [value] + (ionInput) -->
       <ion-item lines="none" class="form-item">
         <ion-textarea
-          [(ngModel)]="zoneForm().description"
+          [value]="zoneForm().description"
+          (ionInput)="updateZoneDescription($any($event.target).value)"
           placeholder="Descripción (opcional)"
           fill="outline"
           rows="2"
@@ -330,28 +338,31 @@
       <div class="type-selector">
         <p class="selector-label">Tipo de zona:</p>
         <div class="type-buttons">
+          <!-- LÍNEA 313: Cambiado de zoneForm().type = 'zone' a updateZoneType('zone') -->
           <ion-button
             [fill]="zoneForm().type === 'zone' ? 'solid' : 'outline'"
             size="small"
-            (click)="zoneForm().type = 'zone'"
+            (click)="updateZoneType('zone')"
           >
             Zona
           </ion-button>
 
+          <!-- LÍNEA 320: Cambiado de zoneForm().type = 'area' a updateZoneType('area') -->
           <ion-button
             [fill]="zoneForm().type === 'area' ? 'solid' : 'outline'"
             size="small"
             color="secondary"
-            (click)="zoneForm().type = 'area'"
+            (click)="updateZoneType('area')"
           >
             Área
           </ion-button>
 
+          <!-- LÍNEA 327: Cambiado de zoneForm().type = 'sector' a updateZoneType('sector') -->
           <ion-button
             [fill]="zoneForm().type === 'sector' ? 'solid' : 'outline'"
             size="small"
             color="tertiary"
-            (click)="zoneForm().type = 'sector'"
+            (click)="updateZoneType('sector')"
           >
             Sector
           </ion-button>
@@ -363,12 +374,13 @@
         <p class="selector-label">Color:</p>
         <div class="color-options">
           @for (color of colors; track color.value) {
+          <!-- LÍNEA 341: Cambiado de zoneForm().color = color.value a updateZoneColor(color.value) -->
           <button
             class="color-button"
             [class.selected]="zoneForm().color === color.value"
             [style.background-color]="color.value"
             [title]="color.name"
-            (click)="zoneForm().color = color.value"
+            (click)="updateZoneColor(color.value)"
           ></button>
           }
         </div>
