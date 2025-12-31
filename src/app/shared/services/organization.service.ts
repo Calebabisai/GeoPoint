@@ -1,4 +1,4 @@
-import { Injectable, inject, signal, computed, effect, Signal } from '@angular/core';
+import { Injectable, inject, signal, computed, effect, Signal, Injector } from '@angular/core';
 import {
   Observable,
 } from 'rxjs';
@@ -29,6 +29,7 @@ import {
   OrganizationStats,
 } from '../models/organization.model';
 import { User } from '../models/user.model';
+import { FirestoreService } from 'src/app/services/firestore.service';
 
 @Injectable({
   providedIn: 'root',
@@ -38,6 +39,7 @@ export class OrganizationService {
   private auth = inject(Auth);
   private authService = inject(AuthService);
   private emailService = inject(EmailService);
+  private injector = inject(Injector);
 
   // Signals
   private currentOrganizationSignal = signal<Organization | null>(null);
@@ -1141,21 +1143,20 @@ export class OrganizationService {
         throw new Error('Esta invitación ha expirado');
       }
 
-      const orgDoc = await getDoc(
-        doc(this.firestore, 'organizations', invite.organizationId)
-      );
+      // Verificar que la organización existe
+      const orgDocRef = doc(this.firestore, 'organizations', invite.organizationId);
+      const orgDoc = await getDoc(orgDocRef);
 
       if (!orgDoc.exists()) {
         throw new Error('Organización no encontrada');
       }
-
-      const organization = { id: orgDoc.id, ...orgDoc.data() } as Organization;
 
       const currentUser = this.auth.currentUser;
       if (!currentUser) {
         throw new Error('Debes estar autenticado');
       }
 
+      // PRIMERO: Agregar el miembro a la organización
       await this.addMemberToOrganization(invite.organizationId, {
         userId: currentUser.uid,
         email: currentUser.email || invite.invitedEmail,
@@ -1163,21 +1164,57 @@ export class OrganizationService {
         department: invite.department,
       });
 
+      // Marcar la invitación como aceptada
       await updateDoc(doc(this.firestore, 'invitations', inviteDoc.id), {
         status: 'accepted',
         acceptedAt: Timestamp.now(),
         acceptedBy: currentUser.uid,
       });
 
-      const userDoc = doc(this.firestore, 'users', currentUser.uid);
-      await updateDoc(userDoc, {
+      // Actualizar documento del usuario
+      const userDocRef = doc(this.firestore, 'users', currentUser.uid);
+      await updateDoc(userDocRef, {
         organizationId: invite.organizationId,
-        role: invite.role,
+        organizationRole: invite.role,
         department: invite.department || null,
         updatedAt: Timestamp.now(),
       });
 
-      await this.setCurrentOrganization(organization.id);
+      // DESPUÉS: Volver a leer la organización actualizada (ya con el nuevo miembro)
+      const updatedOrgDoc = await getDoc(orgDocRef);
+      const orgData = updatedOrgDoc.data()!;
+      const organization: Organization = {
+        ...orgData,
+        id: updatedOrgDoc.id,
+        createdAt: orgData['createdAt']?.toDate() || new Date(),
+        updatedAt: orgData['updatedAt']?.toDate() || new Date(),
+        members: orgData['members']?.map((member: any) => ({
+          ...member,
+          joinedAt: member.joinedAt?.toDate?.() || new Date(),
+          lastActiveAt: member.lastActiveAt?.toDate?.() || new Date(),
+        })) || [],
+      } as Organization;
+
+      // Actualizar el signal del usuario en AuthService
+      this.authService.updateUserOrganization(invite.organizationId, invite.role);
+
+      // Establecer la organización actual (ya con el nuevo miembro)
+      this.currentOrganizationSignal.set(organization);
+      this.organizationRoleSignal.set(invite.role as any);
+
+      // Establecer la organización actual (ya con el nuevo miembro)
+      this.currentOrganizationSignal.set(organization);
+      this.organizationRoleSignal.set(invite.role as any);
+
+      // Usar inyección perezosa para evitar dependencia circular
+      const firestoreDataService = this.injector.get(FirestoreService);
+      firestoreDataService.invalidateAllCaches();
+
+      console.log(' Invitación aceptada, organización establecida:', organization.name);
+
+      console.log(' Invitación aceptada, organización establecida:', organization.name);
+      console.log(' Miembros en la organización:', organization.members.length);
+      console.log(' Tu rol:', invite.role);
 
       return organization;
     } catch (error) {
@@ -1187,13 +1224,6 @@ export class OrganizationService {
     } finally {
       this.isLoadingSignal.set(false);
     }
-  }
-
-  /**
-   * Alias para acceptEmailInvite
-   */
-  async acceptInvite(inviteToken: string): Promise<Organization> {
-    return this.acceptEmailInvite(inviteToken);
   }
 
   /**
@@ -1212,13 +1242,15 @@ export class OrganizationService {
     this.lastErrorSignal.set(null);
 
     try {
-      const orgDoc = await getDoc(
-        doc(this.firestore, 'organizations', organizationId)
-      );
+      const orgDocRef = doc(this.firestore, 'organizations', organizationId);
+      const orgDoc = await getDoc(orgDocRef);
 
       if (!orgDoc.exists()) {
         throw new Error('Organización no encontrada');
       }
+
+      const orgData = orgDoc.data();
+      const existingMembers = orgData['members'] || [];
 
       const newMember: OrganizationMember = {
         userId: userData.userId,
@@ -1240,14 +1272,36 @@ export class OrganizationService {
         },
       };
 
-      const membersRef = collection(
-        this.firestore,
-        'organizations',
-        organizationId,
-        'members'
+      // Verificar si el usuario ya es miembro
+      const existingMemberIndex = existingMembers.findIndex(
+        (m: any) => m.userId === userData.userId
       );
-      await addDoc(membersRef, newMember);
 
+      let updatedMembers;
+      if (existingMemberIndex >= 0) {
+        // Actualizar miembro existente
+        updatedMembers = [...existingMembers];
+        updatedMembers[existingMemberIndex] = {
+          ...newMember,
+          joinedAt: Timestamp.now(),
+          lastActiveAt: Timestamp.now(),
+        };
+      } else {
+        // Agregar nuevo miembro
+        updatedMembers = [...existingMembers, {
+          ...newMember,
+          joinedAt: Timestamp.now(),
+          lastActiveAt: Timestamp.now(),
+        }];
+      }
+
+      // Actualizar el documento de organización con el nuevo array de miembros
+      await updateDoc(orgDocRef, {
+        members: updatedMembers,
+        updatedAt: Timestamp.now(),
+      });
+
+      // Actualizar documento del usuario
       const userRef = doc(this.firestore, 'users', userData.userId);
       const userDoc = await getDoc(userRef);
 
@@ -1255,7 +1309,7 @@ export class OrganizationService {
         await updateDoc(userRef, {
           organizationId: organizationId,
           organizationRole: userData.role,
-          updatedAt: new Date(),
+          updatedAt: Timestamp.now(),
         });
       } else {
         await setDoc(userRef, {
@@ -1264,17 +1318,26 @@ export class OrganizationService {
           organizationId: organizationId,
           organizationRole: userData.role,
           role: 'user',
-          createdAt: new Date(),
-          updatedAt: new Date(),
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
         });
       }
+
+      console.log(' Miembro agregado a la organización:', userData.email);
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Error adding member';
+      const errorMsg = error instanceof Error ? error.message : 'Error añadiendo miembro';
       this.lastErrorSignal.set(errorMsg);
       throw error;
     } finally {
       this.isLoadingSignal.set(false);
     }
+  }
+
+  /**
+   * Alias para acceptEmailInvite
+   */
+  async acceptInvite(inviteToken: string): Promise<Organization> {
+    return this.acceptEmailInvite(inviteToken);
   }
 
   /**

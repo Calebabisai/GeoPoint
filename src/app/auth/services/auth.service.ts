@@ -247,6 +247,35 @@ export class AuthService {
       throw error;
     }
   }
+
+  /**
+   * Recarga los datos del usuario desde Firestore
+   * Útil después de cambios como aceptar una invitación
+   */
+  async reloadUserData(): Promise<void> {
+    const firebaseUser = this.firebaseUserSignal();
+    if (firebaseUser) {
+      await this.loadUserDataFromFirestore(firebaseUser);
+    }
+  }
+
+  /**
+   * Actualiza el organizationId del usuario en el signal local
+   * (sin ir a Firestore)
+   */
+  updateUserOrganization(
+    organizationId: string, 
+    organizationRole?: 'owner' | 'admin' | 'moderator' | 'user'
+  ): void {
+    const currentUser = this.currentUserSignal();
+    if (currentUser) {
+      this.currentUserSignal.set({
+        ...currentUser,
+        organizationId,
+        organizationRole: organizationRole ?? currentUser.organizationRole,
+      });
+    }
+  }
 }
 
 

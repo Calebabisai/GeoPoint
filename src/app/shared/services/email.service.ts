@@ -1,6 +1,5 @@
 import { Injectable, signal, computed } from '@angular/core';
 import { OrganizationInvite } from '../models/organization.model';
-import { environment } from '../../../environments/environment';
 import emailjs from '@emailjs/browser';
 import { EMAIL_TEMPLATES } from '../components/email-invitation-manager/email-templates';
 

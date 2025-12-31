@@ -1,4 +1,4 @@
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import {
   Observable,
   switchMap,
@@ -11,6 +11,7 @@ import {
   interval,
   mergeMap,
   shareReplay,
+  BehaviorSubject,
 } from 'rxjs';
 import {
   Firestore,
@@ -46,7 +47,7 @@ export interface OfflineOperation {
 
 @Injectable({ providedIn: 'root' })
 export class FirestoreService {
-private readonly firestore = inject(Firestore);
+  private readonly firestore = inject(Firestore);
   private readonly organizationService = inject(OrganizationService);
   private readonly logger = inject(LoggerService);
   private readonly networkService = inject(NetworkService);
@@ -54,6 +55,9 @@ private readonly firestore = inject(Firestore);
   // Configuración
   private readonly FIRESTORE_TIMEOUT = 30000;
   private readonly POLLING_INTERVAL = 5000;
+
+  // BehaviorSubject para la organización actual (reactivo)
+  private currentOrg$ = new BehaviorSubject<Organization | null>(null);
 
   // Signals para estado
   private readonly _markersState = signal<FirestoreState>({
@@ -99,15 +103,22 @@ private readonly firestore = inject(Firestore);
 
   constructor() {
     this.logger.firebase('FirestoreService initialized - using getDocs() polling');
+    
+    // Effect para sincronizar el signal de organización con el BehaviorSubject
+    effect(() => {
+      const org = this.organizationService.currentOrganization();
+      this.logger.firebase('Organization changed:', org?.name || 'null');
+      this.currentOrg$.next(org);
+    });
   }
 
   // Markers per organization
-    getMarkers(): Observable<MapMarker[]> {
+  getMarkers(): Observable<MapMarker[]> {
     if (this.markersCache$) {
       return this.markersCache$;
     }
 
-    this.markersCache$ = this.organizationService.getCurrentOrganization().pipe(
+    this.markersCache$ = this.currentOrg$.pipe(
       switchMap((org) => this.fetchMarkersForOrg(org)),
       shareReplay(1)
     );
@@ -170,7 +181,8 @@ private readonly firestore = inject(Firestore);
       return this.zonesCache$;
     }
 
-    this.zonesCache$ = this.organizationService.getCurrentOrganization().pipe(
+    // Cambiar de getCurrentOrganization() a currentOrg$
+    this.zonesCache$ = this.currentOrg$.pipe(
       switchMap((org) => this.fetchZonesForOrg(org)),
       shareReplay(1)
     );
@@ -233,7 +245,7 @@ private readonly firestore = inject(Firestore);
       return this.routesCache$;
     }
 
-    this.routesCache$ = this.organizationService.getCurrentOrganization().pipe(
+    this.routesCache$ = this.currentOrg$.pipe(
       switchMap((org) => this.fetchRoutesForOrg(org)),
       shareReplay(1)
     );
@@ -358,29 +370,13 @@ private readonly firestore = inject(Firestore);
     }
   }
 
+  // También actualizar getCurrentOrgOrThrow para usar el BehaviorSubject
   private async getCurrentOrgOrThrow(): Promise<Organization> {
-    return new Promise((resolve, reject) => {
-      this.organizationService
-        .getCurrentOrganization()
-        .pipe(take(1), timeout(this.FIRESTORE_TIMEOUT))
-        .subscribe({
-          next: (org) => {
-            if (!org) {
-              reject(new Error('No hay organización activa'));
-              return;
-            }
-            resolve(org);
-          },
-          error: (error) => {
-            const err = error as { name?: string };
-            if (err.name === 'TimeoutError') {
-              reject(new Error('La operación tardó demasiado. Intenta nuevamente.'));
-            } else {
-              reject(error);
-            }
-          },
-        });
-    });
+    const org = this.currentOrg$.getValue();
+    if (!org) {
+      throw new Error('No hay organización activa');
+    }
+    return org;
   }
 
   // ==================== PUBLIC UTILITIES ====================
