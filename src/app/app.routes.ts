@@ -108,23 +108,4 @@ export const routes: Routes = [
         (m) => m.JoinInvitationPage
       ),
   },
-  {
-    path: 'invitation',
-    children: [
-      {
-        path: 'accept',
-        loadComponent: () =>
-          import('./pages/invitation-accept/invitation-accept.page').then(
-            (m) => m.InvitationAcceptPage
-          ),
-      },
-      {
-        path: 'accept/:code',
-        loadComponent: () =>
-          import('./pages/invitation-accept/invitation-accept.page').then(
-            (m) => m.InvitationAcceptPage
-          ),
-      },
-    ],
-  },
 ];
