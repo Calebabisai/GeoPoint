@@ -1,5 +1,5 @@
-import { Injectable, inject, signal, computed, Signal } from '@angular/core';
-import { Observable, combineLatest, of, pipe } from 'rxjs';
+import { Injectable, inject, signal, computed } from '@angular/core';
+import { Observable, combineLatest, of } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { Firestore } from '@angular/fire/firestore';
 import { AuthService } from '../../auth/services/auth.service';

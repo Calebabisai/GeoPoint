@@ -487,27 +487,24 @@ export class UserManagementService {
   }
 
   private async getCurrentOrganizationWithTimeout(): Promise<any> {
-    return new Promise((resolve, reject) => {
+    // Usar el signal directamente en lugar del Observable
+    const org = this.organizationService.currentOrganization();
+    
+    if (org) {
+      return org;
+    }
+    
+    // Si no hay organización, esperar un poco y reintentar
+    return new Promise((resolve) => {
       const timeout = setTimeout(() => {
-        console.warn('getCurrentOrganization timeout, using fallback');
-        resolve({
-          id: 'org-1',
-          name: 'Empresa Demo',
-          description: 'Organización de demostración',
-        });
-      }, 3000);
-
-      this.organizationService.getCurrentOrganization().subscribe({
-        next: (org) => {
-          clearTimeout(timeout);
-          resolve(org);
-        },
-        error: (error) => {
-          clearTimeout(timeout);
-          console.error('getCurrentOrganization error:', error);
-          reject(error);
-        },
-      });
+        const retryOrg = this.organizationService.currentOrganization();
+        if (retryOrg) {
+          resolve(retryOrg);
+        } else {
+          console.warn('No organization found, using fallback');
+          resolve(null);
+        }
+      }, 1000);
     });
   }
 }

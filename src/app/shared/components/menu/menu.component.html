@@ -21,7 +21,7 @@
             </div>
           } @else {
             <div class="user-role-badge role-user">
-              <ion-icon name="help-outline" class="role-icon"></ion-icon>
+              <ion-icon name="help-outline" class="role-ico"></ion-icon>
               <span class="role-text">Sin organización</span>
             </div>
           }
@@ -112,18 +112,6 @@
                           </ion-label>
                         </ion-item>
                       }
-
-                      <ion-item button (click)="copyInviteCode()">
-                        <ion-icon
-                          name="copy-outline"
-                          slot="start"
-                          color="tertiary"
-                        ></ion-icon>
-                        <ion-label>
-                          <h3>Copiar Código</h3>
-                          <p>Compartir código: {{ organization.code }}</p>
-                        </ion-label>
-                      </ion-item>
                     </ion-list>
                   </div>
                 </ion-accordion>

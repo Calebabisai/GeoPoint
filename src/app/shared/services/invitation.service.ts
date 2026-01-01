@@ -47,9 +47,7 @@ export class InvitationService {
 
     try {
       const currentUser = this.authService.getCurrentUser()();
-      const currentOrg = await firstValueFrom(
-        this.organizationService.getCurrentOrganization()
-      );
+      const currentOrg = this.organizationService.currentOrganization();
 
       if (!currentUser || !currentOrg) {
         throw new Error('Usuario u organización no encontrados');

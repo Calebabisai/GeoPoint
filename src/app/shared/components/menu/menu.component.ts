@@ -264,34 +264,6 @@ export class MenuComponent {
     this.router.navigate(['/admin/email-invitations']);
   }
 
-  /**
-   * Copiar código de invitación
-   */
-  async copyInviteCode() {
-    try {
-      const currentOrg = this.currentOrganization();
-      if (currentOrg) {
-        await navigator.clipboard.writeText(currentOrg.code);
-
-        const toast = await this.toastCtrl.create({
-          message: `Código copiado: ${currentOrg.code}`,
-          duration: 2000,
-          position: 'bottom',
-          color: 'success',
-        });
-        await toast.present();
-      }
-    } catch (error) {
-      console.error('Error copying code', error);
-      const toast = await this.toastCtrl.create({
-        message: 'Error al copiar el código',
-        duration: 3000,
-        position: 'bottom',
-        color: 'danger',
-      });
-      await toast.present();
-    }
-  }
 
   /**
    * Obtener el nombre del rol de organización
