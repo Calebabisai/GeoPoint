@@ -71,14 +71,6 @@ export const routes: Routes = [
         ...canActivate(redirectUnauthorizedToLogin),
       },
       {
-        path: 'invitations',
-        loadComponent: () =>
-          import(
-            './admin/components/invitation-manager/invitation-manager.component'
-          ).then((m) => m.InvitationManagerComponent),
-        ...canActivate(redirectUnauthorizedToLogin),
-      },
-      {
         path: 'email-invitations',
         loadComponent: () =>
           import('./pages/email-invitations/email-invitations.page').then(
