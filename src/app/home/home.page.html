@@ -156,26 +156,6 @@
         <span class="brand-title">GeoPoint</span>
       </div>
     </div>
-
-    <ion-buttons slot="end" class="header-actions">
-      <!-- Role indicator badge -->
-      @if (userRole()) {
-        <div class="role-indicator-header">
-          <ion-chip
-            [color]="roleColor()"
-            class="role-chip-header"
-            size="small"
-          >
-            <ion-icon
-              [name]="userRole() === 'admin' ? 'shield-checkmark' : 'person'"
-              size="small"
-            >
-            </ion-icon>
-            <ion-label>{{ roleDisplayName() }}</ion-label>
-          </ion-chip>
-        </div>
-      }
-    </ion-buttons>
   </ion-toolbar>
 </ion-header>
 
