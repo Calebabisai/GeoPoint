@@ -1,95 +1,69 @@
-// 🎨 ESTILO UBER NEGRO/VERDE - EMAIL INVITA      text-shadow: 0 0 10px rgba(0, 168, 84, 0.3);
-      
-      ion-icon {
-        font-size: 1.3em;
-        color: #1ab865;
-      }MANAGER
+// 🎨 ESTILO PROFESIONAL GEOPOINT - EMAIL INVITATION MANAGER
 .email-invitation-container {
   max-width: 900px;
   margin: 0 auto;
-  padding: 20px;
+  padding: var(--gp-space-lg);
   background: transparent;
   min-height: 100vh;
 }
 
 // 📱 CARD DE INFORMACIÓN DE ORGANIZACIÓN - Estilo Premium
 .organization-info-card {
-  margin-bottom: 24px;
-  border-radius: 20px;
-  background: linear-gradient(135deg, #1e1e1e 0%, #2a2a2a 100%);
-  border: 1px solid #00a854;
-  box-shadow: 
-    0 8px 32px rgba(0, 168, 84, 0.15),
-    0 2px 8px rgba(0, 0, 0, 0.3);
+  margin-bottom: var(--gp-space-lg);
+  border-radius: var(--gp-radius-xl);
+  background: linear-gradient(135deg, var(--gp-bg-tertiary) 0%, #2a2a2a 100%);
+  border: 1px solid var(--gp-gray-700);
+  box-shadow: var(--gp-shadow);
   overflow: hidden;
   position: relative;
-  
-  // Efecto de brillo sutil
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, #00a854, #1ab865, #00a854, transparent);
-    opacity: 0.8;
-  }
 
   ion-card-header {
-    background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%);
-    padding: 20px;
+    background: linear-gradient(135deg, var(--gp-bg-primary) 0%, var(--gp-bg-tertiary) 100%);
+    padding: var(--gp-space-lg);
     
     ion-card-title {
       display: flex;
       align-items: center;
-      gap: 12px;
-      color: #00a854;
+      gap: var(--gp-space-md);
+      color: var(--gp-text-primary);
       font-size: 1.4em;
       font-weight: 700;
-      text-shadow: 0 0 10px rgba(0, 168, 84, 0.3);
       
       ion-icon {
         font-size: 1.3em;
-        color: #1ab865;
+        color: var(--gp-brand-primary);
       }
     }
   }
   
   ion-card-content {
-    padding: 20px;
-    color: #e0e0e0;
+    padding: var(--gp-space-lg);
+    color: var(--gp-text-secondary);
     
     p {
       font-size: 1.05em;
       line-height: 1.6;
-      margin-bottom: 20px;
+      margin-bottom: var(--gp-space-lg);
     }
   }
 
   .org-stats {
     display: flex;
-    gap: 12px;
-    margin-top: 20px;
+    gap: var(--gp-space-md);
+    margin-top: var(--gp-space-lg);
     flex-wrap: wrap;
     
     ion-chip {
-      --background: rgba(0, 168, 84, 0.1);
-      --color: #00a854;
-      border: 1px solid #00a854;
-      border-radius: 20px;
+      --background: rgba(0, 168, 84, 0.05);
+      --color: var(--gp-brand-primary);
+      border: 1px solid var(--gp-gray-700);
+      border-radius: var(--gp-radius-lg);
       font-weight: 600;
-      padding: 8px 16px;
+      padding: var(--gp-space-sm) var(--gp-space-md);
       
       ion-icon {
-        color: #1ab865;
-        margin-right: 6px;
-      }
-      
-      &:hover {
-        --background: rgba(0, 168, 84, 0.2);
-        transform: translateY(-2px);
-        transition: all 0.3s ease;
+        color: var(--gp-brand-primary);
+        margin-right: var(--gp-space-sm);
       }
     }
   }
@@ -97,103 +71,91 @@
 
 // 📝 CARDS DE FORMULARIO - Diseño moderno
 .form-card {
-  margin-bottom: 24px;
-  border-radius: 20px;
-  background: linear-gradient(135deg, #1a1a1a 0%, #2d2d30 100%);
-  border: 1px solid #333;
-  box-shadow: 
-    0 6px 20px rgba(0, 0, 0, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  margin-bottom: var(--gp-space-lg);
+  border-radius: var(--gp-radius-xl);
+  background: linear-gradient(135deg, var(--gp-bg-tertiary) 0%, #2d2d30 100%);
+  border: 1px solid var(--gp-gray-800);
+  box-shadow: var(--gp-shadow);
   overflow: hidden;
-  transition: all 0.3s ease;
+  transition: border-color 0.3s ease;
 
   &:hover {
-    border-color: #00a854;
-    box-shadow: 
-      0 8px 32px rgba(0, 168, 84, 0.2),
-      0 6px 20px rgba(0, 0, 0, 0.4);
-    transform: translateY(-4px);
+    border-color: var(--gp-gray-700);
   }
 
   ion-card-header {
-    background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%);
-    padding: 18px 24px;
-    border-bottom: 1px solid #333;
+    background: linear-gradient(135deg, var(--gp-bg-primary) 0%, var(--gp-bg-tertiary) 100%);
+    padding: calc(var(--gp-space-md) * 1.125) var(--gp-space-lg);
+    border-bottom: 1px solid var(--gp-gray-800);
     
     ion-card-title {
       display: flex;
       align-items: center;
-      gap: 12px;
-      color: #ffffff;
+      gap: var(--gp-space-md);
+      color: var(--gp-text-primary);
       font-size: 1.2em;
       font-weight: 600;
       
       ion-icon {
-        color: #00a854;
+        color: var(--gp-brand-primary);
         font-size: 1.2em;
       }
     }
   }
   
   ion-card-content {
-    padding: 24px;
-    color: #e0e0e0;
+    padding: var(--gp-space-lg);
+    color: var(--gp-text-secondary);
   }
 }
 
 // 📧 SECCIÓN DE EMAILS - Diseño premium
 .email-actions-header {
   display: flex;
-  gap: 12px;
-  margin-bottom: 24px;
+  gap: var(--gp-space-md);
+  margin-bottom: var(--gp-space-lg);
   flex-wrap: wrap;
   
   ion-button {
     --border-radius: 25px;
-    --padding-start: 20px;
-    --padding-end: 20px;
+    --padding-start: var(--gp-space-lg);
+    --padding-end: var(--gp-space-lg);
     height: 44px;
     font-weight: 600;
     
     &[fill="outline"] {
       --border-width: 2px;
-      --border-color: #00a854;
-      --color: #00a854;
+      --border-color: var(--gp-brand-primary);
+      --color: var(--gp-brand-primary);
       --background: transparent;
       
       &:hover {
-        --background: #00a854;
-        --color: #000000;
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(0, 168, 84, 0.3);
+        --background: var(--gp-brand-primary);
+        --color: var(--gp-text-primary);
       }
     }
   }
 }
 
 .emails-container {
-  margin: 24px 0;
+  margin: var(--gp-space-lg) 0;
 }
 
 .email-input-row {
-  margin-bottom: 16px;
+  margin-bottom: var(--gp-space-md);
   animation: slideInEmail 0.4s ease-out;
 
   .email-item {
-    --border-radius: 15px;
-    --background: linear-gradient(135deg, #2a2a2a 0%, #1e1e1e 100%);
-    --border-color: #444;
+    --border-radius: var(--gp-radius-lg);
+    --background: linear-gradient(135deg, #2a2a2a 0%, var(--gp-bg-tertiary) 100%);
+    --border-color: var(--gp-gray-700);
     --border-width: 1px;
-    margin-bottom: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-    transition: all 0.3s ease;
+    margin-bottom: var(--gp-space-sm);
+    box-shadow: var(--gp-shadow-sm);
+    transition: border-color 0.3s ease;
 
     &:hover, &:focus-within {
-      --border-color: #00a854;
-      --background: linear-gradient(135deg, #2d2d30 0%, #2a2a2a 100%);
-      box-shadow: 
-        0 4px 12px rgba(0, 168, 84, 0.2),
-        0 2px 8px rgba(0, 0, 0, 0.3);
+      --border-color: var(--gp-brand-primary);
     }
 
     &.error {
@@ -203,10 +165,10 @@
     }
 
     ion-input {
-      --color: #ffffff;
-      --placeholder-color: #888;
-      --padding-start: 20px;
-      --padding-end: 20px;
+      --color: var(--gp-text-primary);
+      --placeholder-color: var(--gp-text-tertiary);
+      --padding-start: var(--gp-space-lg);
+      --padding-end: var(--gp-space-lg);
       font-size: 1.05em;
     }
     
@@ -216,7 +178,6 @@
       
       &:hover {
         --background: rgba(255, 71, 87, 0.1);
-        transform: scale(1.1);
       }
     }
   }
@@ -225,100 +186,95 @@
     color: #ff4757;
     font-size: 0.85em;
     font-weight: 500;
-    margin-left: 20px;
-    margin-top: 6px;
-    text-shadow: 0 0 5px rgba(255, 71, 87, 0.3);
+    margin-left: var(--gp-space-lg);
+    margin-top: var(--gp-space-sm);
   }
 }
 
 .email-count {
   text-align: center;
-  margin-top: 20px;
+  margin-top: var(--gp-space-lg);
   
   ion-badge {
-    --background: linear-gradient(45deg, #00a854, #1ab865);
-    --color: #000000;
-    --padding-start: 16px;
-    --padding-end: 16px;
-    --border-radius: 20px;
+    --background: var(--gp-brand-primary);
+    --color: var(--gp-text-primary);
+    --padding-start: var(--gp-space-md);
+    --padding-end: var(--gp-space-md);
+    --border-radius: var(--gp-radius-lg);
     font-weight: 700;
     font-size: 0.95em;
-    box-shadow: 0 4px 12px rgba(0, 168, 84, 0.3);
   }
 }
 
 // ⚙️ CONFIGURACIÓN ADICIONAL
 .additional-options {
-  margin-top: 24px;
-  padding-top: 24px;
-  border-top: 1px solid #444;
+  margin-top: var(--gp-space-lg);
+  padding-top: var(--gp-space-lg);
+  border-top: 1px solid var(--gp-gray-700);
 
   ion-item {
-    --border-radius: 15px;
-    --background: linear-gradient(135deg, #2a2a2a 0%, #1e1e1e 100%);
-    --border-color: #444;
+    --border-radius: var(--gp-radius-lg);
+    --background: linear-gradient(135deg, #2a2a2a 0%, var(--gp-bg-tertiary) 100%);
+    --border-color: var(--gp-gray-700);
     --border-width: 1px;
-    --color: #ffffff;
-    margin: 12px 0;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    --color: var(--gp-text-primary);
+    margin: var(--gp-space-md) 0;
+    box-shadow: var(--gp-shadow-sm);
     
     ion-label {
       h3 {
-        color: #ffffff;
+        color: var(--gp-text-primary);
         font-weight: 600;
       }
       
       p {
-        color: #b0b0b0;
+        color: var(--gp-text-tertiary);
         font-size: 0.9em;
       }
     }
     
     ion-toggle {
-      --background: #444;
-      --background-checked: #00a854;
-      --handle-background: #ffffff;
-      --handle-background-checked: #000000;
+      --background: var(--gp-gray-700);
+      --background-checked: var(--gp-brand-primary);
+      --handle-background: var(--gp-text-primary);
+      --handle-background-checked: var(--gp-text-primary);
     }
   }
 }
 
 // 👁️ VISTA PREVIA DEL ROL
 .preview-card {
-  background: linear-gradient(135deg, #00a854 0%, #00944a 100%);
-  color: #000000;
-  margin-bottom: 24px;
-  border-radius: 20px;
-  box-shadow: 
-    0 8px 32px rgba(0, 168, 84, 0.4),
-    0 4px 16px rgba(0, 0, 0, 0.2);
-  border: 1px solid #1ab865;
+  background: var(--gp-brand-primary);
+  color: var(--gp-text-primary);
+  margin-bottom: var(--gp-space-lg);
+  border-radius: var(--gp-radius-xl);
+  box-shadow: var(--gp-shadow);
+  border: 1px solid var(--gp-gray-700);
 
   .role-preview {
-    padding: 4px;
+    padding: var(--gp-space-xs);
     
     h4 {
-      margin: 0 0 12px 0;
+      margin: 0 0 var(--gp-space-md) 0;
       font-weight: 700;
       font-size: 1.2em;
-      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
     }
 
     p {
       margin: 0;
-      opacity: 0.9;
+      opacity: 0.95;
       font-weight: 500;
       line-height: 1.5;
     }
   }
 }
 
-// 🚀 BOTONES DE ACCIÓN - Estilo Uber
+// 🚀 BOTONES DE ACCIÓN - Estilo Profesional
 .action-buttons {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  margin: 32px 0;
+  gap: var(--gp-space-md);
+  margin: calc(var(--gp-space-xl) * 1.5) 0;
 
   ion-button {
     --border-radius: 30px;
@@ -327,60 +283,26 @@
     font-size: 1.1em;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    position: relative;
-    overflow: hidden;
-    
-    // Efecto de ondas al hacer clic
-    &::before {
-      content: '';
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 0;
-      height: 0;
-      background: rgba(255, 255, 255, 0.2);
-      border-radius: 50%;
-      transform: translate(-50%, -50%);
-      transition: width 0.6s, height 0.6s;
-    }
-    
-    &:active::before {
-      width: 300px;
-      height: 300px;
-    }
 
     &[fill="outline"] {
       --border-width: 2px;
-      --border-color: #00a854;
-      --color: #00a854;
+      --border-color: var(--gp-brand-primary);
+      --color: var(--gp-brand-primary);
       --background: transparent;
-      box-shadow: 0 4px 15px rgba(0, 168, 84, 0.2);
       
       &:hover {
-        --background: #00a854;
-        --color: #000000;
-        transform: translateY(-3px);
-        box-shadow: 0 8px 25px rgba(0, 168, 84, 0.4);
+        --background: var(--gp-brand-primary);
+        --color: var(--gp-text-primary);
       }
     }
 
-    // Botón principal de envío - Estilo Uber premium
+    // Botón principal de envío
     &[color="success"] {
-      --background: linear-gradient(135deg, #00a854 0%, #1ab865 100%);
-      --color: #000000;
-      box-shadow: 
-        0 8px 30px rgba(0, 168, 84, 0.4),
-        0 4px 15px rgba(0, 0, 0, 0.2);
+      --background: var(--gp-brand-primary);
+      --color: var(--gp-text-primary);
       
       &:hover {
-        transform: translateY(-4px);
-        box-shadow: 
-          0 12px 40px rgba(0, 168, 84, 0.5),
-          0 6px 20px rgba(0, 0, 0, 0.3);
-      }
-      
-      &:active {
-        transform: translateY(-2px);
+        --background: #008a47;
       }
     }
   }
@@ -389,106 +311,105 @@
 // 📊 INDICADOR DE CARGA
 .loading-indicator {
   text-align: center;
-  margin: 32px 0;
-  padding: 24px;
-  background: linear-gradient(135deg, #1a1a1a 0%, #2d2d30 100%);
-  border-radius: 20px;
-  border: 1px solid #00a854;
-  box-shadow: 0 6px 20px rgba(0, 168, 84, 0.2);
+  margin: calc(var(--gp-space-xl) * 1.5) 0;
+  padding: var(--gp-space-lg);
+  background: linear-gradient(135deg, var(--gp-bg-tertiary) 0%, #2d2d30 100%);
+  border-radius: var(--gp-radius-xl);
+  border: 1px solid var(--gp-gray-700);
+  box-shadow: var(--gp-shadow-sm);
 
   p {
-    margin-top: 16px;
-    color: #b0b0b0;
+    margin-top: var(--gp-space-md);
+    color: var(--gp-text-tertiary);
     font-style: italic;
     font-size: 1.05em;
   }
   
   ion-progress-bar {
-    --progress-background: linear-gradient(90deg, #00a854, #1ab865);
-    --buffer-background: rgba(0, 168, 84, 0.2);
+    --progress-background: var(--gp-brand-primary);
+    --buffer-background: rgba(0, 168, 84, 0.1);
     height: 6px;
-    border-radius: 3px;
-    margin-bottom: 8px;
+    border-radius: var(--gp-radius-sm);
+    margin-bottom: var(--gp-space-sm);
   }
 }
 
 // 📋 INVITACIONES RECIENTES
 .recent-invites {
-  margin-top: 32px;
+  margin-top: calc(var(--gp-space-xl) * 1.5);
 
   ion-accordion-group {
-    border-radius: 20px;
-    background: linear-gradient(135deg, #1a1a1a 0%, #2d2d30 100%);
-    border: 1px solid #333;
+    border-radius: var(--gp-radius-xl);
+    background: linear-gradient(135deg, var(--gp-bg-tertiary) 0%, #2d2d30 100%);
+    border: 1px solid var(--gp-gray-800);
     overflow: hidden;
   }
 
   ion-item[slot="header"] {
-    --background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%);
-    --color: #ffffff;
-    --border-color: #333;
+    --background: linear-gradient(135deg, var(--gp-bg-primary) 0%, var(--gp-bg-tertiary) 100%);
+    --color: var(--gp-text-primary);
+    --border-color: var(--gp-gray-800);
     
     ion-icon {
-      color: #00a854;
-      margin-right: 12px;
+      color: var(--gp-brand-primary);
+      margin-right: var(--gp-space-md);
     }
     
     ion-label h3 {
       font-weight: 600;
-      color: #ffffff;
+      color: var(--gp-text-primary);
     }
     
     ion-label p {
-      color: #b0b0b0;
+      color: var(--gp-text-tertiary);
     }
   }
 
   .accordion-content {
-    padding: 20px;
-    background: linear-gradient(135deg, #2a2a2a 0%, #1e1e1e 100%);
+    padding: var(--gp-space-lg);
+    background: linear-gradient(135deg, #2a2a2a 0%, var(--gp-bg-tertiary) 100%);
   }
 
   .invite-info {
     flex: 1;
-    color: #e0e0e0;
+    color: var(--gp-text-secondary);
 
     h4 {
-      margin: 0 0 8px 0;
+      margin: 0 0 var(--gp-space-sm) 0;
       font-weight: 600;
-      color: #ffffff;
+      color: var(--gp-text-primary);
     }
 
     p {
       margin: 2px 0;
       font-size: 0.9em;
-      color: #b0b0b0;
+      color: var(--gp-text-tertiary);
     }
 
     ion-badge {
-      margin-top: 8px;
-      --padding-start: 12px;
-      --padding-end: 12px;
-      --border-radius: 15px;
+      margin-top: var(--gp-space-sm);
+      --padding-start: var(--gp-space-md);
+      --padding-end: var(--gp-space-md);
+      --border-radius: var(--gp-radius-lg);
       font-weight: 600;
       
       &[color="warning"] {
         --background: #ffa502;
-        --color: #000000;
+        --color: var(--gp-bg-primary);
       }
       
       &[color="success"] {
-        --background: #00a854;
-        --color: #000000;
+        --background: var(--gp-brand-primary);
+        --color: var(--gp-text-primary);
       }
     }
   }
   
   ion-button[fill="clear"] {
-    --color: #00a854;
+    --color: var(--gp-brand-primary);
     
     &:hover {
-      --background: rgba(0, 168, 84, 0.1);
-      transform: scale(1.1);
+      --background: rgba(0, 168, 84, 0.08);
     }
   }
 }
@@ -496,7 +417,7 @@
 // 📱 RESPONSIVE DESIGN
 @media (max-width: 768px) {
   .email-invitation-container {
-    padding: 12px;
+    padding: var(--gp-space-md);
   }
 
   .email-actions-header {
@@ -504,7 +425,7 @@
 
     ion-button {
       width: 100%;
-      margin: 4px 0;
+      margin: var(--gp-space-xs) 0;
     }
   }
 
@@ -512,13 +433,13 @@
     justify-content: center;
     
     ion-chip {
-      margin: 4px;
+      margin: var(--gp-space-xs);
     }
   }
 
   .action-buttons {
-    gap: 12px;
-    margin: 24px 0;
+    gap: var(--gp-space-md);
+    margin: var(--gp-space-lg) 0;
     
     ion-button {
       height: 50px;
@@ -527,7 +448,7 @@
   }
   
   .form-card ion-card-content {
-    padding: 16px;
+    padding: var(--gp-space-md);
   }
 }
 
@@ -543,50 +464,34 @@
   }
 }
 
-@keyframes pulseGreen {
-  0%, 100% {
-    box-shadow: 0 0 0 0 rgba(0, 168, 84, 0.4);
-  }
-  50% {
-    box-shadow: 0 0 0 10px rgba(0, 168, 84, 0);
-  }
-}
-
-// Animación de pulso para elementos importantes
-.action-buttons ion-button[color="success"] {
-  animation: pulseGreen 2s infinite;
-}
-
 // 🔧 PERSONALIZACIÓN DE COMPONENTES IONIC
 ion-select {
-  --border-radius: 15px;
-  --background: linear-gradient(135deg, #2a2a2a 0%, #1e1e1e 100%);
-  --color: #ffffff;
-  --placeholder-color: #888;
-  --padding-start: 20px;
-  --padding-end: 20px;
-  border: 1px solid #444;
-  transition: all 0.3s ease;
+  --border-radius: var(--gp-radius-lg);
+  --background: linear-gradient(135deg, #2a2a2a 0%, var(--gp-bg-tertiary) 100%);
+  --color: var(--gp-text-primary);
+  --placeholder-color: var(--gp-text-tertiary);
+  --padding-start: var(--gp-space-lg);
+  --padding-end: var(--gp-space-lg);
+  border: 1px solid var(--gp-gray-700);
+  transition: border-color 0.3s ease;
   
   &:hover, &:focus {
-    border-color: #00a854;
-    box-shadow: 0 0 10px rgba(0, 168, 84, 0.2);
+    border-color: var(--gp-brand-primary);
   }
 }
 
 ion-textarea {
-  --border-radius: 15px;
-  --background: linear-gradient(135deg, #2a2a2a 0%, #1e1e1e 100%);
-  --color: #ffffff;
-  --placeholder-color: #888;
-  --padding-start: 20px;
-  --padding-top: 16px;
-  border: 1px solid #444;
-  transition: all 0.3s ease;
+  --border-radius: var(--gp-radius-lg);
+  --background: linear-gradient(135deg, #2a2a2a 0%, var(--gp-bg-tertiary) 100%);
+  --color: var(--gp-text-primary);
+  --placeholder-color: var(--gp-text-tertiary);
+  --padding-start: var(--gp-space-lg);
+  --padding-top: var(--gp-space-md);
+  border: 1px solid var(--gp-gray-700);
+  transition: border-color 0.3s ease;
   
   &:hover, &:focus-within {
-    border-color: #00a854;
-    box-shadow: 0 0 10px rgba(0, 168, 84, 0.2);
+    border-color: var(--gp-brand-primary);
   }
 }
 
@@ -594,9 +499,8 @@ ion-textarea {
 ion-button[disabled] {
   opacity: 0.4;
   cursor: not-allowed;
-  
-  &:hover {
-    transform: none !important;
-    box-shadow: none !important;
-  }
+}
+
+.card-invitation {
+  margin-top: 20px;
 }

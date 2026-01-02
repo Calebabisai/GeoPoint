@@ -82,7 +82,6 @@ type UserRole = 'admin' | 'user' | null;
     IonList,
     IonItem,
     IonLabel,
-    IonChip,
     IonFooter,
     IonTitle,
     MapViewComponent,
