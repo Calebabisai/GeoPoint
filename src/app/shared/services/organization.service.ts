@@ -1230,108 +1230,109 @@ export class OrganizationService {
    * Agrega un miembro a la organización
    */
   async addMemberToOrganization(
-    organizationId: string,
-    userData: {
-      userId: string;
-      email: string;
-      role: 'admin' | 'moderator' | 'user';
-      department?: string;
+  organizationId: string,
+  userData: {
+    userId: string;
+    email: string;
+    role: 'admin' | 'moderator' | 'user';
+    department?: string;
+  }
+): Promise<void> {
+  this.isLoadingSignal.set(true);
+  this.lastErrorSignal.set(null);
+
+  try {
+    const orgDocRef = doc(this.firestore, 'organizations', organizationId);
+    const orgDoc = await getDoc(orgDocRef);
+
+    if (!orgDoc.exists()) {
+      throw new Error('Organización no encontrada');
     }
-  ): Promise<void> {
-    this.isLoadingSignal.set(true);
-    this.lastErrorSignal.set(null);
 
-    try {
-      const orgDocRef = doc(this.firestore, 'organizations', organizationId);
-      const orgDoc = await getDoc(orgDocRef);
+    const orgData = orgDoc.data();
+    const existingMembers = orgData['members'] || [];
 
-      if (!orgDoc.exists()) {
-        throw new Error('Organización no encontrada');
-      }
+    // Crear el nuevo miembro con Timestamp de Firebase
+    const newMemberForFirestore = {
+      userId: userData.userId,
+      email: userData.email,
+      role: userData.role,
+      department: userData.department || 'General',
+      joinedAt: Timestamp.now(),
+      invitedBy: 'system',
+      status: 'active',
+      displayName: userData.email,
+      lastActiveAt: Timestamp.now(),
+      permissions: {
+        canCreateZones: userData.role !== 'user',
+        canCreateMarkers: true,
+        canExportData: userData.role !== 'user',
+        canViewAnalytics: userData.role !== 'user',
+        canManageMembers: userData.role === 'admin',
+        canBulkInvite: userData.role === 'admin',
+      },
+    };
 
-      const orgData = orgDoc.data();
-      const existingMembers = orgData['members'] || [];
+    // Verificar si el usuario ya es miembro
+    const existingMemberIndex = existingMembers.findIndex(
+      (m: any) => m.userId === userData.userId
+    );
 
-      const newMember: OrganizationMember = {
-        userId: userData.userId,
-        email: userData.email,
-        role: userData.role,
-        department: userData.department || 'General',
-        joinedAt: new Date(),
-        invitedBy: 'system',
-        status: 'active',
-        displayName: userData.email,
-        lastActiveAt: new Date(),
-        permissions: {
-          canCreateZones: userData.role !== 'user',
-          canCreateMarkers: true,
-          canExportData: userData.role !== 'user',
-          canViewAnalytics: userData.role !== 'user',
-          canManageMembers: userData.role === 'admin',
-          canBulkInvite: userData.role === 'admin',
-        },
-      };
+    let updatedMembers;
+    if (existingMemberIndex >= 0) {
+      // Actualizar miembro existente
+      updatedMembers = [...existingMembers];
+      updatedMembers[existingMemberIndex] = newMemberForFirestore;
+      console.log('🔄 Actualizando miembro existente');
+    } else {
+      // Agregar nuevo miembro
+      updatedMembers = [...existingMembers, newMemberForFirestore];
+      console.log('➕ Agregando nuevo miembro');
+    }
 
-      // Verificar si el usuario ya es miembro
-      const existingMemberIndex = existingMembers.findIndex(
-        (m: any) => m.userId === userData.userId
-      );
+    console.log('📝 Miembros antes de guardar:', updatedMembers.length);
+    console.log('📝 UIDs:', updatedMembers.map((m: any) => m.userId));
 
-      let updatedMembers;
-      if (existingMemberIndex >= 0) {
-        // Actualizar miembro existente
-        updatedMembers = [...existingMembers];
-        updatedMembers[existingMemberIndex] = {
-          ...newMember,
-          joinedAt: Timestamp.now(),
-          lastActiveAt: Timestamp.now(),
-        };
-      } else {
-        // Agregar nuevo miembro
-        updatedMembers = [...existingMembers, {
-          ...newMember,
-          joinedAt: Timestamp.now(),
-          lastActiveAt: Timestamp.now(),
-        }];
-      }
+    // Actualizar el documento de organización con el nuevo array de miembros
+    await updateDoc(orgDocRef, {
+      members: updatedMembers,
+      updatedAt: Timestamp.now(),
+    });
 
-      // Actualizar el documento de organización con el nuevo array de miembros
-      await updateDoc(orgDocRef, {
-        members: updatedMembers,
+    console.log('✅ Documento de organización actualizado en Firestore');
+
+    // Actualizar documento del usuario
+    const userRef = doc(this.firestore, 'users', userData.userId);
+    const userDoc = await getDoc(userRef);
+
+    if (userDoc.exists()) {
+      await updateDoc(userRef, {
+        organizationId: organizationId,
+        organizationRole: userData.role,
         updatedAt: Timestamp.now(),
       });
-
-      // Actualizar documento del usuario
-      const userRef = doc(this.firestore, 'users', userData.userId);
-      const userDoc = await getDoc(userRef);
-
-      if (userDoc.exists()) {
-        await updateDoc(userRef, {
-          organizationId: organizationId,
-          organizationRole: userData.role,
-          updatedAt: Timestamp.now(),
-        });
-      } else {
-        await setDoc(userRef, {
-          email: userData.email,
-          displayName: userData.email,
-          organizationId: organizationId,
-          organizationRole: userData.role,
-          role: 'user',
-          createdAt: Timestamp.now(),
-          updatedAt: Timestamp.now(),
-        });
-      }
-
-      console.log(' Miembro agregado a la organización:', userData.email);
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Error añadiendo miembro';
-      this.lastErrorSignal.set(errorMsg);
-      throw error;
-    } finally {
-      this.isLoadingSignal.set(false);
+    } else {
+      await setDoc(userRef, {
+        email: userData.email,
+        displayName: userData.email,
+        organizationId: organizationId,
+        organizationRole: userData.role,
+        role: 'user',
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      });
     }
+
+    console.log('✅ Miembro agregado a la organización:', userData.email);
+  } catch (error) {
+    console.error('❌ Error añadiendo miembro:', error);
+    const errorMsg = error instanceof Error ? error.message : 'Error añadiendo miembro';
+    this.lastErrorSignal.set(errorMsg);
+    throw error;
+  } finally {
+    this.isLoadingSignal.set(false);
   }
+}
 
   /**
    * Alias para acceptEmailInvite
