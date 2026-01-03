@@ -110,14 +110,14 @@ export const EMAIL_TEMPLATES = {
 <body>
     <div class="email-container">
         <div class="header">
-            <h1>🎉 ¡Bienvenido al equipo!</h1>
+            <h1> ¡Bienvenido al equipo!</h1>
         </div>
         
         <div class="content">
             <p><strong>${config.inviterName}</strong> (${config.inviterEmail}) te ha invitado a unirte a su organización:</p>
             
             <div class="organization-info">
-                <div class="organization-name">📋 ${config.organizationName}</div>
+                <div class="organization-name"> ${config.organizationName}</div>
                 <p>Te invitamos a formar parte de nuestro equipo como <strong>${roleText}</strong>${config.department ? ` en el departamento de ${config.department}` : ''}.</p>
             </div>
 
@@ -128,11 +128,11 @@ export const EMAIL_TEMPLATES = {
             }
             
             <div style="text-align: center;">
-                <a href="${config.joinUrl}" class="cta-button">🚀 Unirme a ${config.organizationName}</a>
+                <a href="${config.joinUrl}" class="cta-button"> Unirme a ${config.organizationName}</a>
             </div>
             
             <div style="background: rgba(255, 149, 0, 0.1); border: 1px solid #ff9500; border-radius: 8px; padding: 16px; margin: 20px 0; color: #ff9500;">
-                ⏰ <strong>Importante:</strong> Esta invitación expira el ${expirationDateStr}.
+                  <strong>Importante:</strong> Esta invitación expira el ${expirationDateStr}.
             </div>
         </div>
         
@@ -235,7 +235,7 @@ Este email fue enviado desde GeoPoint.
 <body>
     <div class="email-container">
         <div class="header">
-            <h1>🎉 ¡Bienvenido a bordo!</h1>
+            <h1> ¡Bienvenido a bordo!</h1>
         </div>
         
         <div class="content">
@@ -246,10 +246,10 @@ Este email fue enviado desde GeoPoint.
             
             <p>¡Felicidades! Ahora puedes:</p>
             <ul>
-                <li>📍 Crear y ver marcadores en el mapa</li>
-                <li>🗺️ Definir zonas de trabajo</li>
-                <li>👥 Colaborar con tu equipo</li>
-                <li>📊 Acceder a los datos de tu organización</li>
+                <li> Crear y ver marcadores en el mapa</li>
+                <li> Definir zonas de trabajo</li>
+                <li> Colaborar con tu equipo</li>
+                <li> Acceder a los datos de tu organización</li>
             </ul>
             
             <p>Si tienes alguna pregunta, no dudes en contactar a tu administrador.</p>

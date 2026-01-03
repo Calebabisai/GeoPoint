@@ -1,3 +1,87 @@
+// 🎨 ESTILOS DEL HEADER - Verde característico con fondo negro
+ion-content {
+  --background: linear-gradient(135deg, #1a1a1a 0%, #2d2d30 100%);
+  color: white;
+  animation: fadeInUp 0.6s ease-out;
+}
+
+ion-header {
+  box-shadow: none;
+  position: relative;
+  
+  ion-toolbar {
+    --background: linear-gradient(90deg, #000000 0%, #1a1a1a 100%);
+    --color: white;
+    --border-color: #00d46a;
+    border-bottom: 2px solid #00d46a;
+    padding: 8px 0;
+  }
+
+  ion-title {
+    font-weight: 700;
+    font-size: 1.3em;
+    text-align: center;
+    background: linear-gradient(45deg, #00d46a, #00ff7f);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  ion-back-button {
+    --color: #00d46a;
+    --color-hover: #00ff7f;
+    font-weight: 600;
+    
+    &:hover {
+      transform: scale(1.05);
+      transition: all 0.2s ease;
+    }
+  }
+  
+  // Efecto de resplandor sutil en el header
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, #00d46a, transparent);
+    opacity: 0.5;
+  }
+}
+
+// Animación de entrada suave
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// Estilos responsive para móvil
+@media (max-width: 768px) {
+  ion-header ion-title {
+    font-size: 1.1em;
+  }
+  
+  ion-content {
+    --background: linear-gradient(135deg, #1a1a1a 0%, #2d2d30 100%);
+  }
+}
+
+// Modo oscuro mejorado
+@media (prefers-color-scheme: dark) {
+  ion-content {
+    --background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%);
+  }
+}
+
+// 🎨 ESTILOS DEL COMPONENTE (continúan los estilos originales)
 .user-management {
   --ion-background-color: var(--gp-bg-primary);
   
@@ -611,4 +695,8 @@ ion-alert.role-selector {
       }
     }
   }
+}
+
+.toolbar-color {
+  background-color: #000000;
 }

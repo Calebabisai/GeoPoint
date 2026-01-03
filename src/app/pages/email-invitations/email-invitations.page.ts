@@ -27,8 +27,6 @@ import { home } from 'ionicons/icons';
     IonToolbar,
     IonBackButton,
     IonButtons,
-    IonButton,
-    IonIcon,
     EmailInvitationManagerComponent,
   ],
 })

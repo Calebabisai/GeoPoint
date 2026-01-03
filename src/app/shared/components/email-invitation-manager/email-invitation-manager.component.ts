@@ -20,7 +20,6 @@ import {
   IonSelectOption,
   IonItem,
   IonLabel,
-  IonList,
   IonCard,
   IonCardHeader,
   IonCardTitle,
@@ -28,8 +27,6 @@ import {
   IonChip,
   IonProgressBar,
   IonBadge,
-  IonAccordion,
-  IonAccordionGroup,
   ToastController,
   AlertController,
   LoadingController,
@@ -90,7 +87,6 @@ interface BulkInviteResult {
     IonSelectOption,
     IonItem,
     IonLabel,
-    IonList,
     IonCard,
     IonCardHeader,
     IonCardTitle,
@@ -98,8 +94,6 @@ interface BulkInviteResult {
     IonChip,
     IonProgressBar,
     IonBadge,
-    IonAccordion,
-    IonAccordionGroup,
   ],
 })
 export class EmailInvitationManagerComponent implements OnInit {
@@ -576,19 +570,6 @@ export class EmailInvitationManagerComponent implements OnInit {
       cssClass: 'custom-toast',
     });
     await toast.present();
-  }
-
-  /**
-   * Copia un código de invitación al portapapeles
-   */
-  async copyInviteCode(code: string) {
-    try {
-      await navigator.clipboard.writeText(code);
-      this.showToast(`Código ${code} copiado al portapapeles`, 'success');
-    } catch (error) {
-      console.error('Error copying code:', error);
-      this.showToast('Error al copiar el código', 'danger');
-    }
   }
 
   /**

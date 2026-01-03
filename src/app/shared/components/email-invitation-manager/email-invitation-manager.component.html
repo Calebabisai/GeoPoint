@@ -1,9 +1,6 @@
 <ion-header>
   <ion-toolbar>
     <ion-title>Invitaciones por Email</ion-title>
-    <ion-button slot="end" fill="clear" (click)="goBack()">
-      <ion-icon name="close-outline"></ion-icon>
-    </ion-button>
   </ion-toolbar>
 </ion-header>
 
@@ -204,46 +201,6 @@
       <ion-progress-bar type="indeterminate"></ion-progress-bar>
       <p>Enviando invitaciones por email...</p>
     </div>
-    }
-
-    <!-- Invitaciones recientes -->
-    @if (recentInvites().length > 0) {
-    <ion-accordion-group class="recent-invites">
-      <ion-accordion value="recent">
-        <ion-item slot="header">
-          <ion-icon name="time-outline" slot="start"></ion-icon>
-          <ion-label>
-            <h3>Invitaciones Recientes</h3>
-            <p>{{ recentInvites().length }} invitación(es) enviada(s)</p>
-          </ion-label>
-        </ion-item>
-        <div class="accordion-content" slot="content">
-          <ion-list>
-            @for (invite of recentInvites(); track invite.id) {
-            <ion-item>
-              <div class="invite-info">
-                <h4>{{ invite.invitedEmail }}</h4>
-                <p>Código: {{ invite.code }}</p>
-                <p>Rol: {{ invite.role }}</p>
-                <ion-badge
-                  [color]="invite.status === 'pending' ? 'warning' : 'success'"
-                >
-                  {{ invite.status }}
-                </ion-badge>
-              </div>
-              <ion-button
-                slot="end"
-                fill="clear"
-                (click)="copyInviteCode(invite.code)"
-              >
-                <ion-icon name="copy-outline"></ion-icon>
-              </ion-button>
-            </ion-item>
-            }
-          </ion-list>
-        </div>
-      </ion-accordion>
-    </ion-accordion-group>
     }
   </div>
 </ion-content>

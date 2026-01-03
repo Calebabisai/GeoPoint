@@ -1,6 +1,5 @@
-/* filepath: /home/caleb-trevizo/Desktop/GeoPoint/src/app/pages/join-invitation/join-invitation.page.scss */
 .join-invitation {
-  --background: var(--ion-color-dark);
+  --background: var(--gp-bg-primary);
 }
 
 .loading-container {
@@ -15,24 +14,25 @@
     ion-spinner {
       width: 60px;
       height: 60px;
-      margin-bottom: 20px;
+      margin-bottom: var(--gp-space-lg);
+      --color: var(--gp-brand-primary);
     }
     
     h2 {
-      color: var(--ion-color-light);
-      margin: 20px 0 10px;
+      color: var(--gp-text-primary);
+      margin: var(--gp-space-lg) 0 var(--gp-space-sm);
       font-weight: 600;
     }
     
     p {
-      color: var(--ion-color-medium);
+      color: var(--gp-text-tertiary);
       margin: 0;
     }
   }
 }
 
 .content-container {
-  padding: 20px;
+  padding: var(--gp-space-lg);
   max-width: 500px;
   margin: 0 auto;
   display: flex;
@@ -44,65 +44,75 @@
 .success-card,
 .error-card,
 .expired-card {
-  border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  border-radius: var(--gp-radius-xl);
+  box-shadow: var(--gp-shadow-lg);
+  background: linear-gradient(135deg, var(--gp-bg-tertiary) 0%, #2d2d30 100%);
   
   ion-card-header {
     text-align: center;
-    padding-bottom: 10px;
+    padding-bottom: var(--gp-space-sm);
   }
 }
 
 .success-card {
-  background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
-  border: 2px solid var(--ion-color-secondary);
+  border: 2px solid var(--gp-brand-primary);
 }
 
 .error-card {
-  background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
-  border: 2px solid var(--ion-color-danger);
+  border: 2px solid #ef4444;
 }
 
 .expired-card {
-  background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
-  border: 2px solid var(--ion-color-warning);
+  border: 2px solid #fbbf24;
 }
 
 .success-icon,
 .error-icon,
 .expired-icon {
-  margin-bottom: 15px;
+  margin-bottom: var(--gp-space-lg);
   
   ion-icon {
     font-size: 64px;
   }
 }
 
+.success-icon ion-icon {
+  color: var(--gp-brand-primary);
+}
+
+.error-icon ion-icon {
+  color: #ef4444;
+}
+
+.expired-icon ion-icon {
+  color: #fbbf24;
+}
+
 ion-card-title {
   font-size: 24px;
   font-weight: 600;
-  color: var(--ion-color-light);
+  color: var(--gp-text-primary);
 }
 
 .organization-info {
-  margin: 20px 0;
+  margin: var(--gp-space-lg) 0;
   
   ion-item {
     --background: transparent;
     --border-color: transparent;
-    --color: var(--ion-color-light);
+    --color: var(--gp-text-primary);
   }
   
   ion-label {
     h2,
     h3 {
-      color: var(--ion-color-light);
-      margin: 0 0 5px;
+      color: var(--gp-text-primary);
+      margin: 0 0 var(--gp-space-xs);
       font-weight: 600;
     }
     
     p {
-      color: var(--ion-color-medium);
+      color: var(--gp-text-tertiary);
       margin: 0;
       font-size: 14px;
     }
@@ -110,38 +120,55 @@ ion-card-title {
 }
 
 .action-buttons {
-  margin: 30px 0 20px;
+  margin: calc(var(--gp-space-xl) * 1.5) 0 var(--gp-space-lg);
   
   ion-button {
     --border-radius: 25px;
     height: 50px;
     font-weight: 600;
-    margin: 10px 0;
+    margin: var(--gp-space-sm) 0;
+    
+    &[color="primary"] {
+      --background: var(--gp-brand-primary);
+      --color: var(--gp-text-primary);
+    }
+    
+    &[fill="outline"] {
+      --border-width: 2px;
+      --border-color: var(--gp-brand-primary);
+      --color: var(--gp-brand-primary);
+      --background: transparent;
+      
+      &:hover {
+        --background: var(--gp-brand-primary);
+        --color: var(--gp-text-primary);
+      }
+    }
   }
 }
 
 .auto-redirect {
   text-align: center;
-  color: var(--ion-color-medium);
+  color: var(--gp-text-tertiary);
   font-size: 12px;
   font-style: italic;
-  margin: 20px 0 0;
+  margin: var(--gp-space-lg) 0 0;
 }
 
 .error-message {
-  color: var(--ion-color-light);
+  color: var(--gp-text-primary);
   text-align: center;
-  margin: 20px 0;
-  padding: 15px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 8px;
-  border-left: 4px solid var(--ion-color-danger);
+  margin: var(--gp-space-lg) 0;
+  padding: var(--gp-space-md);
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: var(--gp-radius);
+  border-left: 4px solid #ef4444;
 }
 
 // Responsive design
 @media (max-width: 768px) {
   .content-container {
-    padding: 10px;
+    padding: var(--gp-space-sm);
     align-items: flex-start;
     padding-top: 60px;
   }
@@ -164,7 +191,7 @@ ion-card-title {
   .success-card,
   .error-card,
   .expired-card {
-    background: var(--ion-color-dark);
-    box-shadow: 0 8px 32px rgba(255, 255, 255, 0.1);
+    background: linear-gradient(135deg, var(--gp-bg-tertiary) 0%, #2d2d30 100%);
+    box-shadow: var(--gp-shadow-lg);
   }
 }
