@@ -293,7 +293,6 @@
 
     <!-- Formulario compacto -->
     <div class="form-compact">
-      <!-- LÍNEA 279-286: Cambiado de [(ngModel)] a [value] + (ionInput) -->
       <ion-item lines="none" class="form-item">
         <ion-input
           [value]="zoneForm().name"
@@ -305,8 +304,7 @@
         </ion-input>
       </ion-item>
 
-      <!-- LÍNEA 288-298: Cambiado de [(ngModel)] a [value] + (ionInput) con conversión a número -->
-      <ion-item lines="none" class="form-item">
+       <ion-item lines="none" class="form-item">
         <ion-input
           [value]="zoneForm().number"
           (ionInput)="updateZoneNumber(+$any($event.target).value)"
@@ -321,7 +319,6 @@
         </ion-input>
       </ion-item>
 
-      <!-- LÍNEA 300-308: Cambiado de [(ngModel)] a [value] + (ionInput) -->
       <ion-item lines="none" class="form-item">
         <ion-textarea
           [value]="zoneForm().description"
@@ -338,7 +335,6 @@
       <div class="type-selector">
         <p class="selector-label">Tipo de zona:</p>
         <div class="type-buttons">
-          <!-- LÍNEA 313: Cambiado de zoneForm().type = 'zone' a updateZoneType('zone') -->
           <ion-button
             [fill]="zoneForm().type === 'zone' ? 'solid' : 'outline'"
             size="small"
@@ -347,7 +343,6 @@
             Zona
           </ion-button>
 
-          <!-- LÍNEA 320: Cambiado de zoneForm().type = 'area' a updateZoneType('area') -->
           <ion-button
             [fill]="zoneForm().type === 'area' ? 'solid' : 'outline'"
             size="small"
@@ -357,7 +352,6 @@
             Área
           </ion-button>
 
-          <!-- LÍNEA 327: Cambiado de zoneForm().type = 'sector' a updateZoneType('sector') -->
           <ion-button
             [fill]="zoneForm().type === 'sector' ? 'solid' : 'outline'"
             size="small"
@@ -374,7 +368,6 @@
         <p class="selector-label">Color:</p>
         <div class="color-options">
           @for (color of colors; track color.value) {
-          <!-- LÍNEA 341: Cambiado de zoneForm().color = color.value a updateZoneColor(color.value) -->
           <button
             class="color-button"
             [class.selected]="zoneForm().color === color.value"

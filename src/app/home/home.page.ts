@@ -40,8 +40,7 @@ import {
   person,
   mail,
   pinOutline,
-  shapesOutline,
-} from 'ionicons/icons';
+  shapesOutline, refreshOutline } from 'ionicons/icons';
 import { MapViewComponent } from '../map/components/map-view/map-view.component';
 import { GeolocationService } from '../map/services/geolocation.service';
 import { UiService } from '../shared/services/ui.service';
@@ -127,27 +126,10 @@ export class HomePage {
   });
 
   constructor() {
-    addIcons({
-      settingsOutline,
-      logOutOutline,
-      locationOutline,
-      menuOutline,
-      peopleOutline,
-      people,
-      business,
-      analytics,
-      mapOutline,
-      layersOutline,
-      settings,
-      personCircle,
-      chevronForward,
-      codeSlash,
-      shieldCheckmark,
-      person,
-      mail,
-      pinOutline,
-      shapesOutline,
-    });
+    addIcons({locationOutline,shieldCheckmark,people,chevronForward,business,mail,
+      analytics,mapOutline,layersOutline,settingsOutline,settings,personCircle,
+      logOutOutline,menuOutline,pinOutline,shapesOutline,refreshOutline,peopleOutline,
+      codeSlash,person,});
 
     // Auto-initialize location tracking
     this.initializeLocation();
@@ -184,8 +166,49 @@ export class HomePage {
 
   async logout(): Promise<void> {
     await this.authService.logout();
+  } 
+  /**
+ * Refresca completamente el mapa y todos sus datos
+ * - Recentra el mapa en la ubicación actual
+ * - Actualiza la ubicación GPS
+ * - Recarga marcadores y zonas
+ * - Reinicia el tracking de ubicación si está detenido
+ */
+async refreshAll(): Promise<void> {
+  try {
+    // Mostrar indicador de carga
+    await this.uiService.showLoading('Actualizando...');
+    
+    // 1. Obtener ubicación precisa actualizada
+    await this.geolocationService.centerMapOnUserLocation();
+    
+    // 2. Asegurar que el tracking está activo
+    if (!this.locationWatching()) {
+      await this.geolocationService.startWatching();
+    }
+    
+    // 3. Forzar recarga de marcadores y zonas desde Firestore
+    // Los observables en MapDataService se recargarán automáticamente
+    // cuando el servicio detecte cambios en la organización
+    
+    // 4. Pequeño delay para asegurar que todo se actualice
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Ocultar indicador de carga
+    await this.uiService.hideLoading();
+    
+    // Mostrar mensaje de éxito
+    await this.showSuccess('✓ Mapa actualizado correctamente');
+    
+  } catch (error) {
+    await this.uiService.hideLoading();
+    console.error('Error al refrescar:', error);
+    await this.showError('No se pudo actualizar completamente. Verifica tu conexión.');
   }
-
+}
+ /**
+  * @deprecated Usa refreshAll() en su lugar
+  */
   async recenterMap(): Promise<void> {
     try {
       await this.showWarning('Obteniendo ubicación precisa...');
@@ -269,4 +292,6 @@ export class HomePage {
   private async showWarning(message: string): Promise<void> {
     await this.uiService.showWarning(message);
   }
+
+
 }
