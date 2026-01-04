@@ -578,24 +578,24 @@ ion-fab-button {
   }
 }
 
-/* === MODO ELIMINACIÓN === */
-// Estilos optimizados para modo de eliminación en el mapa
+/* === MODO ELIMINACIÓN - REDISEÑO SUTIL === */
+// Estilos discretos para modo de eliminación en el mapa
 .delete-mode {
-  cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="%23ff4757" viewBox="0 0 24 24"><path d="M9 3v1H4v2h1v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6h1V4h-5V3H9zm1 2h4v1H10V5zm-4 3v11h12V8H6z"/><path d="M8 10h2v7H8zm4 0h2v7h-2z"/></svg>') 12 12, crosshair !important;
+  cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="%23ff6b6b" viewBox="0 0 24 24"><path d="M9 3v1H4v2h1v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6h1V4h-5V3H9zm1 2h4v1H10V5zm-4 3v11h12V8H6z"/><path d="M8 10h2v7H8zm4 0h2v7h-2z"/></svg>') 12 12, crosshair !important;
   
-  // Indicador visual sutil sin movimiento excesivo
-  outline: 2px solid rgba(255, 71, 87, 0.6);
-  outline-offset: 2px;
+  // Borde sutil en lugar de outline agresivo
+  box-shadow: 0 0 0 1px rgba(255, 107, 107, 0.3),
+              0 0 8px rgba(255, 107, 107, 0.15) !important;
   
-  // Hover más suave sin escalado que cause movimiento
+  // Hover suave sin efectos bruscos
   &:hover {
-    outline-color: rgba(255, 71, 87, 0.9);
-    filter: brightness(0.8) saturate(1.2);
-    transition: all 0.15s ease-in-out;
+    box-shadow: 0 0 0 2px rgba(255, 107, 107, 0.5),
+                0 0 12px rgba(255, 107, 107, 0.25) !important;
+    filter: brightness(0.9);
+    transition: all 0.2s ease;
   }
   
-  // Pulso sutil solo en el outline
-  animation: deleteModePulse 3s ease-in-out infinite;
+  // SIN animación de pulso constante - solo feedback al hover
 }
 
 // Reset cursor cuando NO está en delete-mode
@@ -607,50 +607,37 @@ ion-fab-button {
   }
 }
 
-@keyframes deleteModePulse {
-  0%, 100% {
-    outline-color: rgba(255, 71, 87, 0.4);
-  }
-  50% {
-    outline-color: rgba(255, 71, 87, 0.8);
-  }
-}
-
-// Estilos específicos para markers en modo eliminación - sin escalado
+// Estilos específicos para markers en modo eliminación - MUY SUTIL
 .leaflet-marker-icon.delete-mode {
-  filter: hue-rotate(340deg) brightness(0.9);
+  filter: grayscale(0.2) brightness(0.95);
   position: relative;
   
-  // Sin transform que cause movimiento
   &:hover {
-    filter: hue-rotate(340deg) brightness(0.7);
+    filter: grayscale(0.4) brightness(0.85);
+    transition: filter 0.2s ease;
   }
   
-  // Indicador visual alternativo con pseudo-elemento
-  &::before {
-    content: '×';
+  // Badge discreto en lugar de X grande
+  &::after {
+    content: '';
     position: absolute;
-    top: -8px;
-    right: -8px;
-    background: #ff4757;
-    color: white;
+    top: -4px;
+    right: -4px;
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+    border: 2px solid rgba(0, 0, 0, 0.8);
     border-radius: 50%;
-    width: 18px;
-    height: 18px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 12px;
-    font-weight: bold;
+    width: 14px;
+    height: 14px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
     z-index: 1000;
-    animation: fadeInScale 0.3s ease-out;
+    animation: fadeInBadge 0.3s ease-out;
   }
 }
 
-@keyframes fadeInScale {
+@keyframes fadeInBadge {
   from {
     opacity: 0;
-    transform: scale(0.5);
+    transform: scale(0.3);
   }
   to {
     opacity: 1;
@@ -658,17 +645,18 @@ ion-fab-button {
   }
 }
 
-// Estilos específicos para zonas en modo eliminación - más sutiles
+// Estilos específicos para zonas en modo eliminación - línea punteada sutil
 .leaflet-interactive.delete-mode {
-  stroke: #ff4757 !important;
+  stroke: #ff6b6b !important;
   stroke-width: 2px !important;
-  stroke-dasharray: 8,4 !important;
-  stroke-opacity: 0.8 !important;
+  stroke-dasharray: 6,3 !important;
+  stroke-opacity: 0.5 !important;
   
   &:hover {
-    stroke-width: 3px !important;
-    stroke-opacity: 1 !important;
-    fill-opacity: 0.3 !important;
+    stroke-width: 2.5px !important;
+    stroke-opacity: 0.8 !important;
+    fill-opacity: 0.25 !important;
+    transition: all 0.2s ease;
   }
 }
 

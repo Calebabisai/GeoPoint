@@ -198,12 +198,12 @@ async refreshAll(): Promise<void> {
     await this.uiService.hideLoading();
     
     // Mostrar mensaje de éxito
-    await this.showSuccess('✓ Mapa actualizado correctamente');
+    await this.showSuccess('Mapa actualizado correctamente');
     
   } catch (error) {
     await this.uiService.hideLoading();
     console.error('Error al refrescar:', error);
-    await this.showError('No se pudo actualizar completamente. Verifica tu conexión.');
+    await this.showError('No se pudo actualizar completamente. Verifica tu conexión');
   }
 }
  /**

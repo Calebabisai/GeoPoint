@@ -176,3 +176,88 @@ ion-fab-button {
   .role-selector-container { left: 12px; }
   .auth-indicator { right: 12px; }
 }
+
+// ============================================
+// MODO ELIMINAR - Diseño sutil y profesional
+// ============================================
+
+.edit-mode-indicator-enhanced {
+  position: fixed;
+  top: calc(var(--gp-space-lg) + 60px);
+  right: var(--gp-space-lg);
+  left: var(--gp-space-lg);
+  z-index: 1002;
+  text-align: center;
+  animation: slideDownFade 0.4s ease-out;
+
+  ion-chip {
+    --background: linear-gradient(135deg, rgba(0, 0, 0, 0.85) 0%, rgba(26, 26, 26, 0.85) 100%);
+    --color: #ff6b6b;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), 
+                0 0 0 1px rgba(255, 107, 107, 0.2);
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+    font-weight: 500;
+    font-size: 0.85rem;
+    padding: 6px 14px;
+    margin-bottom: 6px;
+    border: 1px solid rgba(255, 107, 107, 0.3);
+    min-height: 38px;
+    transition: all 0.3s ease;
+  }
+
+  .edit-mode-instructions {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.75rem;
+    background: rgba(0, 0, 0, 0.4);
+    padding: 4px 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 107, 107, 0.15);
+    backdrop-filter: blur(8px);
+
+    small {
+      color: rgba(255, 107, 107, 0.8);
+      font-weight: 400;
+    }
+  }
+}
+
+// Botón FAB en modo eliminar - Sin animación agresiva
+ion-fab {
+  ion-fab-button {
+    &[color="danger"].edit-mode-active {
+      --box-shadow: 0 6px 16px rgba(255, 107, 107, 0.35);
+      // Sin animación de pulso constante - más limpio
+    }
+  }
+}
+
+// Animación de entrada suave
+@keyframes slideDownFade {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// Responsive para edit mode
+@media (max-width: 768px) {
+  .edit-mode-indicator-enhanced {
+    top: calc(var(--gp-space-md) + 50px);
+    left: var(--gp-space-md);
+    right: var(--gp-space-md);
+
+    ion-chip {
+      font-size: 0.8rem;
+      padding: 5px 12px;
+    }
+
+    .edit-mode-instructions {
+      font-size: 0.7rem;
+    }
+  }
+}

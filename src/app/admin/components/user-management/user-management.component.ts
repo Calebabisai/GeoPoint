@@ -36,7 +36,7 @@ import {
   ribbonOutline,
   shieldCheckmarkOutline,
   personOutline,
-  helpOutline, peopleOutline } from 'ionicons/icons';
+  helpOutline } from 'ionicons/icons';
 import { AuthService } from '../../../auth/services/auth.service';
 import {
   UserManagementService,
