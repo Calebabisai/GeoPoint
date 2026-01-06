@@ -69,7 +69,6 @@ export class LoginPage {
 
     try {
       await this.authService.login(this.email(), this.password());
-      await this.uiService.showSuccess('Bienvenido!');
       this.router.navigate(['/map']);
     } catch (err: any) {
       const errorMessage = this.getErrorMessage(err.code);
