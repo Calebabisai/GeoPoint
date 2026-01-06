@@ -79,15 +79,28 @@ export class MapControlsComponent implements OnInit, OnDestroy {
   private alertCtrl = inject(AlertController);
 
   // Signals para permisos
-  readonly canCreateMarker = computed(() =>
-    this.authorizationService.hasPermission('create-marker')
-  );
-  readonly canCreateZone = computed(() =>
-    this.authorizationService.hasPermission('create-zone')
-  );
+  readonly canCreateMarker = computed(() => {
+  const orgRole = this.authorizationService.currentUser()?.organizationRole;
+  return orgRole === 'owner' || orgRole === 'admin' || orgRole === 'moderator' || orgRole === 'user';
+  });
+
+  readonly canCreateZone = computed(() => {
+    const orgRole = this.authorizationService.currentUser()?.organizationRole;
+    return orgRole === 'owner' || orgRole === 'admin' || orgRole === 'moderator';
+  });
+
+  readonly canEditOrDelete = computed(() => {
+    const orgRole = this.authorizationService.currentUser()?.organizationRole;
+    return orgRole === 'owner' || orgRole === 'admin' || orgRole === 'moderator';
+  });
+
   readonly isAdmin = computed(() => this.authorizationService.isAdmin());
   readonly currentUserRole = computed(() =>
     this.authorizationService.currentUserRole()
+  );
+
+  readonly organizationRole = computed(() =>
+    this.authorizationService.currentUser()?.organizationRole
   );
 
   // Signals para controles del FAB y paneles
@@ -365,6 +378,12 @@ export class MapControlsComponent implements OnInit, OnDestroy {
   }
 
   startCreatingZone() {
+  // NUEVO: Verificar permisos antes de permitir crear zona
+    if (!this.canCreateZone()) {
+      this.showToast('No tienes permisos para crear zonas. Solo miembros con rol de Moderador o superior pueden crear zonas.');
+      return;
+    }
+
     this.isCreatingZoneSignal.set(true);
     this.zonePointsSignal.set([]);
     this.triggerHapticFeedback('light');
@@ -390,6 +409,12 @@ export class MapControlsComponent implements OnInit, OnDestroy {
   }
 
   async createZone() {
+    // NUEVO: Validación adicional de seguridad
+    if (!this.canCreateZone()) {
+      this.showToast('No tienes permisos para crear zonas');
+      return;
+    }
+
     const zonePoints = this.zonePointsSignal();
     if (zonePoints.length < 3) {
       this.showToast('Se necesitan al menos 3 puntos para crear una zona');
@@ -399,7 +424,7 @@ export class MapControlsComponent implements OnInit, OnDestroy {
     const zoneForm = this.zoneFormSignal();
     if (!zoneForm.name.trim()) {
       this.showToast('El nombre de la zona es obligatorio');
-      return;
+      return; 
     }
 
     try {
@@ -529,12 +554,9 @@ export class MapControlsComponent implements OnInit, OnDestroy {
   }
 
   toggleEditMode() {
-    const canEdit =
-      this.authorizationService.isAdmin() ||
-      this.authorizationService.isDev();
-
-    if (!canEdit) {
-      this.showToast('No tienes permisos para editar elementos');
+  // NUEVO: Verificar permisos antes de activar modo edición
+    if (!this.canEditOrDelete()) {
+      this.showToast('No tienes permisos para editar o eliminar elementos. Solo miembros con rol de Moderador o superior pueden hacerlo.');
       return;
     }
 

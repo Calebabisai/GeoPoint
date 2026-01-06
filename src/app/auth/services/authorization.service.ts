@@ -18,18 +18,8 @@ export class AuthorizationService {
   readonly isUser = computed(() => this.currentUser()?.role === 'user');
   readonly hasElevatedPermissions = computed(() => this.isAdmin());
   readonly currentUserRole = computed(() => this.currentUser()?.role ?? null);
-  readonly userPermissions = computed(() => {
-    const user = this.currentUser();
-    if (!user) return [];
-    return this.getPermissionsByRole(user.role);
-  });
 
-  constructor() {
-    if(typeof window !== 'undefined') {
-      (window as any).authorizationService = this;
-    }
-  }
-/**
+  /**
    * Obtiene el usuario actual con rol override si está en desarrollo
    */
   getUserWithDevelopmentRole(): User | null {
@@ -89,6 +79,82 @@ export class AuthorizationService {
 
     return permissionMap[role] || [];
   }
+
+  /**
+   * Obtiene permisos basados en el rol de organización
+   */
+  private getPermissionsByOrganizationRole(orgRole: 'owner' | 'admin' | 'moderator' | 'user' | null): string[] {
+    if (!orgRole) return [];
+    
+    const permissionMap = {
+      owner: [
+        'create-marker',
+        'edit-marker',
+        'delete-marker',
+        'create-zone',
+        'edit-zone',
+        'delete-zone',
+        'create-route',
+        'edit-route',
+        'delete-route',
+        'manage-users',
+        'change-roles',
+        'view-analytics',
+        'export-data',
+        'system-settings',
+      ],
+      admin: [
+        'create-marker',
+        'edit-marker',
+        'delete-marker',
+        'create-zone',
+        'edit-zone',
+        'delete-zone',
+        'create-route',
+        'edit-route',
+        'delete-route',
+        'view-analytics',
+        'export-data',
+      ],
+      moderator: [
+        'create-marker',
+        'edit-marker',
+        'delete-marker',
+        'create-zone',
+        'edit-zone',
+        'delete-zone',
+        'create-route',
+        'edit-route',
+        'delete-route',
+      ],
+      user: [
+        'create-marker',
+        'edit-own-marker',
+        'delete-own-marker',
+        'view-zones',
+        'view-routes',
+      ],
+    };
+
+    return permissionMap[orgRole] || [];
+  }
+
+  /**
+   * Obtiene todos los permisos del usuario (combina rol global y rol de organización)
+   */
+  readonly userPermissions = computed(() => {
+    const user = this.currentUser();
+    if (!user) return [];
+    
+    // Permisos por rol global (admin/user)
+    const globalPermissions = this.getPermissionsByRole(user.role);
+    
+    // Permisos por rol de organización
+    const orgPermissions = this.getPermissionsByOrganizationRole(user.organizationRole || null);
+    
+    // Combinar ambos (sin duplicados)
+    return [...new Set([...globalPermissions, ...orgPermissions])];
+  });
 
   /**
    * Verifica si el usuario tiene un permiso específico

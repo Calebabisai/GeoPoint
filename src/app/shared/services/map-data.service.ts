@@ -207,20 +207,59 @@ export class MapDataService {
    */
   getMapPermissions(): Observable<MapPermissions> {
     const orgRole = this.organizationService.organizationRole();
-  
-    const isAdmin = orgRole === 'owner' || orgRole === 'admin';
+
+    if (!orgRole) {
+      return of({
+        canView: true,
+        canCreate: false,
+        canEdit: false,
+        canDelete: false,
+        canEditOwn: false,
+        canDeleteOwn: false,
+      });
+    }
+
+    const isOwner = orgRole === 'owner';
+    const isAdmin = orgRole === 'admin';
     const isModerator = orgRole === 'moderator';
     const isUser = orgRole === 'user';
 
     return of({
       canView: true,
-      canCreate: isAdmin || isModerator || isUser,
-      canEdit: isAdmin || isModerator,
-      canDelete: isAdmin || isModerator,
-      canEditOwn: true,
-      canDeleteOwn: true,
+      canCreate: isOwner || isAdmin || isModerator || isUser, // Todos pueden crear marcadores
+      canEdit: isOwner || isAdmin || isModerator, // Owner, Admin y Moderator pueden editar
+      canDelete: isOwner || isAdmin || isModerator, // Owner, Admin y Moderator pueden eliminar
+      canEditOwn: true, // Todos pueden editar los suyos
+      canDeleteOwn: true, // Todos pueden eliminar los suyos
     });
   }
+
+  /**
+  * Verifica si el usuario puede crear zonas
+  */
+  canCreateZones(): boolean {
+    const orgRole = this.organizationService.organizationRole();
+    // Solo owner, admin y moderator pueden crear zonas
+    return orgRole === 'owner' || orgRole === 'admin' || orgRole === 'moderator';
+  }
+
+  /**
+   * Verifica si el usuario puede crear marcadores
+   */
+  canCreateMarkers(): boolean {
+    const orgRole = this.organizationService.organizationRole();
+    // Todos los roles pueden crear marcadores
+    return orgRole === 'owner' || orgRole === 'admin' || orgRole === 'moderator' || orgRole === 'user';
+  }
+
+  /**
+   * Verifica si el usuario puede editar/eliminar elementos
+   */
+  canEditOrDelete(): boolean {
+    const orgRole = this.organizationService.organizationRole();
+    // Solo owner, admin y moderator pueden activar modo edición
+    return orgRole === 'owner' || orgRole === 'admin' || orgRole === 'moderator';
+  }       
 
   /**
    * Crea un nuevo marcador en Firebase
@@ -282,68 +321,69 @@ export class MapDataService {
    * Crea una nueva zona en Firebase
    */
   async createZone(
-    zoneData: Omit<
-      MapZone,
-      'id' | 'organizationId' | 'createdBy' | 'createdAt' | 'updatedAt'
-    >
-  ): Promise<MapZone> {
-    this.isLoadingSignal.set(true);
-    this.lastErrorSignal.set(null);
+  zoneData: Omit<
+    MapZone,
+    'id' | 'organizationId' | 'createdBy' | 'createdAt' | 'updatedAt'
+  >
+): Promise<MapZone> {
+  this.isLoadingSignal.set(true);
+  this.lastErrorSignal.set(null);
 
-    try {
-      const currentUser = this.authService.getCurrentUser()();
-      const currentOrg = this.organizationService.currentOrganization();
+  try {
+    const currentUser = this.authService.getCurrentUser()();
+    const currentOrg = this.organizationService.currentOrganization();
 
-      if (!currentUser || !currentOrg) {
-        throw new Error('Usuario u organización no encontrados');
-      }
-
-      const permissions = await this.getMapPermissionsValue();
-      if (!permissions?.canCreate) {
-        throw new Error('No tienes permisos para crear zonas');
-      }
-
-      const coordinates = zoneData.coordinates.polygon
-        ? zoneData.coordinates.polygon.map((coord) => ({
-            lat: coord[0],
-            lng: coord[1],
-          }))
-        : [];
-
-      const zoneNumber = zoneData.metadata?.customFields?.['number'] || 1;
-
-      const firestoreZoneData: Omit<FirestoreZone, 'id'> = {
-        name: zoneData.name,
-        description: zoneData.description || '',
-        coordinates: coordinates,
-        color: zoneData.style?.fillColor || '#007bff',
-        number: zoneNumber,
-        type: this.convertMapZoneTypeToFirestore(zoneData.type),
-        createdBy: currentUser.uid,
-        organizationId: currentOrg.id,
-        createdAt: new Date(),
-      };
-
-      const savedZoneId = await this.firestoreService.addZone(firestoreZoneData);
-
-      const savedZone: FirestoreZone = {
-        ...firestoreZoneData,
-        id: savedZoneId,
-      };
-
-      const convertedZone = this.convertFirestoreZoneToMapZone(savedZone);
-      this.zonesSignal.update((zones) => [...zones, convertedZone]);
-
-      return convertedZone;
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Error creando zona';
-      this.lastErrorSignal.set(errorMessage);
-      throw error;
-    } finally {
-      this.isLoadingSignal.set(false);
+    if (!currentUser || !currentOrg) {
+      throw new Error('Usuario u organización no encontrados');
     }
+
+    // CAMBIO: Verificar específicamente si puede crear zonas
+    const orgRole = currentUser.organizationRole;
+    if (orgRole !== 'owner' && orgRole !== 'admin' && orgRole !== 'moderator') {
+      throw new Error('No tienes permisos para crear zonas. Solo miembros con rol de Moderador o superior.');
+    }
+
+    const coordinates = zoneData.coordinates.polygon
+      ? zoneData.coordinates.polygon.map((coord) => ({
+          lat: coord[0],
+          lng: coord[1],
+        }))
+      : [];
+
+    const zoneNumber = zoneData.metadata?.customFields?.['number'] || 1;
+
+    const firestoreZoneData: Omit<FirestoreZone, 'id'> = {
+      name: zoneData.name,
+      description: zoneData.description || '',
+      coordinates: coordinates,
+      color: zoneData.style?.fillColor || '#007bff',
+      number: zoneNumber,
+      type: this.convertMapZoneTypeToFirestore(zoneData.type),
+      createdBy: currentUser.uid,
+      organizationId: currentOrg.id,
+      createdAt: new Date(),
+    };
+
+    const savedZoneId = await this.firestoreService.addZone(firestoreZoneData);
+
+    const savedZone: FirestoreZone = {
+      ...firestoreZoneData,
+      id: savedZoneId,
+    };
+
+    const convertedZone = this.convertFirestoreZoneToMapZone(savedZone);
+    this.zonesSignal.update((zones) => [...zones, convertedZone]);
+
+    return convertedZone;
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : 'Error creando zona';
+    this.lastErrorSignal.set(errorMessage);
+    throw error;
+  } finally {
+    this.isLoadingSignal.set(false);
   }
+}
 
   /**
    * Convierte actualizaciones de MapMarker a formato Firestore

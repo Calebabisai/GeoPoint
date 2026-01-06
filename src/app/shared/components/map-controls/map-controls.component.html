@@ -4,8 +4,9 @@
 </div>
 
 <!-- Indicador de estado de autorización -->
-@if (currentUserRole(); as role) {
+<!-- DESPUÉS (MEJORADO): -->
 <div class="auth-indicator">
+  @if (currentUserRole(); as role) {
   <ion-chip [color]="role === 'admin' ? 'success' : 'primary'" size="small">
     <ion-icon
       [name]="role === 'admin' ? 'shield-checkmark' : 'person'"
@@ -13,8 +14,27 @@
     ></ion-icon>
     <ion-label>{{ role | titlecase }}</ion-label>
   </ion-chip>
+  }
+  
+  @if (organizationRole(); as orgRole) {
+  <ion-chip 
+    [color]="orgRole === 'owner' ? 'warning' : 
+             orgRole === 'admin' ? 'danger' : 
+             orgRole === 'moderator' ? 'secondary' : 
+             'medium'" 
+    size="small"
+  >
+    <ion-icon
+      [name]="orgRole === 'owner' ? 'ribbon-outline' : 
+              orgRole === 'admin' ? 'shield-checkmark-outline' : 
+              orgRole === 'moderator' ? 'shield-outline' : 
+              'person-outline'"
+      slot="start"
+    ></ion-icon>
+    <ion-label>{{ orgRole | titlecase }}</ion-label>
+  </ion-chip>
+  }
 </div>
-}
 
 <!-- Indicador de modo editar mejorado -->
 @if (editMode()) {
@@ -69,7 +89,7 @@
     }
 
     <!-- Botón de modo editar - solo para admins -->
-    @if (isAdmin()) {
+    @if (canEditOrDelete()) {
     <ion-fab-button
       (click)="toggleEditMode()"
       [color]="editMode() ? 'danger' : 'medium'"
@@ -79,7 +99,7 @@
       <ion-icon [name]="editMode() ? 'trash-bin' : 'pencil'" size="small">
       </ion-icon>
     </ion-fab-button>
-    }
+    }     
   </ion-fab-list>
 </ion-fab>
 
