@@ -25,7 +25,7 @@ const config: CapacitorConfig & { bundledWebRuntime?: boolean } = {
       splashImmersive: true, // Modo inmersivo (oculta barra de navegación)
     },
     Network: {
-      allowedHostnames: ['firebaseapp.com', 'googleapis.com', 'emailjs.com'],
+      allowedHostnames: ['firebaseapp.com', 'googleapis.com', 'emailjs.com', 'tile.openstreetmap.org'],
     },
   },
   server: {
@@ -35,7 +35,11 @@ const config: CapacitorConfig & { bundledWebRuntime?: boolean } = {
       'https://googleapis.com',
       'https://*.googleapis.com',
       'https://emailjs.com',
+      'https://*.tile.openstreetmap.org',
     ],
+        // NUEVO: Permitir Service Workers
+    androidScheme: 'https',
+    cleartext: false,
   },
 };
 
