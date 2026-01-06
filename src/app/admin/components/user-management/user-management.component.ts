@@ -22,8 +22,7 @@ import {
   IonSpinner,
   AlertController,
   ToastController,
-  ActionSheetController,
-} from '@ionic/angular/standalone';
+  ActionSheetController, IonBadge } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import {
   person,
@@ -36,7 +35,7 @@ import {
   ribbonOutline,
   shieldCheckmarkOutline,
   personOutline,
-  helpOutline, peopleOutline } from 'ionicons/icons';
+  helpOutline, peopleOutline, checkmarkCircle } from 'ionicons/icons';
 import { AuthService } from '../../../auth/services/auth.service';
 import {
   UserManagementService,
@@ -80,7 +79,7 @@ type OrgRole = 'owner' | 'admin' | 'moderator' | 'user';
   templateUrl: './user-management.component.html',
   styleUrls: ['./user-management.component.scss'],
   standalone: true,
-  imports: [
+  imports: [IonBadge, 
     CommonModule,
     FormsModule,
     IonContent,
@@ -95,10 +94,6 @@ type OrgRole = 'owner' | 'admin' | 'moderator' | 'user';
     IonAvatar,
     IonButton,
     IonIcon,
-    IonCard,
-    IonCardHeader,
-    IonCardTitle,
-    IonCardContent,
     IonChip,
     IonSpinner,
   ],
@@ -184,12 +179,6 @@ export class UserManagementComponent {
       ]);
 
       this.users.set(users);
-
-      if (users.length > 0) {
-        await this.showToast(`Cargados ${users.length} usuarios`, 'success');
-      } else {
-        await this.showToast('No se encontraron usuarios', 'warning');
-      }
     } catch (error) {
       await this.showToast(
         error instanceof Error ? error.message : 'Error cargando datos',

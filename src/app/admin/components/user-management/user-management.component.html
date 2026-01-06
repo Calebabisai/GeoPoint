@@ -17,7 +17,7 @@
     <div class="loading-container">
     <div class="loading-content">
     <ion-spinner name="crescent" color="primary"></ion-spinner>
-    <p>Cargando usuarios...</p>
+    <p>Cargando...</p>
     </div>
     </div>
    }
@@ -26,113 +26,75 @@
   <!-- Content -->
   @if (!isLoading()) {
     <div class="content-container">
-      <!-- Header Info -->
-      <ion-card>
-        <ion-card-header>
-          <ion-card-title>
-            Usuarios de la Organización
-          </ion-card-title>
-        </ion-card-header>
-        <ion-card-content>
-          <p>Lista de usuarios y sus roles en la organización actual.</p>
-        </ion-card-content>
-      </ion-card>
+      <!-- Header compacto -->
+      <div class="header-info">
+        <h2>Miembros</h2>
+        <ion-badge color="primary">{{ users().length }}</ion-badge>
+      </div>
 
-      <!-- Users List --> 
-      <ion-card>
-        <ion-card-header>
-          <ion-card-title>Miembros Activos</ion-card-title>
-        </ion-card-header>
-        <ion-card-content>
-          @if (users().length > 0) {
-            <ion-list>
-              @for (user of users(); track user.uid) {
-                <ion-item lines="full" [button]="false">
-                  <ion-avatar slot="start">
-                    <ion-icon name="person" color="medium"></ion-icon>
-                  </ion-avatar>
+      <!-- Users List Compacta -->
+      @if (users().length > 0) {
+        <ion-list class="compact-list">
+          @for (user of users(); track user.uid) {
+            <ion-item lines="full" class="user-item-compact">
+              <!-- Avatar y Nombre -->
+              <div class="user-info" slot="start">
+                <div class="user-details">
+                  <h3>{{ getUserDisplayName(user) }}</h3>
+                  <p class="user-email">{{ user.email }}</p>
+                </div>
+              </div>
 
-                  <ion-label>
-                    <h2>{{ getUserDisplayName(user) }}</h2>
-                    <p>{{ user.email }}</p>
-                    <p>{{ user.organizationName || "Sin organización" }}</p>
-                    @if (user.createdAt) {
-                      <p>
-                        Miembro desde: {{ user.createdAt | date : "dd/MM/yyyy" }}
-                      </p>
-                    }
-                  </ion-label>
+              <!-- Rol y Acciones -->
+              <div slot="end" class="user-actions">
+                <!-- Rol Chip -->
+                @if(user.organizationRole) {
+                  <ion-chip
+                    [color]="getOrgRoleColor(user.organizationRole)"
+                    size="small"
+                    class="role-chip"
+                  >
+                    <ion-icon
+                      [name]="getOrgRoleIcon(user.organizationRole)"
+                    ></ion-icon>
+                    <ion-label>{{ getOrgRoleDisplayName(user.organizationRole) }}</ion-label>
+                  </ion-chip>
+                }
 
-                  <!-- Acciones de Usuario -->
-                  <div slot="end" class="user-actions-container">
-                    <!-- Rol Badge (solo visual) -->
-                    @if (user.organizationRole) {
-                      <ion-chip
-                        [color]="getOrgRoleColor(user.organizationRole)"
-                        class="role-chip-display"
-                      >
-                        <ion-icon
-                          [name]="getOrgRoleIcon(user.organizationRole)"
-                          slot="start"
-                        >
-                        </ion-icon>
-                        <ion-label>{{
-                          getOrgRoleDisplayName(user.organizationRole)
-                        }}</ion-label>
-                      </ion-chip>
+                <!-- Owner Badge -->
+                @if(user.organizationRole === 'owner'){
+                  <ion-icon name="ribbon" color="warning" class="owner-icon"></ion-icon>
+                }
 
-                      <!-- Condicional para el Owner -->
-                          @if(user.organizationRole === 'owner'){
-                            <ion-chip class="owner-badge" color="warning" >
-                              <ion-icon name="ribbon-outline"></ion-icon>
-                            </ion-chip>
-                          }                          
-                    }
+                <!-- Badge "Tú" -->
+                @if(isCurrentUser(user)) {
+                  <ion-icon name="checkmark-circle" color="success" class="current-user-icon"></ion-icon>
+                }
 
-                    <!-- Botón de opciones (solo si NO es el usuario actual) -->
-                    @if (!isCurrentUser(user)) {
-                      <div class="action-buttons">
-                        <ion-button
-                        fill="clear"
-                        size="small"
-                        (click)="openUserOptions(user)"
-                        [disabled]="user.organizationRole === 'owner'"
-                      >
-                          <ion-icon
-                            name="ellipsis-vertical"
-                            slot="icon-only"
-                          ></ion-icon>
-                        </ion-button>
-                      </div>
-                    }
-
-                    <!-- Badge "Tú" para el usuario actual -->
-                    @if (isCurrentUser(user)) {
-                      <ion-chip color="success">
-                        <ion-icon name="person" slot="start"></ion-icon>
-                        <ion-label>Tú</ion-label>
-                      </ion-chip>
-                    }
-                  </div>
-                </ion-item>
-              }
-            </ion-list>
+                <!-- Botón de opciones -->
+                @if(!isCurrentUser(user) && user.organizationRole !== 'owner') {
+                  <ion-button
+                    fill="clear"
+                    size="small"
+                    (click)="openUserOptions(user)"
+                  >
+                    <ion-icon name="ellipsis-vertical" slot="icon-only"></ion-icon>
+                  </ion-button>
+                }
+              </div>
+            </ion-item>
           }
+        </ion-list>
+      }
 
-          <!-- Empty State -->
-          @if (users().length === 0) {
-            <div class="empty-state">
-              <ion-icon
-                name="people-outline"
-                size="large"
-                color="medium"
-              ></ion-icon>
-              <h3>No hay usuarios</h3>
-              <p>No se encontraron usuarios en esta organización.</p>
-            </div>
-          }
-        </ion-card-content>
-      </ion-card>
+      <!-- Empty State -->
+      @if (users().length === 0) {
+        <div class="empty-state">
+          <ion-icon name="people-outline" size="large" color="medium"></ion-icon>
+          <h3>No hay usuarios</h3>
+          <p>No se encontraron usuarios en esta organización.</p>
+        </div>
+      }
     </div>
   }
 </ion-content>
