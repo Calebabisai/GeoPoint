@@ -13,6 +13,8 @@ import {
   setDoc,
   getDoc,
   DocumentData,
+  onSnapshot,
+  Unsubscribe
 } from '@angular/fire/firestore';
 import { User } from '../../shared/models/user.model';
 import { LoggerService } from '../../shared/services/logger.service';
@@ -24,6 +26,9 @@ export class AuthService {
   private logger = inject(LoggerService);
   private auth = inject(Auth);
   private firestore = inject(Firestore);
+
+    // Listener para el documento del usuario en Firestore
+  private userDocUnsubscribe: Unsubscribe | null = null;
 
   //Signals
   private firebaseUserSignal = signal<FirebaseUser | null>(null);
@@ -48,24 +53,25 @@ export class AuthService {
   }
 
    private initAuthStateListener(): void {
-    onAuthStateChanged(this.auth, async (firebaseUser) => {
-      this.logger.auth('Auth state changed:', firebaseUser?.email ?? 'No user');
-      
-      this.firebaseUserSignal.set(firebaseUser);
-      
-      if (firebaseUser) {
-        // User is logged in - load their data
-        await this.loadUserDataFromFirestore(firebaseUser);
-      } else {
-        // User is logged out
-        this.currentUserSignal.set(null);
-      }
-      
-      // Mark auth as ready (first check complete)
-      this.authReadySignal.set(true);
-      this.isLoadingSignal.set(false);
-    });
-  }
+  onAuthStateChanged(this.auth, async (firebaseUser) => {
+    this.logger.auth('Auth state changed:', firebaseUser?.email ?? 'No user');
+    
+    this.firebaseUserSignal.set(firebaseUser);
+    
+    if (firebaseUser) {
+      // User is logged in - setup realtime listener for their data
+      this.setupUserDocumentListener(firebaseUser.uid);
+    } else {
+      // User is logged out - cleanup listener
+      this.cleanupUserDocumentListener();
+      this.currentUserSignal.set(null);
+    }
+    
+    // Mark auth as ready (first check complete)
+    this.authReadySignal.set(true);
+    this.isLoadingSignal.set(false);
+  });
+}
 
   /**
    * Iniciar sesion con email y contrasenia 
@@ -123,13 +129,16 @@ export class AuthService {
       }
     }
     /**
-   * Cierra la sesión
-   */
-  async logout() {
+     * Cierra la sesión
+     */
+    async logout() {
     this.isLoadingSignal.set(true);
     this.errorSignal.set(null);
 
     try {
+      // Limpiar listener antes de cerrar sesión
+      this.cleanupUserDocumentListener();
+      
       await signOut(this.auth);
       this.currentUserSignal.set(null);
       this.logger.auth('Logout successful');
@@ -154,6 +163,91 @@ export class AuthService {
    */
   getFirebaseUser() {
     return this.firebaseUserSignal.asReadonly();
+  }
+
+  /**
+ * Configura un listener en tiempo real para el documento del usuario
+ * Se actualiza automáticamente cuando cambian sus datos en Firestore
+ */
+  private setupUserDocumentListener(userId: string): void {
+    // Limpiar listener anterior si existe
+    this.cleanupUserDocumentListener();
+
+    const userDocRef = doc(this.firestore, `users/${userId}`);
+    
+    this.logger.firebase('Setting up realtime listener for user:', userId);
+
+    // Configurar listener en tiempo real
+    this.userDocUnsubscribe = onSnapshot(
+      userDocRef,
+      (docSnapshot) => {
+        if (docSnapshot.exists()) {
+          const userData = docSnapshot.data() as DocumentData;
+          this.logger.firebase('User data updated from Firestore realtime listener');
+
+          const firebaseUser = this.firebaseUserSignal();
+          if (!firebaseUser) return;
+
+          const appUser: User = {
+            uid: firebaseUser.uid,
+            email: firebaseUser.email || '',
+            displayName: userData['displayName'] || '',
+            role: userData['role'] || 'user',
+            organizationId: userData['organizationId'] || undefined,
+            organizationRole: userData['organizationRole'] || undefined,
+            createdAt:
+              userData['createdAt']?.toDate() ||
+              new Date(firebaseUser.metadata?.creationTime || Date.now()),
+          } as User;
+
+          this.currentUserSignal.set(appUser);
+          
+          // Log cuando hay cambios importantes
+          if (userData['organizationRole']) {
+            this.logger.firebase('User organization role updated to:', userData['organizationRole']);
+          }
+          if (userData['organizationId']) {
+            this.logger.firebase('User organization ID updated to:', userData['organizationId']);
+          }
+        } else {
+          // Usuario sin datos en Firestore, usar valores por defecto
+          this.logger.warn('User document not found in Firestore, using defaults');
+          
+          const firebaseUser = this.firebaseUserSignal();
+          if (!firebaseUser) return;
+
+          const appUser: User = {
+            uid: firebaseUser.uid,
+            email: firebaseUser.email || '',
+            displayName: '',
+            role: 'user',
+            createdAt: new Date(
+              firebaseUser.metadata?.creationTime || Date.now()
+            ),
+          } as User;
+
+          this.currentUserSignal.set(appUser);
+        }
+      },
+      (error) => {
+        this.logger.error('Error in user document listener:', error);
+        // En caso de error, intentar cargar datos una vez sin listener
+        this.loadUserDataFromFirestore(this.firebaseUserSignal()!).catch(err => {
+          this.logger.error('Failed to load user data as fallback:', err);
+        });
+      }
+    );
+  }
+
+  /**
+   * Limpia el listener del documento del usuario
+   */
+  private cleanupUserDocumentListener(): void {
+    if (this.userDocUnsubscribe) {
+      this.logger.firebase('Cleaning up user document listener');
+      this.userDocUnsubscribe();
+      this.userDocUnsubscribe = null;
+    }
   }
 
   /**

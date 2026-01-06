@@ -111,7 +111,9 @@ export class UserManagementComponent {
   private readonly actionSheetController = inject(ActionSheetController);
 
   // Signals
-  readonly users = signal<UserWithOrganization[]>([]);
+  readonly users = signal<UserWithOrganization[]>([], {
+  equal: () => false // Forzar detección de cambios
+});
   readonly isLoading = signal(true);
 
   // Use service signal directly
@@ -314,26 +316,32 @@ export class UserManagementComponent {
   }
 
   private async changeUserRole(
-    user: UserWithOrganization,
-    newRole: OrgRole
-  ): Promise<void> {
-    try {
-      await this.userManagementService.updateUserOrganizationRole(
-        user.uid,
-        newRole
-      );
+  user: UserWithOrganization,
+  newRole: OrgRole
+): Promise<void> {
+  try {
+    await this.userManagementService.updateUserOrganizationRole(
+      user.uid,
+      newRole
+    );
 
-      await this.showToast(
-        `Rol actualizado a ${this.getOrgRoleDisplayName(newRole)}`,
-        'success'
-      );
+    await this.showToast(
+      `Rol actualizado a ${this.getOrgRoleDisplayName(newRole)}`,
+      'success'
+    );
 
-      // Reload users instead of loading test data
-      await this.loadUsers();
-    } catch (error) {
-      await this.showToast('Error al cambiar el rol del usuario', 'danger');
-    }
+    // CAMBIO: Solo actualizar el usuario en el array local, NO recargar todo
+    this.users.update(currentUsers => 
+      currentUsers.map(u => 
+        u.uid === user.uid 
+          ? { ...u, organizationRole: newRole } 
+          : u
+      )
+    );
+  } catch (error) {
+    await this.showToast('Error al cambiar el rol del usuario', 'danger');
   }
+}
 
   async openUserOptions(user: UserWithOrganization): Promise<void> {
     const currentUser = this.currentUser();
@@ -400,20 +408,22 @@ export class UserManagementComponent {
   }
 
   private async removeUser(user: UserWithOrganization): Promise<void> {
-    try {
-      await this.userManagementService.removeUserFromOrganization(user.uid);
+  try {
+    await this.userManagementService.removeUserFromOrganization(user.uid);
 
-      await this.showToast(
-        `${this.getUserDisplayName(user)} eliminado de la organización`,
-        'success'
-      );
+    await this.showToast(
+      `${this.getUserDisplayName(user)} eliminado de la organización`,
+      'success'
+    );
 
-      // Reload users instead of loading test data
-      await this.loadUsers();
-    } catch (error) {
-      await this.showToast('Error al eliminar el usuario', 'danger');
-    }
+    // CAMBIO: Solo remover del array local, NO recargar todo
+    this.users.update(currentUsers => 
+      currentUsers.filter(u => u.uid !== user.uid)
+    );
+  } catch (error) {
+    await this.showToast('Error al eliminar el usuario', 'danger');
   }
+}
 
   private async showToast(
     message: string,

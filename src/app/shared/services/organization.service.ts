@@ -164,34 +164,41 @@ export class OrganizationService {
     },
   ];
 
-  constructor() {
-    // Effect para cargar la organización cuando el usuario cambia
-    effect(() => {
-      const user = this.authService.currentUser();
-      
-      if (user) {
-        // Cargar organización del usuario desde Firebase
-        this.loadCurrentUserOrganization(user.uid);
-      } else {
-        // Sin usuario, limpiar o usar demo
-        if (this.isDevelopmentMode()) {
-          this.currentOrganizationSignal.set(this.developmentOrganizations[0]);
-        } else {
-          this.currentOrganizationSignal.set(null);
-        }
-        this.organizationRoleSignal.set(null);
+    constructor() {
+  // Effect para cargar la organización cuando el usuario cambia
+  effect(() => {
+    const user = this.authService.currentUser();
+    
+    if (user) {
+      // IMPORTANTE: Primero actualizar el rol del signal ANTES de cargar la organización
+      // para que loadCurrentUserOrganization pueda usar el rol actualizado
+      if (user.organizationRole) {
+        console.log(' Updating organizationRole from user signal:', user.organizationRole);
+        this.organizationRoleSignal.set(user.organizationRole);
       }
-    });
-
-    // Debug tools (mantener si lo necesitas)
-    if (typeof window !== 'undefined') {
-      (window as any).organizationService = this;
+      
+      // Cargar organización del usuario desde Firebase
+      this.loadCurrentUserOrganization(user.uid);
+    } else {
+      // Sin usuario, limpiar o usar demo
+      if (this.isDevelopmentMode()) {
+        this.currentOrganizationSignal.set(this.developmentOrganizations[0]);
+      } else {
+        this.currentOrganizationSignal.set(null);
+      }
+      this.organizationRoleSignal.set(null);
     }
+  });
+
+  // Debug tools (mantener si lo necesitas)
+  if (typeof window !== 'undefined') {
+    (window as any).organizationService = this;
   }
+}
 
   /**
-   * Carga la organización actual del usuario desde Firebase
-   */
+ * Carga la organización actual del usuario desde Firebase
+ */
   private async loadCurrentUserOrganization(userId: string): Promise<void> {
     this.isLoadingSignal.set(true);
     this.lastErrorSignal.set(null);
@@ -248,10 +255,20 @@ export class OrganizationService {
         })) || [],
       } as Organization;
 
-      // Obtener el rol del usuario en la organización
-      const userMember = organization.members.find(m => m.userId === userId);
-      if (userMember) {
-        this.organizationRoleSignal.set(userMember.role as any);
+      // CAMBIO: PRIORIZAR el organizationRole del documento del usuario
+      // en lugar del rol en el array de members de la organización
+      if (currentUser?.organizationRole) {
+        console.log(' Using organizationRole from user document:', currentUser.organizationRole);
+        this.organizationRoleSignal.set(currentUser.organizationRole);
+      } else {
+        // Fallback: buscar en los miembros de la organización
+        const userMember = organization.members.find(m => m.userId === userId);
+        if (userMember) {
+          console.log(' Fallback: Using role from organization members:', userMember.role);
+          this.organizationRoleSignal.set(userMember.role as any);
+        } else {
+          console.warn(' User not found in organization members');
+        }
       }
 
       this.currentOrganizationSignal.set(organization);
