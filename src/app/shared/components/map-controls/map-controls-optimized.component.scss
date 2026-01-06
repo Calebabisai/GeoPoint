@@ -178,65 +178,94 @@ ion-fab-button {
 }
 
 // ============================================
-// MODO ELIMINAR - Diseño sutil y profesional
+// MODO ELIMINAR - OPTIMIZADO Y COMPACTO (75%)
 // ============================================
 
 .edit-mode-indicator-enhanced {
   position: fixed;
-  top: calc(var(--gp-space-lg) + 60px);
-  right: var(--gp-space-lg);
-  left: var(--gp-space-lg);
+  top: auto;
+  bottom: 100px; // Arriba del FAB
+  right: 16px;
+  left: auto;
   z-index: 1002;
-  text-align: center;
-  animation: slideDownFade 0.4s ease-out;
+  animation: slideUpFade 0.3s ease-out;
+  max-width: 200px; // Más compacto
 
   ion-chip {
-    --background: linear-gradient(135deg, rgba(0, 0, 0, 0.85) 0%, rgba(26, 26, 26, 0.85) 100%);
+    --background: rgba(0, 0, 0, 0.75);
     --color: #ff6b6b;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), 
-                0 0 0 1px rgba(255, 107, 107, 0.2);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     backdrop-filter: blur(10px);
-    border-radius: 16px;
-    font-weight: 500;
-    font-size: 0.85rem;
-    padding: 6px 14px;
-    margin-bottom: 6px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 0.75rem; // 75% del tamaño original
+    padding: 4px 10px;
     border: 1px solid rgba(255, 107, 107, 0.3);
-    min-height: 38px;
+    min-height: 28px;
     transition: all 0.3s ease;
   }
 
   .edit-mode-instructions {
-    color: rgba(255, 255, 255, 0.6);
-    font-size: 0.75rem;
-    background: rgba(0, 0, 0, 0.4);
-    padding: 4px 10px;
-    border-radius: 10px;
-    border: 1px solid rgba(255, 107, 107, 0.15);
-    backdrop-filter: blur(8px);
+    display: none; // Ocultar las instrucciones que estorban
+  }
+}
 
-    small {
-      color: rgba(255, 107, 107, 0.8);
-      font-weight: 400;
+// Alert compacto al 75%
+::ng-deep {
+  .delete-confirmation-alert {
+    &.mobile-optimized {
+      --width: 75% !important; // 75% del ancho
+      --max-width: 320px !important;
+      
+      .alert-wrapper {
+        transform: scale(0.9); // 90% del tamaño para más compacto
+      }
+
+      .alert-head {
+        padding: 12px 16px !important;
+
+        h2 {
+          font-size: 1rem !important; // 75% del original
+          font-weight: 600 !important;
+        }
+      }
+
+      .alert-message {
+        padding: 8px 16px !important;
+        font-size: 0.85rem !important; // 75% del original
+        line-height: 1.4 !important;
+        max-height: 120px !important;
+        overflow-y: auto !important;
+      }
+
+      .alert-button-group {
+        padding: 8px !important;
+
+        .alert-button {
+          font-size: 0.85rem !important; // 75% del original
+          height: 36px !important;
+          min-height: 36px !important;
+          font-weight: 500 !important;
+
+          &.alert-button-cancel {
+            color: var(--ion-color-medium) !important;
+          }
+
+          &.alert-button-destructive {
+            color: #ff6b6b !important;
+            font-weight: 600 !important;
+          }
+        }
+      }
     }
   }
 }
 
-// Botón FAB en modo eliminar - Sin animación agresiva
-ion-fab {
-  ion-fab-button {
-    &[color="danger"].edit-mode-active {
-      --box-shadow: 0 6px 16px rgba(255, 107, 107, 0.35);
-      // Sin animación de pulso constante - más limpio
-    }
-  }
-}
-
-// Animación de entrada suave
-@keyframes slideDownFade {
+// Animación de entrada desde abajo
+@keyframes slideUpFade {
   0% {
     opacity: 0;
-    transform: translateY(-10px);
+    transform: translateY(10px);
   }
   100% {
     opacity: 1;
@@ -244,20 +273,53 @@ ion-fab {
   }
 }
 
-// Responsive para edit mode
+// Responsive para móviles
 @media (max-width: 768px) {
   .edit-mode-indicator-enhanced {
-    top: calc(var(--gp-space-md) + 50px);
-    left: var(--gp-space-md);
-    right: var(--gp-space-md);
+    bottom: 90px;
+    right: 12px;
+    max-width: 180px;
 
     ion-chip {
-      font-size: 0.8rem;
-      padding: 5px 12px;
+      font-size: 0.7rem; // Aún más pequeño en móvil
+      padding: 3px 8px;
+      min-height: 24px;
     }
+  }
 
-    .edit-mode-instructions {
-      font-size: 0.7rem;
+  ::ng-deep {
+    .delete-confirmation-alert.mobile-optimized {
+      --width: 85% !important; // Un poco más ancho en móvil
+      --max-width: 280px !important;
+    }
+  }
+}
+
+// Para pantallas muy pequeñas
+@media (max-width: 360px) {
+  .edit-mode-indicator-enhanced {
+    bottom: 85px;
+    right: 8px;
+    max-width: 160px;
+
+    ion-chip {
+      font-size: 0.65rem;
+      padding: 2px 6px;
+      min-height: 22px;
+
+      ion-icon {
+        font-size: 14px;
+      }
+    }
+  }
+
+  ::ng-deep {
+    .delete-confirmation-alert.mobile-optimized {
+      --width: 90% !important;
+
+      .alert-wrapper {
+        transform: scale(0.85);
+      }
     }
   }
 }

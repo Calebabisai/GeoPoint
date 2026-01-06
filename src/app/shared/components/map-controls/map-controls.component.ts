@@ -717,14 +717,15 @@ private async deleteZone(zoneId: string) {
   }
 
   private async showToast(message: string) {
-    const toast = await this.toastCtrl.create({
-      message,
-      duration: 2000,
-      position: 'top',
-      cssClass: 'custom-toast',
-    });
-    await toast.present();
-  }
+  const toast = await this.toastCtrl.create({
+    message,
+    duration: 1500, // Reducido de 2000 a 1500ms (más rápido)
+    position: 'bottom', // Cambiar de 'top' a 'bottom'
+    cssClass: 'custom-toast-compact',
+    mode: 'ios', // Modo iOS más discreto
+  });
+  await toast.present();
+}
 
   private async triggerHapticFeedback(
     style: 'light' | 'medium' | 'heavy' = 'medium'

@@ -91,7 +91,6 @@ type OrgRole = 'owner' | 'admin' | 'moderator' | 'user';
     IonLabel,
     IonList,
     IonItem,
-    IonAvatar,
     IonButton,
     IonIcon,
     IonChip,
