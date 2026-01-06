@@ -36,7 +36,7 @@ import {
   ribbonOutline,
   shieldCheckmarkOutline,
   personOutline,
-  helpOutline } from 'ionicons/icons';
+  helpOutline, peopleOutline } from 'ionicons/icons';
 import { AuthService } from '../../../auth/services/auth.service';
 import {
   UserManagementService,
@@ -238,17 +238,8 @@ export class UserManagementComponent {
     return 'U';
   }
 
-  // Permission check helper
-  private hasManagementPermission(user: User | null): boolean {
-    if (!user) return false;
-    return (
-      user.organizationRole === 'owner' ||
-      user.organizationRole === 'admin' ||
-      user.role === 'admin'
-    );
-  }
-
-  async openRoleSelector(user: UserWithOrganization): Promise<void> {
+    // Permission check helper
+    async openRoleSelector(user: UserWithOrganization): Promise<void> {
     const currentUser = this.currentUser();
 
     if (!currentUser) {
@@ -256,9 +247,19 @@ export class UserManagementComponent {
       return;
     }
 
-    if (!this.hasManagementPermission(currentUser)) {
+    // NUEVO: Proteger al propietario
+    if (user.organizationRole === 'owner') {
       await this.showToast(
-        'Solo los propietarios y administradores pueden cambiar roles',
+        'No se puede cambiar el rol del propietario de la organización',
+        'warning'
+      );
+      return;
+    }
+
+    // NUEVO: Solo el propietario puede asignar roles de admin
+    if (currentUser.organizationRole !== 'owner') {
+      await this.showToast(
+        'Solo el propietario puede cambiar roles de usuarios',
         'warning'
       );
       return;
@@ -274,12 +275,13 @@ export class UserManagementComponent {
       subHeader: this.getUserDisplayName(user),
       message: 'Selecciona el nuevo rol para este usuario:',
       inputs: [
-        {
-          type: 'radio',
-          label: 'Propietario',
-          value: 'owner',
-          checked: user.organizationRole === 'owner',
-        },
+        // CAMBIO: Remover opción de owner - solo el sistema puede asignarlo
+        // {
+        //   type: 'radio',
+        //   label: 'Propietario',
+        //   value: 'owner',
+        //   checked: user.organizationRole === 'owner',
+        // },
         {
           type: 'radio',
           label: 'Administrador',
@@ -343,7 +345,7 @@ export class UserManagementComponent {
   }
 }
 
-  async openUserOptions(user: UserWithOrganization): Promise<void> {
+    async openUserOptions(user: UserWithOrganization): Promise<void> {
     const currentUser = this.currentUser();
 
     if (!currentUser) {
@@ -351,9 +353,19 @@ export class UserManagementComponent {
       return;
     }
 
-    if (!this.hasManagementPermission(currentUser)) {
+    // NUEVO: Proteger al propietario
+    if (user.organizationRole === 'owner') {
       await this.showToast(
-        'Solo los propietarios y administradores pueden gestionar usuarios',
+        'El propietario no puede ser removido de la organización',
+        'warning'
+      );
+      return;
+    }
+
+    // NUEVO: Solo el propietario puede gestionar usuarios
+    if (currentUser.organizationRole !== 'owner') {
+      await this.showToast(
+        'Solo el propietario puede gestionar usuarios',
         'warning'
       );
       return;
@@ -389,7 +401,16 @@ export class UserManagementComponent {
     await actionSheet.present();
   }
 
-  private async confirmRemoveUser(user: UserWithOrganization): Promise<void> {
+    private async confirmRemoveUser(user: UserWithOrganization): Promise<void> {
+    // NUEVO: Doble verificación de seguridad
+    if (user.organizationRole === 'owner') {
+      await this.showToast(
+        'El propietario no puede ser removido de la organización',
+        'danger'
+      );
+      return;
+    }
+
     const alert = await this.alertController.create({
       header: '¿Eliminar Usuario?',
       subHeader: this.getUserDisplayName(user),
@@ -437,5 +458,12 @@ export class UserManagementComponent {
       cssClass: 'custom-toast',
     });
     await toast.present();
+  }
+
+  // Permission check helper
+  private hasManagementPermission(user: User | null): boolean {
+    if (!user) return false;
+    // CAMBIO: Solo el propietario tiene permisos de gestión
+    return user.organizationRole === 'owner';
   }
 }

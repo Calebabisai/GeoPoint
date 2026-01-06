@@ -700,3 +700,15 @@ ion-alert.role-selector {
 .toolbar-color {
   background-color: #000000;
 }
+
+.owner-badge {
+  font-weight: bold;
+  animation: pulse 2s infinite;
+}
+
+
+ion-button[disabled] {
+  opacity: 0.3;
+  pointer-events: none;
+}
+

@@ -304,7 +304,7 @@ export class UserManagementService {
     /**
      * Actualiza el rol de organización de un usuario
      */
-    async updateUserOrganizationRole(
+      async updateUserOrganizationRole(
     userId: string,
     newRole: 'owner' | 'admin' | 'moderator' | 'user'
   ): Promise<void> {
@@ -315,14 +315,23 @@ export class UserManagementService {
         throw new Error('Usuario no autenticado');
       }
 
-      const hasPermission = this.authorizationService.hasPermission(
-        'manage-users'
-      );
+      // NUEVO: Solo el propietario puede cambiar roles
+      if (currentUser.organizationRole !== 'owner') {
+        throw new Error('Solo el propietario puede cambiar roles de usuarios');
+      }
 
-      if (!hasPermission || currentUser.role !== 'admin') {
-        throw new Error(
-          'Solo los administradores pueden cambiar roles de usuarios'
-        );
+      // NUEVO: Verificar que el usuario a modificar no sea el propietario
+      const targetUserDoc = await getDoc(doc(this.firestore, 'users', userId));
+      if (targetUserDoc.exists()) {
+        const targetUserData = targetUserDoc.data() as User;
+        if (targetUserData.organizationRole === 'owner') {
+          throw new Error('No se puede cambiar el rol del propietario');
+        }
+      }
+
+      // NUEVO: No permitir asignar rol de propietario
+      if (newRole === 'owner') {
+        throw new Error('No se puede asignar el rol de propietario manualmente');
       }
 
       if (currentUser.uid === userId) {
@@ -337,16 +346,16 @@ export class UserManagementService {
         roleUpdatedAt: new Date(),
       });
 
-      // CAMBIO: Solo actualizar el signal local, NO recargar desde Firebase
       const updatedUsers = this.userSignal().map((u) =>
         u.uid === userId ? { ...u, organizationRole: newRole } : u
       );
       this.userSignal.set(updatedUsers);
 
-      // REMOVER: await this.getOrganizationUsers();
     } catch (error) {
-      console.error(' Error updating user organization role:', error);
-      this.errorSignal.set('Error al actualizar el rol del usuario');
+      console.error('⚠️ Error updating user organization role:', error);
+      this.errorSignal.set(
+        error instanceof Error ? error.message : 'Error al actualizar el rol del usuario'
+      );
       throw error;
     }
   }
@@ -354,50 +363,54 @@ export class UserManagementService {
   /**
    * Remueve un usuario de la organización
    */
-  async removeUserFromOrganization(userId: string): Promise<void> {
-  try {
-    const currentUser = this.authService.getCurrentUser()();
+    async removeUserFromOrganization(userId: string): Promise<void> {
+    try {
+      const currentUser = this.authService.getCurrentUser()();
 
-    if (!currentUser) {
-      throw new Error('Usuario no autenticado');
-    }
+      if (!currentUser) {
+        throw new Error('Usuario no autenticado');
+      }
 
-    const hasPermission = this.authorizationService.hasPermission(
-      'manage-users'
-    );
+      // NUEVO: Solo el propietario puede remover usuarios
+      if (currentUser.organizationRole !== 'owner') {
+        throw new Error('Solo el propietario puede remover usuarios de la organización');
+      }
 
-    if (!hasPermission || currentUser.role !== 'admin') {
-      throw new Error(
-        'Solo los administradores pueden remover usuarios de organizaciones'
+      // NUEVO: Verificar que el usuario a remover no sea el propietario
+      const targetUserDoc = await getDoc(doc(this.firestore, 'users', userId));
+      if (targetUserDoc.exists()) {
+        const targetUserData = targetUserDoc.data() as User;
+        if (targetUserData.organizationRole === 'owner') {
+          throw new Error('El propietario no puede ser removido de la organización');
+        }
+      }
+
+      if (currentUser.uid === userId) {
+        throw new Error('No puedes removerte a ti mismo de la organización');
+      }
+
+      const userDoc = doc(this.firestore, 'users', userId);
+      await updateDoc(userDoc, {
+        organizationId: null,
+        organizationRole: null,
+        updatedAt: new Date(),
+        removedFromOrgBy: currentUser.uid,
+        removedFromOrgAt: new Date(),
+      });
+
+      const updatedUsers = this.userSignal().filter(
+        (user) => user.uid !== userId
       );
+      this.userSignal.set(updatedUsers);
+
+    } catch (error) {
+      console.error('⚠️ Error removing user from organization:', error);
+      this.errorSignal.set(
+        error instanceof Error ? error.message : 'Error al eliminar el usuario'
+      );
+      throw error;
     }
-
-    if (currentUser.uid === userId) {
-      throw new Error('No puedes removerte a ti mismo de la organización');
-    }
-
-    const userDoc = doc(this.firestore, 'users', userId);
-    await updateDoc(userDoc, {
-      organizationId: null,
-      organizationRole: null,
-      updatedAt: new Date(),
-      removedFromOrgBy: currentUser.uid,
-      removedFromOrgAt: new Date(),
-    });
-
-    // CAMBIO: Solo remover del signal local, NO recargar desde Firebase
-    const updatedUsers = this.userSignal().filter(
-      (user) => user.uid !== userId
-    );
-    this.userSignal.set(updatedUsers);
-
-    // REMOVER: await this.getOrganizationUsers();
-  } catch (error) {
-    console.error(' Error removing user from organization:', error);
-    this.errorSignal.set('Error al eliminar el usuario');
-    throw error;
   }
-}
 
   /**
    * Establece usuarios directamente (para debug)

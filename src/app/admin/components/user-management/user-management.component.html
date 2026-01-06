@@ -80,17 +80,24 @@
                           getOrgRoleDisplayName(user.organizationRole)
                         }}</ion-label>
                       </ion-chip>
+
+                      <!-- Condicional para el Owner -->
+                          @if(user.organizationRole === 'owner'){
+                            <ion-chip class="owner-badge" color="warning" >
+                              <ion-icon name="ribbon-outline"></ion-icon>
+                            </ion-chip>
+                          }                          
                     }
 
                     <!-- Botón de opciones (solo si NO es el usuario actual) -->
                     @if (!isCurrentUser(user)) {
                       <div class="action-buttons">
                         <ion-button
-                          size="small"
-                          fill="clear"
-                          color="medium"
-                          (click)="openUserOptions(user); $event.stopPropagation()"
-                        >
+                        fill="clear"
+                        size="small"
+                        (click)="openUserOptions(user)"
+                        [disabled]="user.organizationRole === 'owner'"
+                      >
                           <ion-icon
                             name="ellipsis-vertical"
                             slot="icon-only"
