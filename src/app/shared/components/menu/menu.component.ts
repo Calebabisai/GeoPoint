@@ -307,9 +307,19 @@ export class MenuComponent {
     this.menuCtrl.close();
   }
 
-  onLogout() {
-    this.authService.logout();
-    this.router.navigateByUrl('/auth', { replaceUrl: true });
+  async onLogout() {
+    try {
+      //Cerrar el menú primero
+      await this.menuCtrl.close();
+      //Hacer logout
+      await this.authService.logout();
+
+      //Navegar a la pantalla de login
+      await this.router.navigateByUrl('/auth', {replaceUrl: true});
+
+    }catch (error) {
+      console.error('Error during logout', error);
+    }
   }
 
   /**
