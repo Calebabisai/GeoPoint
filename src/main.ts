@@ -36,7 +36,7 @@ addIcons({
 bootstrapApplication(AppComponent, {
   providers: [
     { provide: RouteReuseStrategy, useClass: IonicRouteStrategy },
-    { provide: ErrorHandler, useClass: GlobalErrorHandler }, // ✅ Manejador global de errores
+    { provide: ErrorHandler, useClass: GlobalErrorHandler }, 
     provideIonicAngular(),
     provideRouter(routes),
     // Provee las configuraciones de Firebase
@@ -45,3 +45,11 @@ bootstrapApplication(AppComponent, {
     provideFirestore(() => getFirestore()),
   ],
 });
+
+// Registrar service worker para caché de tiles
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker
+    .register('/sw.js')
+    .then(() => console.log(' Service Worker registrado'))
+    .catch((err) => console.error(' Error registrando Service Worker:', err));
+}

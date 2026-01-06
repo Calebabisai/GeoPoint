@@ -2,8 +2,9 @@ import { Injectable, inject, signal, computed, effect } from '@angular/core';
 import { Observable, from } from 'rxjs';
 import { Platform } from '@ionic/angular';
 import { Geolocation, Position } from '@capacitor/geolocation';
-import { LatLng, MapService } from './map.service';
+import { MapService } from './map.service';
 import { LoggerService } from '../../shared/services/logger.service';
+import { LatLng } from 'src/app/shared/models/map-model';
 
 export interface LocationPermissionStatus {
   granted: boolean;

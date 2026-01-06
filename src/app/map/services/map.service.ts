@@ -1,31 +1,22 @@
-import { computed, Injectable, signal } from '@angular/core';
+import { computed, inject, Injectable, signal } from '@angular/core';
 import { Subject } from 'rxjs';
 import * as L from 'leaflet';
 import { Capacitor } from '@capacitor/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { MapMarker } from '../../shared/models/marker.model';
 import { MapZone } from '../../shared/models/zone.model';
-
-export interface LatLng {
-  lat: number;
-  lng: number;
-}
-
-interface MemoryStats {
-  markers: { count: number; limit: number; percentage: number };
-  zones: { count: number; limit: number; percentage: number };
-  isMobile: boolean;
-}
-
-interface ExtendedPolygon extends L.Polygon {
-  popupContent?: string;
-  zoneLabel?: L.Marker;
-}
+import { LatLng, MemoryStats, ExtendedPolygon } from 'src/app/shared/models/map-model';
+import { MapCacheService } from './map-cache.service';
+import { LoggerService } from 'src/app/shared/services/logger.service';
 
 type ZoneColorKey = 'red' | 'blue' | 'green' | 'yellow' | 'purple' | 'orange';
 
 @Injectable({ providedIn: 'root' })
 export class MapService {
+  //Injects
+  private mapCacheService = inject(MapCacheService);
+  private logger = inject(LoggerService);
+
   // Constantes de configuración
   private readonly MAP_INIT_DELAY_MS = 100;
   private readonly REFRESH_DELAY_MS = 100;
@@ -298,7 +289,32 @@ export class MapService {
 
       this.map!.invalidateSize();
     }, this.MAP_INIT_DELAY_MS);
+
+    // Usar tiles con caché
+    const tileLayer = L.tileLayer(
+      'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 19,
+        // NUEVO: Configurar para usar caché
+        crossOrigin: true,
+        // Interceptar requests para usar caché
+      }
+    );
+
+    tileLayer.addTo(this.map);
+
+    // Interceptar las peticiones de tiles para usar caché
+    this.setupTileCaching();
   }
+
+  private setupTileCaching(): void {
+    if ('serviceWorker' in navigator && 'caches' in window) {
+      // El service worker manejará el caché automáticamente
+      this.logger.firebase(' Caché de tiles habilitado');
+    }
+  }
+
 
   updateUserLocation(coords: LatLng): void {
     if (!this.map) {

@@ -17,6 +17,9 @@ import { MapMarker as LegacyMarker } from '../../../shared/models/marker.model';
 import { MapZone as LegacyZone } from '../../../shared/models/zone.model';
 import { CommonModule } from '@angular/common';
 import { toSignal, takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { MapCacheService } from '../../services/map-cache.service';
+import { LoggerService } from 'src/app/shared/services/logger.service';
+import { IonSpinner, IonChip, IonIcon, IonLabel } from "@ionic/angular/standalone";
 
 type MarkerType = 'marker' | 'house' | 'poi';
 type LegacyZoneType = 'zone';
@@ -56,7 +59,7 @@ interface MarkerTypeMap {
   templateUrl: './map-view.component.html',
   styleUrls: ['./map-view.component.scss'],
   standalone: true,
-  imports: [CommonModule, MapControlsComponent],
+  imports: [IonLabel, IonIcon, IonChip, IonSpinner, CommonModule, MapControlsComponent],
 })
 export class MapViewComponent {
   private readonly MAP_INIT_DELAY_MS = 200;
@@ -77,10 +80,22 @@ export class MapViewComponent {
 
   private readonly mapService = inject(MapService);
   private readonly mapDataService = inject(MapDataService);
+  private readonly mapCacheService = inject(MapCacheService);
+  private readonly logger = inject(LoggerService);
+
 
   private readonly _mapInitialized = signal(false);
   private readonly _loadedMarkers = signal<Set<string>>(new Set());
   private readonly _loadedZones = signal<Set<string>>(new Set());
+
+    // Signals para estado de carga
+  private readonly _isLoadingLocation = signal(true);
+  private readonly _userLocation = signal<{ lat: number; lng: number } | null>(null);
+  
+  readonly isLoadingLocation = this._isLoadingLocation.asReadonly();
+  readonly userLocation = this._userLocation.asReadonly();
+  readonly isCaching = this.mapCacheService.isCaching;
+  readonly cacheStats = this.mapCacheService.cacheStats;
 
   readonly mapInitialized = computed(() => this._mapInitialized());
 
@@ -96,6 +111,9 @@ export class MapViewComponent {
   readonly zonesCount = computed(() => this.zones().length);
 
   constructor() {
+    //Esperar ubicacion antes de inicializar mapa
+    this.initializeWithLocation();
+
     setTimeout(() => {
       this.initializeMap();
       setTimeout(() => {
@@ -137,7 +155,60 @@ export class MapViewComponent {
       });
   }
 
-  private initializeMap(): void {
+  private async initializeWithLocation(): Promise<void> {
+    try {
+      // 1. Obtener ubicación del usuario
+      const location = await this.mapCacheService.getCurrentPosition();
+      
+      if (location) {
+        this._userLocation.set(location);
+        this.logger.firebase('📍 Ubicación obtenida:', location);
+      } else {
+        // Ubicación por defecto (centro de tu ciudad/organización)
+        const defaultLocation = { lat: 19.4326, lng: -99.1332 }; // CDMX ejemplo
+        this._userLocation.set(defaultLocation);
+        this.logger.warn('📍 Usando ubicación por defecto');
+      }
+
+      this._isLoadingLocation.set(false);
+
+      // 2. Inicializar mapa
+      await this.initializeMap();
+
+      // 3. Precargar área cercana (en background)
+      if (location) {
+        setTimeout(async () => {
+          const hasCached = await this.mapCacheService.hasCachedTiles();
+          if (!hasCached) {
+            await this.mapCacheService.precacheOrganizationArea(
+              location.lat,
+              location.lng,
+              {
+                maxZoom: 16, // Menos zoom = menos tiles = más rápido
+                minZoom: 13,
+              }
+            );
+          }
+        }, 2000); // Esperar 2 segundos después de cargar el mapa
+      }
+
+      // 4. Cargar marcadores y zonas
+      setTimeout(() => {
+        if (this._mapInitialized()) {
+          this.syncMarkers();
+          this.syncZones();
+        }
+      }, this.DATA_LOAD_DELAY_MS);
+
+    } catch (error) {
+      this.logger.error('Error en inicialización con ubicación:', error);
+      this._isLoadingLocation.set(false);
+      // Continuar con ubicación por defecto
+      await this.initializeMap();
+    }
+  }
+
+  private async initializeMap(): Promise<void> {
     const mapContainer = document.getElementById('map-container');
 
     if (!mapContainer) {
@@ -145,10 +216,17 @@ export class MapViewComponent {
     }
 
     try {
-      this.mapService.initMap('map-container');
+      await this.mapService.initMap('map-container');
+      
+      // Centrar en la ubicación del usuario
+      const location = this._userLocation();
+      if (location) {
+        this.mapService.centerMap(location.lat, location.lng, 15);
+      }
+      
       this._mapInitialized.set(true);
     } catch (error) {
-      // Map initialization failed
+      this.logger.error('Error inicializando mapa:', error);
     }
   }
 

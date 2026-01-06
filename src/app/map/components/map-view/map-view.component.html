@@ -1,5 +1,23 @@
-<div class="map-wrapper">
-  <div #mapContainer id="map-container" class="map-container"></div>
+<!-- Indicador de carga de ubicación -->
+@if (isLoadingLocation()) {
+  <div class="loading-location">
+    <ion-spinner name="crescent"></ion-spinner>
+    <p>Obteniendo ubicación...</p>
+  </div>
+}
 
-  <app-map-controls></app-map-controls>
-</div>
+<!-- Indicador de precarga de tiles -->
+@if (isCaching()) {
+  <div class="caching-indicator">
+    <ion-chip color="primary">
+      <ion-icon name="download-outline"></ion-icon>
+      <ion-label>
+        Descargando mapa: {{ cacheStats().cachedTiles }}/{{ cacheStats().totalTiles }}
+      </ion-label>
+    </ion-chip>
+  </div>
+}
+
+<!-- Mapa -->
+<div id="map-container"></div>
+<app-map-controls></app-map-controls>
