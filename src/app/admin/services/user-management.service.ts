@@ -301,55 +301,55 @@ export class UserManagementService {
     }
   }
 
-  /**
-   * Actualiza el rol de organización de un usuario
-   */
-  async updateUserOrganizationRole(
-  userId: string,
-  newRole: 'owner' | 'admin' | 'moderator' | 'user'
-): Promise<void> {
-  try {
-    const currentUser = this.authService.getCurrentUser()();
+    /**
+     * Actualiza el rol de organización de un usuario
+     */
+    async updateUserOrganizationRole(
+    userId: string,
+    newRole: 'owner' | 'admin' | 'moderator' | 'user'
+  ): Promise<void> {
+    try {
+      const currentUser = this.authService.getCurrentUser()();
 
-    if (!currentUser) {
-      throw new Error('Usuario no autenticado');
-    }
+      if (!currentUser) {
+        throw new Error('Usuario no autenticado');
+      }
 
-    const hasPermission = this.authorizationService.hasPermission(
-      'manage-users'
-    );
-
-    if (!hasPermission || currentUser.role !== 'admin') {
-      throw new Error(
-        'Solo los administradores pueden cambiar roles de usuarios'
+      const hasPermission = this.authorizationService.hasPermission(
+        'manage-users'
       );
+
+      if (!hasPermission || currentUser.role !== 'admin') {
+        throw new Error(
+          'Solo los administradores pueden cambiar roles de usuarios'
+        );
+      }
+
+      if (currentUser.uid === userId) {
+        throw new Error('No puedes cambiar tu propio rol');
+      }
+
+      const userDoc = doc(this.firestore, 'users', userId);
+      await updateDoc(userDoc, {
+        organizationRole: newRole,
+        updatedAt: new Date(),
+        roleUpdatedBy: currentUser.uid,
+        roleUpdatedAt: new Date(),
+      });
+
+      // CAMBIO: Solo actualizar el signal local, NO recargar desde Firebase
+      const updatedUsers = this.userSignal().map((u) =>
+        u.uid === userId ? { ...u, organizationRole: newRole } : u
+      );
+      this.userSignal.set(updatedUsers);
+
+      // REMOVER: await this.getOrganizationUsers();
+    } catch (error) {
+      console.error(' Error updating user organization role:', error);
+      this.errorSignal.set('Error al actualizar el rol del usuario');
+      throw error;
     }
-
-    if (currentUser.uid === userId) {
-      throw new Error('No puedes cambiar tu propio rol');
-    }
-
-    const userDoc = doc(this.firestore, 'users', userId);
-    await updateDoc(userDoc, {
-      organizationRole: newRole,
-      updatedAt: new Date(),
-      roleUpdatedBy: currentUser.uid,
-      roleUpdatedAt: new Date(),
-    });
-
-    // CAMBIO: Solo actualizar el signal local, NO recargar desde Firebase
-    const updatedUsers = this.userSignal().map((u) =>
-      u.uid === userId ? { ...u, organizationRole: newRole } : u
-    );
-    this.userSignal.set(updatedUsers);
-
-    // REMOVER: await this.getOrganizationUsers();
-  } catch (error) {
-    console.error(' Error updating user organization role:', error);
-    this.errorSignal.set('Error al actualizar el rol del usuario');
-    throw error;
   }
-}
 
   /**
    * Remueve un usuario de la organización
