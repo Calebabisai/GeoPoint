@@ -409,7 +409,7 @@ export class MapDataService {
   /**
    * Elimina un marcador de Firebase
    */
-  async deleteMarker(markerId: string): Promise<void> {
+    async deleteMarker(markerId: string): Promise<void> {
     this.isLoadingSignal.set(true);
     this.lastErrorSignal.set(null);
 
@@ -425,23 +425,26 @@ export class MapDataService {
         throw new Error('No tienes permisos para eliminar marcadores');
       }
 
-      await this.firestoreService.deleteMarker(markerId);
+      // CAMBIO: Actualización optimista - remover del signal ANTES de la llamada
       this.markersSignal.update((markers) =>
         markers.filter((marker) => marker.id !== markerId)
       );
+
+      // Luego eliminar del backend
+      await this.firestoreService.deleteMarker(markerId);
+      // El onSnapshot actualizará automáticamente si hay cambios
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Error eliminando marcador';
       this.lastErrorSignal.set(errorMessage);
+      
+      // Si falla, revertir sería complejo, pero onSnapshot lo arreglará
       throw error;
     } finally {
       this.isLoadingSignal.set(false);
     }
   }
 
-  /**
-   * Elimina una zona de Firebase
-   */
   async deleteZone(zoneId: string): Promise<void> {
     this.isLoadingSignal.set(true);
     this.lastErrorSignal.set(null);
@@ -458,10 +461,14 @@ export class MapDataService {
         throw new Error('No tienes permisos para eliminar zonas');
       }
 
-      await this.firestoreService.deleteZone(zoneId);
+      // CAMBIO: Actualización optimista - remover del signal ANTES de la llamada
       this.zonesSignal.update((zones) =>
         zones.filter((zone) => zone.id !== zoneId)
       );
+
+      // Luego eliminar del backend
+      await this.firestoreService.deleteZone(zoneId);
+      // El onSnapshot actualizará automáticamente si hay cambios
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Error eliminando zona';

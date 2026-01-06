@@ -650,42 +650,34 @@ export class MapControlsComponent implements OnInit, OnDestroy {
   }
 
   private async deleteMarker(markerId: string) {
-    try {
-      try {
-        await this.mapDataService.deleteMarker(markerId);
-        this.showToast('Marcador eliminado');
-      } catch (mapDataError) {
-        try {
-          await this.firestoreService.deleteMarker(markerId);
-          this.showToast('Marcador eliminado');
-        } catch (firestoreError) {
-          this.mapService.removeMarker(markerId);
-          this.showToast('Marcador eliminado localmente');
-        }
-      }
-    } catch (error) {
-      this.showToast('Error al eliminar marcador');
-    }
-  }
+  try {
+    // Actualización optimista - remover de la UI inmediatamente
+    this.mapService.removeMarker(markerId);
+    this.showToast('Marcador eliminado');
 
-  private async deleteZone(zoneId: string) {
-    try {
-      try {
-        await this.mapDataService.deleteZone(zoneId);
-        this.showToast('Zona eliminada');
-      } catch (mapDataError) {
-        try {
-          await this.firestoreService.deleteZone(zoneId);
-          this.showToast('Zona eliminada');
-        } catch (firestoreError) {
-          this.mapService.removeZone(zoneId);
-          this.showToast('Zona eliminada localmente');
-        }
-      }
-    } catch (error) {
-      this.showToast('Error al eliminar zona');
-    }
+    // Luego intentar eliminar del backend
+    await this.mapDataService.deleteMarker(markerId);
+  } catch (error) {
+    // Si falla, mostrarlo pero el marcador ya está fuera de la UI
+    console.error('Error eliminando marcador del backend:', error);
+    this.showToast('Advertencia: El marcador se eliminó localmente pero puede persistir en el servidor');
   }
+}
+
+private async deleteZone(zoneId: string) {
+  try {
+    // Actualización optimista - remover de la UI inmediatamente
+    this.mapService.removeZone(zoneId);
+    this.showToast('Zona eliminada');
+
+    // Luego intentar eliminar del backend
+    await this.mapDataService.deleteZone(zoneId);
+  } catch (error) {
+    // Si falla, mostrarlo pero la zona ya está fuera de la UI
+    console.error('Error eliminando zona del backend:', error);
+    this.showToast('Advertencia: La zona se eliminó localmente pero puede persistir en el servidor');
+  }
+}
 
   private mapMarkerTypeToDataType(
     formType: 'marker' | 'house' | 'poi'

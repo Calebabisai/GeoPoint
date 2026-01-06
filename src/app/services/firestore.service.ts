@@ -3,13 +3,7 @@ import {
   Observable,
   switchMap,
   of,
-  take,
-  timeout,
-  catchError,
-  from,
   startWith,
-  interval,
-  mergeMap,
   shareReplay,
   BehaviorSubject,
 } from 'rxjs';
@@ -23,7 +17,7 @@ import {
   Timestamp,
   query,
   where,
-  getDocs,
+  onSnapshot,
 } from '@angular/fire/firestore';
 import { MapMarker } from '../shared/models/marker.model';
 import { MapZone } from '../shared/models/zone.model';
@@ -54,7 +48,6 @@ export class FirestoreService {
 
   // Configuración
   private readonly FIRESTORE_TIMEOUT = 30000;
-  private readonly POLLING_INTERVAL = 5000;
 
   // BehaviorSubject para la organización actual (reactivo)
   private currentOrg$ = new BehaviorSubject<Organization | null>(null);
@@ -102,7 +95,7 @@ export class FirestoreService {
   private routesCache$: Observable<unknown[]> | null = null;
 
   constructor() {
-    this.logger.firebase('FirestoreService initialized - using getDocs() polling');
+    this.logger.firebase('FirestoreService initialized - using onSnapShot for real-time updates');
     
     // Effect para sincronizar el signal de organización con el BehaviorSubject
     effect(() => {
@@ -127,18 +120,53 @@ export class FirestoreService {
   }
 
     private fetchMarkersForOrg(org: Organization | null): Observable<MapMarker[]> {
-    if (!org) {
-      this.logger.warn('No organization available - returning empty markers');
-      return of([]);
+      if (!org) {
+        this.logger.warn('No organization available - returning empty markers');
+        return of([]);
+      }
+
+      this._markersState.update((state) => ({ ...state, isLoading: true, error: null }));
+
+      const markersCollection = collection(this.firestore, 'markers');
+      const q = query(markersCollection, where('organizationId', '==', org.id));
+
+      // CAMBIO: Usar onSnapshot en lugar de polling
+      return new Observable<MapMarker[]>((subscriber) => {
+        const unsubscribe = onSnapshot(
+          q,
+          (snapshot) => {
+            const items = snapshot.docs.map((doc) => ({
+              id: doc.id,
+              ...doc.data(),
+            })) as MapMarker[];
+
+            this._markersState.update((state) => ({
+              ...state,
+              isLoading: false,
+              error: null,
+              lastSync: new Date(),
+            }));
+
+            subscriber.next(items);
+          },
+          (error) => {
+            const errorMessage = this.handleFirestoreError(error, 'markers');
+            this._markersState.update((state) => ({
+              ...state,
+              isLoading: false,
+              error: errorMessage,
+            }));
+            subscriber.error(error);
+          }
+        );
+
+        // Cleanup
+        return () => unsubscribe();
+      }).pipe(
+        startWith([]), // Emitir array vacío mientras carga
+        shareReplay(1)
+      );
     }
-
-    this._markersState.update((state) => ({ ...state, isLoading: true, error: null }));
-
-    const markersCollection = collection(this.firestore, 'markers');
-    const q = query(markersCollection, where('organizationId', '==', org.id));
-
-    return this.createPollingObservable<MapMarker>(q, 'markers');
-  }
 
   async addMarker(marker: Omit<MapMarker, 'id'>): Promise<string> {
     this.ensureOnlineOrQueue('markers', 'create', marker);
@@ -152,26 +180,18 @@ export class FirestoreService {
       createdAt: Timestamp.now(),
     };
 
-    const docRef = await addDoc(markersCollection, markerData);
-    this.invalidateMarkersCache();
-    
+    const docRef = await addDoc(markersCollection, markerData);    
     return docRef.id;
   }
 
   async updateMarker(id: string, marker: Partial<MapMarker>): Promise<void> {
     const markerDoc = doc(this.firestore, 'markers', id);
     await updateDoc(markerDoc, { ...marker });
-    this.invalidateMarkersCache();
   }
 
   async deleteMarker(id: string): Promise<void> {
     const markerDoc = doc(this.firestore, 'markers', id);
     await deleteDoc(markerDoc);
-    this.invalidateMarkersCache();
-  }
-
-  private invalidateMarkersCache(): void {
-    this.markersCache$ = null;
   }
 
   // ==================== ZONES ====================
@@ -189,7 +209,7 @@ export class FirestoreService {
 
     return this.zonesCache$;
   }
-
+  //Obtener zonas para una organización
   private fetchZonesForOrg(org: Organization | null): Observable<MapZone[]> {
     if (!org) {
       this.logger.warn('No organization available - returning empty zones');
@@ -201,7 +221,42 @@ export class FirestoreService {
     const zonesCollection = collection(this.firestore, 'zones');
     const q = query(zonesCollection, where('organizationId', '==', org.id));
 
-    return this.createPollingObservable<MapZone>(q, 'zones');
+    // CAMBIO: Usar onSnapshot en lugar de polling
+    return new Observable<MapZone[]>((subscriber) => {
+      const unsubscribe = onSnapshot(
+        q,
+        (snapshot) => {
+          const items = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          })) as MapZone[];
+
+          this._zonesState.update((state) => ({
+            ...state,
+            isLoading: false,
+            error: null,
+            lastSync: new Date(),
+          }));
+
+          subscriber.next(items);
+        },
+        (error) => {
+          const errorMessage = this.handleFirestoreError(error, 'zones');
+          this._zonesState.update((state) => ({
+            ...state,
+            isLoading: false,
+            error: errorMessage,
+          }));
+          subscriber.error(error);
+        }
+      );
+
+      // Cleanup
+      return () => unsubscribe();
+    }).pipe(
+      startWith([]), // Emitir array vacío mientras carga
+      shareReplay(1)
+    );
   }
 
   async addZone(zone: Omit<MapZone, 'id'>): Promise<string> {
@@ -216,27 +271,20 @@ export class FirestoreService {
       createdAt: Timestamp.now(),
     };
 
-    const docRef = await addDoc(zonesCollection, zoneData);
-    this.invalidateZonesCache();
-    
+    const docRef = await addDoc(zonesCollection, zoneData);    
     return docRef.id;
   }
 
   async updateZone(id: string, zone: Partial<MapZone>): Promise<void> {
     const zoneDoc = doc(this.firestore, 'zones', id);
     await updateDoc(zoneDoc, { ...zone });
-    this.invalidateZonesCache();
   }
 
   async deleteZone(id: string): Promise<void> {
     const zoneDoc = doc(this.firestore, 'zones', id);
     await deleteDoc(zoneDoc);
-    this.invalidateZonesCache();
   }
 
-  private invalidateZonesCache(): void {
-    this.zonesCache$ = null;
-  }
 
   // ==================== ROUTES ====================
 
@@ -255,6 +303,7 @@ export class FirestoreService {
 
   private fetchRoutesForOrg(org: Organization | null): Observable<unknown[]> {
     if (!org) {
+      this.logger.warn('No organization available - returning empty routes');
       return of([]);
     }
 
@@ -263,7 +312,42 @@ export class FirestoreService {
     const routesCollection = collection(this.firestore, 'routes');
     const q = query(routesCollection, where('organizationId', '==', org.id));
 
-    return this.createPollingObservable(q, 'routes');
+    // CAMBIO: Usar onSnapshot en lugar de polling
+    return new Observable<unknown[]>((subscriber) => {
+      const unsubscribe = onSnapshot(
+        q,
+        (snapshot) => {
+          const items = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+
+          this._routesState.update((state) => ({
+            ...state,
+            isLoading: false,
+            error: null,
+            lastSync: new Date(),
+          }));
+
+          subscriber.next(items);
+        },
+        (error) => {
+          const errorMessage = this.handleFirestoreError(error, 'routes');
+          this._routesState.update((state) => ({
+            ...state,
+            isLoading: false,
+            error: errorMessage,
+          }));
+          subscriber.error(error);
+        }
+      );
+
+      // Cleanup cuando se desuscriba
+      return () => unsubscribe();
+    }).pipe(
+      startWith([]), // Emitir array vacío mientras carga
+      shareReplay(1)
+    );
   }
 
   async addRoute(route: unknown): Promise<string> {
@@ -275,61 +359,10 @@ export class FirestoreService {
       organizationId: currentOrg.id,
       createdAt: Timestamp.now(),
     });
-
-    this.invalidateRoutesCache();
     return docRef.id;
   }
 
-  private invalidateRoutesCache(): void {
-    this.routesCache$ = null;
-  }
-
   // ==================== HELPERS ====================
-
-    private createPollingObservable<T>(
-    q: ReturnType<typeof query>,
-    collectionName: string
-  ): Observable<T[]> {
-    const stateSignal = this.getStateSignal(collectionName);
-
-    return interval(this.POLLING_INTERVAL).pipe(
-      startWith(0),
-      mergeMap(() => 
-        from(getDocs(q)).pipe(
-          timeout(this.FIRESTORE_TIMEOUT),
-          catchError((error) => {
-            const errorMessage = this.handleFirestoreError(error, collectionName);
-            stateSignal.update((state) => ({
-              ...state,
-              isLoading: false,
-              error: errorMessage,
-            }));
-            return of(null);
-          })
-        )
-      ),
-      switchMap((snapshot) => {
-        if (!snapshot) {
-          return of([] as T[]);
-        }
-
-        const items: T[] = snapshot.docs.map((docSnap) => {
-          const data = docSnap.data() as Record<string, unknown>;
-          return { id: docSnap.id, ...data } as T;
-        });
-
-        stateSignal.update((state) => ({
-          ...state,
-          isLoading: false,
-          error: null,
-          lastSync: new Date(),
-        }));
-
-        return of(items);
-      })
-    );
-  
-  }
 
   private getStateSignal(collectionName: string) {
     switch (collectionName) {
