@@ -39,7 +39,7 @@ import {
   person,
   mail,
   pinOutline,
-  shapesOutline, refreshOutline } from 'ionicons/icons';
+  shapesOutline, refreshOutline, gitBranch } from 'ionicons/icons';
 import { MapViewComponent } from '../map/components/map-view/map-view.component';
 import { GeolocationService } from '../map/services/geolocation.service';
 import { UiService } from '../shared/services/ui.service';
@@ -102,12 +102,16 @@ export class HomePage {
   private readonly _zones = toSignal(this.mapDataService.getZones(), {
     initialValue: [],
   });
+  private readonly _routes = toSignal(this.mapDataService.getRoutes(), {
+    initialValue: [],
+  });
 
   // Computed signals
   readonly isAdmin = computed(() => this.userRole() === 'admin');
   readonly currentUserEmail = computed(() => this.currentUser()?.email ?? null);
   readonly markersCount = computed(() => this._markers().length);
   readonly zonesCount = computed(() => this._zones().length);
+  readonly routesCount = computed(() => this._routes().length);
   readonly hasLocation = computed(() => !!this.currentLocation());
   readonly roleDisplayName = computed(() => {
     const role = this.userRole();
@@ -119,10 +123,7 @@ export class HomePage {
   });
 
   constructor() {
-    addIcons({locationOutline,shieldCheckmark,people,chevronForward,business,mail,
-      analytics,mapOutline,layersOutline,settingsOutline,settings,personCircle,
-      logOutOutline,menuOutline,pinOutline,shapesOutline,refreshOutline,peopleOutline,
-      codeSlash,person,});
+    addIcons({menuOutline,locationOutline,pinOutline,shapesOutline,gitBranch,refreshOutline,shieldCheckmark,people,chevronForward,business,mail,analytics,mapOutline,layersOutline,settingsOutline,settings,personCircle,logOutOutline,peopleOutline,codeSlash,person,});
 
     // Auto-initialize location tracking
     this.initializeLocation();
