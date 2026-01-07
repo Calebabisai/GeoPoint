@@ -672,34 +672,31 @@ export class MapControlsComponent implements OnInit, OnDestroy {
   }
 
   private async deleteMarker(markerId: string) {
-  try {
-    // Actualización optimista - remover de la UI inmediatamente
-    this.mapService.removeMarker(markerId);
-    this.showToast('Marcador eliminado');
-
-    // Luego intentar eliminar del backend
-    await this.mapDataService.deleteMarker(markerId);
-  } catch (error) {
-    // Si falla, mostrarlo pero el marcador ya está fuera de la UI
-    console.error('Error eliminando marcador del backend:', error);
-    this.showToast('Advertencia: El marcador se eliminó localmente pero puede persistir en el servidor');
+    try {
+      // Actualización optimista - remover de la UI primero
+      this.mapService.removeMarker(markerId);
+      // Luego eliminar del backend
+      await this.mapDataService.deleteMarker(markerId);
+      
+      // El onSnapshot confirmará la eliminación y mantendrá la UI sincronizada
+    } catch (error) {
+      console.error('Error eliminando marcador:', error);
+    }
   }
-}
 
-private async deleteZone(zoneId: string) {
-  try {
-    // Actualización optimista - remover de la UI inmediatamente
-    this.mapService.removeZone(zoneId);
-    this.showToast('Zona eliminada');
-
-    // Luego intentar eliminar del backend
-    await this.mapDataService.deleteZone(zoneId);
-  } catch (error) {
-    // Si falla, mostrarlo pero la zona ya está fuera de la UI
-    console.error('Error eliminando zona del backend:', error);
-    this.showToast('Advertencia: La zona se eliminó localmente pero puede persistir en el servidor');
+  private async deleteZone(zoneId: string) {
+    try {
+      // Actualización optimista - remover de la UI primero
+      this.mapService.removeZone(zoneId);
+      // Luego eliminar del backend
+      await this.mapDataService.deleteZone(zoneId);
+      
+      // El onSnapshot confirmará la eliminación y mantendrá la UI sincronizada
+    } catch (error) {
+      console.error('Error eliminando zona:', error);
+      // Si falla, el onSnapshot restaurará la zona automáticamente
+    }
   }
-}
 
   private mapMarkerTypeToDataType(
     formType: 'marker' | 'house' | 'poi'
