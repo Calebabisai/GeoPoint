@@ -4,6 +4,7 @@ import {
   signal,
   computed,
   effect,
+  untracked
 } from '@angular/core';
 
 import { MapService } from '../../services/map.service';
@@ -118,35 +119,40 @@ export class MapViewComponent {
   readonly routesCount = computed(() => this.routes().length);
 
   constructor() {
-    //Esperar ubicacion antes de inicializar mapa
+    // Solo inicializar con ubicación (este método maneja todo)
     this.initializeWithLocation();
 
-    setTimeout(() => {
-      this.initializeMap();
-      setTimeout(() => {
-        if (this._mapInitialized()) {
-          this.syncMarkers();
-          this.syncZones();
-          this.syncRoutes();
-        }
-      }, this.DATA_LOAD_DELAY_MS);
-    }, this.MAP_INIT_DELAY_MS);
-
+    // Effects para sincronizar cuando cambian los datos
+    // Usamos un flag para evitar sincronización antes de que el mapa esté listo
     effect(() => {
-      if (this._mapInitialized()) {
-        this.syncMarkers();
+      const initialized = this._mapInitialized();
+      const currentMarkers = this.markers();
+      // Solo sincronizar si el mapa está inicializado y hay datos
+      if (initialized) {
+        untracked(() => {
+          // Pequeño delay para evitar race conditions
+          setTimeout(() => this.syncMarkers(), 50);
+        });
       }
     });
 
     effect(() => {
-      if (this._mapInitialized()) {
-        this.syncZones();
+      const initialized = this._mapInitialized();
+      const currentZones = this.zones();
+      if (initialized) {
+        untracked(() => {
+          setTimeout(() => this.syncZones(), 50);
+        });
       }
     });
 
     effect(() => {
-      if (this._mapInitialized()) {
-        this.syncRoutes();
+      const initialized = this._mapInitialized();
+      const currentRoutes = this.routes();
+      if (initialized) {
+        untracked(() => {
+          setTimeout(() => this.syncRoutes(), 50);
+        });
       }
     });
 
@@ -178,8 +184,8 @@ export class MapViewComponent {
         this._userLocation.set(location);
         this.logger.firebase(' Ubicación obtenida:', location);
       } else {
-        // Ubicación por defecto (centro de tu ciudad/organización)
-        const defaultLocation = { lat: 19.4326, lng: -99.1332 }; // CDMX ejemplo
+        // Ubicación por defecto
+        const defaultLocation = { lat: 19.4326, lng: -99.1332 };
         this._userLocation.set(defaultLocation);
         this.logger.warn(' Usando ubicación por defecto');
       }
@@ -189,31 +195,28 @@ export class MapViewComponent {
       // 2. Inicializar mapa
       await this.initializeMap();
 
-      // 3. Precargar área cercana (en background)
+      // 3. Precargar área cercana (en background) - SOLO si hay ubicación real
       if (location) {
         setTimeout(async () => {
-          const hasCached = await this.mapCacheService.hasCachedTiles();
-          if (!hasCached) {
-            await this.mapCacheService.precacheOrganizationArea(
-              location.lat,
-              location.lng,
-              {
-                maxZoom: 16, // Menos zoom = menos tiles = más rápido
-                minZoom: 13,
-              }
-            );
+          try {
+            const hasCached = await this.mapCacheService.hasCachedTiles();
+            if (!hasCached) {
+              await this.mapCacheService.precacheOrganizationArea(
+                location.lat,
+                location.lng,
+                {
+                  maxZoom: 16,
+                  minZoom: 13,
+                }
+              );
+            }
+          } catch (e) {
+            // Ignorar errores de caché
           }
-        }, 2000); // Esperar 2 segundos después de cargar el mapa
+        }, 2000);
       }
 
-      // 4. Cargar marcadores y zonas
-      setTimeout(() => {
-        if (this._mapInitialized()) {
-          this.syncMarkers();
-          this.syncZones();
-          this.syncRoutes();
-        }
-      }, this.DATA_LOAD_DELAY_MS);
+      // NO llamar a syncMarkers/Zones/Routes aquí - los effects lo manejan
 
     } catch (error) {
       this.logger.error('Error en inicialización con ubicación:', error);
@@ -257,24 +260,27 @@ export class MapViewComponent {
       currentMarkers.map((m) => m.id).filter((id): id is string => !!id)
     );
 
+    const newLoadedMarkers = new Set<string>();
+
+    // Eliminar marcadores que ya no existen
     loadedMarkers.forEach((markerId) => {
       if (!currentMarkerIds.has(markerId)) {
         this.mapService.removeMarker(markerId);
-        const updated = new Set(loadedMarkers);
-        updated.delete(markerId);
-        this._loadedMarkers.set(updated);
       }
     });
 
+    // Agregar marcadores nuevos
     currentMarkers.forEach((marker) => {
-      if (marker.id && !loadedMarkers.has(marker.id)) {
-        const legacyMarker = this.convertToLegacyMarker(marker);
-        this.mapService.addMarker(legacyMarker);
-        const updated = new Set(loadedMarkers);
-        updated.add(marker.id);
-        this._loadedMarkers.set(updated);
+      if (marker.id) {
+        if (!loadedMarkers.has(marker.id)) {
+          const legacyMarker = this.convertToLegacyMarker(marker);
+          this.mapService.addMarker(legacyMarker);
+        }
+        newLoadedMarkers.add(marker.id);
       }
     });
+
+    this._loadedMarkers.set(newLoadedMarkers);
   }
 
   private syncZones(): void {
@@ -289,24 +295,27 @@ export class MapViewComponent {
       currentZones.map((z) => z.id).filter((id): id is string => !!id)
     );
 
+    const newLoadedZones = new Set<string>();
+
+    // Eliminar zonas que ya no existen
     loadedZones.forEach((zoneId) => {
       if (!currentZoneIds.has(zoneId)) {
         this.mapService.removeZone(zoneId);
-        const updated = new Set(loadedZones);
-        updated.delete(zoneId);
-        this._loadedZones.set(updated);
       }
     });
 
+    // Agregar zonas nuevas
     currentZones.forEach((zone) => {
-      if (zone.id && !loadedZones.has(zone.id)) {
-        const legacyZone = this.convertToLegacyZone(zone);
-        this.mapService.addZone(legacyZone);
-        const updated = new Set(loadedZones);
-        updated.add(zone.id);
-        this._loadedZones.set(updated);
+      if (zone.id) {
+        if (!loadedZones.has(zone.id)) {
+          const legacyZone = this.convertToLegacyZone(zone);
+          this.mapService.addZone(legacyZone);
+        }
+        newLoadedZones.add(zone.id);
       }
     });
+
+    this._loadedZones.set(newLoadedZones);
   }
 
   private syncRoutes(): void {
@@ -321,27 +330,31 @@ export class MapViewComponent {
       currentRoutes.map((r) => r.id).filter((id): id is string => !!id)
     );
 
-    // Eliminar rutas que ya no existen
+    // Crear nuevo Set para actualizar de una vez
+    const newLoadedRoutes = new Set<string>();
+
+    // Eliminar rutas que ya no existen en los datos
     loadedRoutes.forEach((routeId) => {
       if (!currentRouteIds.has(routeId)) {
         this.mapService.removeRoute(routeId);
-        const updated = new Set(loadedRoutes);
-        updated.delete(routeId);
-        this._loadedRoutes.set(updated);
       }
     });
 
-    // Agregar rutas nuevas
+    // Agregar rutas nuevas y mantener las existentes
     currentRoutes.forEach((route) => {
-      if (route.id && !loadedRoutes.has(route.id)) {
-        // Convertir waypoints de {lat, lng}[] a [number, number][] si es necesario
-        const convertedRoute = this.convertToMapRoute(route);
-        this.mapService.addRoute(convertedRoute);
-        const updated = new Set(loadedRoutes);
-        updated.add(route.id);
-        this._loadedRoutes.set(updated);
+      if (route.id) {
+        if (!loadedRoutes.has(route.id)) {
+          // Ruta nueva, agregarla
+          const convertedRoute = this.convertToMapRoute(route);
+          this.mapService.addRoute(convertedRoute);
+        }
+        // Marcar como cargada (nueva o existente)
+        newLoadedRoutes.add(route.id);
       }
     });
+
+    // Actualizar el Set de rutas cargadas de una vez
+    this._loadedRoutes.set(newLoadedRoutes);
   }
 
   private convertToLegacyMarker(newMarker: MapDataMarker): LegacyMarker {

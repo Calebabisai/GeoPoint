@@ -851,20 +851,47 @@ export class MapService {
       }
     });
 
-    // NUEVO: También actualizar rutas
+    // Actualizar rutas
     this.routes.forEach((route, id) => {
       route.off('click');
       route.off('mouseover');
       route.off('mouseout');
 
+      const routeElement = route.getElement() as HTMLElement;
       const routeData = this.routeData.get(id);
 
       if (this._deleteMode()) {
+        // NUEVO: Agregar clase delete-mode al elemento
+        routeElement?.classList.add('delete-mode');
+        
         route.on('click', (e: L.LeafletMouseEvent) => {
           L.DomEvent.stopPropagation(e);
+          this.hapticLight();
           this.routeDelete$.next(id);
         });
+        
+        // Cambiar estilo hover en modo delete
+        route.on('mouseover', () => {
+          if (routeData) {
+            route.setStyle({ 
+              weight: 6,
+              opacity: 0.9,
+            });
+          }
+        });
+
+        route.on('mouseout', () => {
+          if (routeData) {
+            route.setStyle({ 
+              weight: 4,
+              opacity: 0.7,
+            });
+          }
+        });
       } else {
+        // NUEVO: Remover clase delete-mode
+        routeElement?.classList.remove('delete-mode');
+        
         // Reconfigurar eventos normales
         route.on('click', (e: L.LeafletMouseEvent) => {
           // Si estamos creando marcador O línea, permitir que el click pase al mapa
@@ -876,9 +903,9 @@ export class MapService {
           route.openPopup();
         });
 
-        // Estilo hover
+        // Estilo hover normal
         route.on('mouseover', () => {
-          if (routeData) {
+          if (routeData && !this._deleteMode()) {
             route.setStyle({ weight: (routeData.width || 4) + 2, opacity: 1 });
           }
         });

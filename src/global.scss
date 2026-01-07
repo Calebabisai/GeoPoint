@@ -645,7 +645,8 @@ ion-fab-button {
   }
 }
 
-// Estilos específicos para zonas en modo eliminación - línea punteada sutil
+// Agregar después de la línea 661
+
 .leaflet-interactive.delete-mode {
   stroke: #ff6b6b !important;
   stroke-width: 2px !important;
@@ -660,6 +661,20 @@ ion-fab-button {
   }
 }
 
+.leaflet-interactive[stroke].delete-mode,
+path.leaflet-interactive.delete-mode {
+  stroke: #ff4757 !important;
+  stroke-width: 4px !important;
+  stroke-dasharray: 10, 5 !important;
+  stroke-opacity: 0.85 !important;
+  
+  &:hover {
+    stroke-width: 5px !important;
+    stroke-opacity: 1 !important;
+    transition: all 0.2s ease;
+    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="%23ff6b6b" viewBox="0 0 24 24"><path d="M9 3v1H4v2h1v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6h1V4h-5V3H9zm1 2h4v1H10V5zm-4 3v11h12V8H6z"/><path d="M8 10h2v7H8zm4 0h2v7h-2z"/></svg>') 12 12, crosshair !important;
+  }
+}
 /* === MARCADOR DE UBICACIÓN DEL USUARIO - DESACTIVADO === */
 // El GPS funciona correctamente pero sin mostrar marcador visual
 

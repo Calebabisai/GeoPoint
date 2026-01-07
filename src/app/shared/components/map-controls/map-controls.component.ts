@@ -86,6 +86,9 @@ export class MapControlsComponent implements OnInit, OnDestroy {
   private zoneDeleteSubscription?: Subscription;
   private routeDeleteSubscription?: Subscription;
 
+  private isProcessingDelete = false;
+
+
   // Signals para permisos
   readonly canCreateMarker = computed(() => {
   const orgRole = this.authorizationService.currentUser()?.organizationRole;
@@ -900,11 +903,30 @@ export class MapControlsComponent implements OnInit, OnDestroy {
   }
 
   private async confirmDeleteMarker(markerId: string) {
+    // Evitar múltiples procesamientos
+    if (this.isProcessingDelete) {
+      return;
+    }
+
+    // Cerrar cualquier alerta existente primero
+    try {
+      const existingAlert = await this.alertCtrl.getTop();
+      if (existingAlert) {
+        await existingAlert.dismiss();
+        // Pequeña pausa para que termine de cerrarse
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    } catch (e) {
+      // Ignorar errores al cerrar
+    }
+
+    this.isProcessingDelete = true;
     this.triggerHapticFeedback();
 
     const alert = await this.alertCtrl.create({
       header: 'Eliminar Marcador',
       message: '¿Estás seguro de que quieres eliminar este marcador?\n\nEsta acción no se puede deshacer.',
+      backdropDismiss: false,
       buttons: [
         {
           text: 'Cancelar',
@@ -924,14 +946,37 @@ export class MapControlsComponent implements OnInit, OnDestroy {
     });
 
     await alert.present();
+
+    // Resetear flag cuando se cierra el alert
+    alert.onDidDismiss().then(() => {
+      this.isProcessingDelete = false;
+    });
   }
 
   private async confirmDeleteZone(zoneId: string) {
+    // Evitar múltiples procesamientos
+    if (this.isProcessingDelete) {
+      return;
+    }
+
+    // Cerrar cualquier alerta existente primero
+    try {
+      const existingAlert = await this.alertCtrl.getTop();
+      if (existingAlert) {
+        await existingAlert.dismiss();
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    } catch (e) {
+      // Ignorar errores al cerrar
+    }
+
+    this.isProcessingDelete = true;
     this.triggerHapticFeedback();
 
     const alert = await this.alertCtrl.create({
       header: 'Eliminar Zona',
       message: '¿Estás seguro de que quieres eliminar esta zona?\n\nEsta acción no se puede deshacer.',
+      backdropDismiss: false,
       buttons: [
         {
           text: 'Cancelar',
@@ -951,14 +996,36 @@ export class MapControlsComponent implements OnInit, OnDestroy {
     });
 
     await alert.present();
+
+    alert.onDidDismiss().then(() => {
+      this.isProcessingDelete = false;
+    });
   }
 
   private async confirmDeleteRoute(routeId: string) {
+    // Evitar múltiples procesamientos
+    if (this.isProcessingDelete) {
+      return;
+    }
+
+    // Cerrar cualquier alerta existente primero
+    try {
+      const existingAlert = await this.alertCtrl.getTop();
+      if (existingAlert) {
+        await existingAlert.dismiss();
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    } catch (e) {
+      // Ignorar errores al cerrar
+    }
+
+    this.isProcessingDelete = true;
     this.triggerHapticFeedback();
 
     const alert = await this.alertCtrl.create({
       header: 'Eliminar Línea',
       message: '¿Estás seguro de que quieres eliminar esta línea?\n\nEsta acción no se puede deshacer.',
+      backdropDismiss: false,
       buttons: [
         {
           text: 'Cancelar',
@@ -978,60 +1045,56 @@ export class MapControlsComponent implements OnInit, OnDestroy {
     });
 
     await alert.present();
+
+    alert.onDidDismiss().then(() => {
+      this.isProcessingDelete = false;
+    });
   }
 
-  // Eliminación más robusta
+  // Métodos de eliminación - PRIMERO UI, LUEGO BACKEND
   private async deleteMarker(markerId: string) {
     try {
-      // 1. Eliminar del backend PRIMERO
-      await this.mapDataService.deleteMarker(markerId);
-      
-      // 2. Forzar eliminación inmediata de la UI
+      // 1. Eliminar de la UI PRIMERO (instantáneo)
       this.mapService.removeMarker(markerId);
       
-      // 3. Triple verificación con timeouts escalonados
-      setTimeout(() => this.mapService.removeMarker(markerId), 100);
-      setTimeout(() => this.mapService.removeMarker(markerId), 500);
-      setTimeout(() => this.mapService.removeMarker(markerId), 1000);
+      // 2. Luego eliminar del backend
+      await this.mapDataService.deleteMarker(markerId);
       
+      this.showToast('Marcador eliminado');
     } catch (error) {
-      console.error('Error eliminando marcador:', error);
-      this.showToast('Error al eliminar marcador');
+      console.error('Error eliminando marcador del backend:', error);
+      // El marcador ya se eliminó de la UI, mostrar advertencia
+      this.showToast('Marcador eliminado (sincronización pendiente)');
     }
   }
 
   private async deleteZone(zoneId: string) {
     try {
-      // 1. Eliminar del backend PRIMERO
-      await this.mapDataService.deleteZone(zoneId);
-      
-      // 2. Forzar eliminación inmediata de la UI
+      // 1. Eliminar de la UI PRIMERO (instantáneo)
       this.mapService.removeZone(zoneId);
       
-      // 3. Triple verificación con timeouts escalonados
-      setTimeout(() => this.mapService.removeZone(zoneId), 100);
-      setTimeout(() => this.mapService.removeZone(zoneId), 500);
-      setTimeout(() => this.mapService.removeZone(zoneId), 1000);
+      // 2. Luego eliminar del backend
+      await this.mapDataService.deleteZone(zoneId);
       
+      this.showToast('Zona eliminada');
     } catch (error) {
-      console.error('Error eliminando zona:', error);
-      this.showToast('Error al eliminar zona');
+      console.error('Error eliminando zona del backend:', error);
+      this.showToast('Zona eliminada (sincronización pendiente)');
     }
   }
 
   private async deleteRoute(routeId: string) {
     try {
-      await this.mapDataService.deleteRoute(routeId);
-      
+      // 1. Eliminar de la UI PRIMERO (instantáneo)
       this.mapService.removeRoute(routeId);
       
-      setTimeout(() => this.mapService.removeRoute(routeId), 100);
-      setTimeout(() => this.mapService.removeRoute(routeId), 500);
-      setTimeout(() => this.mapService.removeRoute(routeId), 1000);
+      // 2. Luego eliminar del backend
+      await this.mapDataService.deleteRoute(routeId);
       
+      this.showToast('Línea eliminada');
     } catch (error) {
-      console.error('Error eliminando línea:', error);
-      this.showToast('Error al eliminar línea');
+      console.error('Error eliminando línea del backend:', error);
+      this.showToast('Línea eliminada (sincronización pendiente)');
     }
   }
 
