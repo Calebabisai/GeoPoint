@@ -2,6 +2,7 @@ import { Component, inject, OnInit, OnDestroy, signal, computed, afterNextRender
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { Subscription } from 'rxjs';
 import {
   IonButton,
   IonIcon,
@@ -77,6 +78,10 @@ export class MapControlsComponent implements OnInit, OnDestroy {
   private authorizationService = inject(AuthorizationService);
   private toastCtrl = inject(ToastController);
   private alertCtrl = inject(AlertController);
+
+  // NUEVO: Guardar subscripciones para poder cancelarlas
+  private markerDeleteSubscription?: Subscription;
+  private zoneDeleteSubscription?: Subscription;
 
   // Signals para permisos
   readonly canCreateMarker = computed(() => {
@@ -690,13 +695,18 @@ export class MapControlsComponent implements OnInit, OnDestroy {
   private enableDeleteMode() {
     this.mapService.setDeleteMode(true);
 
-    this.mapService.markerDelete$.subscribe((markerId: string) => {
+    // Cancelar subscripciones anteriores antes de crear nuevas
+    this.markerDeleteSubscription?.unsubscribe();
+    this.zoneDeleteSubscription?.unsubscribe();
+
+    // Guardar las nuevas subscripciones
+    this.markerDeleteSubscription = this.mapService.markerDelete$.subscribe((markerId: string) => {
       if (this.editModeSignal()) {
         this.confirmDeleteMarker(markerId);
       }
     });
 
-    this.mapService.zoneDelete$.subscribe((zoneId: string) => {
+    this.zoneDeleteSubscription = this.mapService.zoneDelete$.subscribe((zoneId: string) => {
       if (this.editModeSignal()) {
         this.confirmDeleteZone(zoneId);
       }
@@ -705,6 +715,13 @@ export class MapControlsComponent implements OnInit, OnDestroy {
 
   private disableDeleteMode() {
     this.mapService.setDeleteMode(false);
+    
+    //Cancelar subscripciones al desactivar modo edición
+    this.markerDeleteSubscription?.unsubscribe();
+    this.zoneDeleteSubscription?.unsubscribe();
+    this.markerDeleteSubscription = undefined;
+    this.zoneDeleteSubscription = undefined;
+    
     this.cleanupDeleteModeStyles();
   }
 
@@ -784,51 +801,44 @@ export class MapControlsComponent implements OnInit, OnDestroy {
     await alert.present();
   }
 
+  // Eliminación más robusta
   private async deleteMarker(markerId: string) {
-  try {
-    // 1. Eliminar del backend PRIMERO (más confiable)
-    await this.mapDataService.deleteMarker(markerId);
-    
-    // 2. Luego forzar eliminación de UI (el onSnapshot debería hacerlo, pero por si acaso)
-    this.mapService.removeMarker(markerId);
-    
-    // 3. Verificar que realmente se eliminó después de un delay
-    setTimeout(() => {
-      // Si el onSnapshot no lo eliminó, forzarlo nuevamente
+    try {
+      // 1. Eliminar del backend PRIMERO
+      await this.mapDataService.deleteMarker(markerId);
+      
+      // 2. Forzar eliminación inmediata de la UI
       this.mapService.removeMarker(markerId);
-    }, 500);
-    
-  } catch (error) {
-    console.error('Error eliminando marcador:', error);
-    this.showToast('Error al eliminar marcador');
-    
-    // NO eliminar de la UI si falló el backend
-    // El marcador se quedará visible, que es correcto
+      
+      // 3. Triple verificación con timeouts escalonados
+      setTimeout(() => this.mapService.removeMarker(markerId), 100);
+      setTimeout(() => this.mapService.removeMarker(markerId), 500);
+      setTimeout(() => this.mapService.removeMarker(markerId), 1000);
+      
+    } catch (error) {
+      console.error('Error eliminando marcador:', error);
+      this.showToast('Error al eliminar marcador');
+    }
   }
-}
 
-private async deleteZone(zoneId: string) {
-  try {
-    // 1. Eliminar del backend PRIMERO (más confiable)
-    await this.mapDataService.deleteZone(zoneId);
-    
-    // 2. Luego forzar eliminación de UI (el onSnapshot debería hacerlo, pero por si acaso)
-    this.mapService.removeZone(zoneId);
-    
-    // 3. Verificar que realmente se eliminó después de un delay
-    setTimeout(() => {
-      // Si el onSnapshot no lo eliminó, forzarlo nuevamente
+  private async deleteZone(zoneId: string) {
+    try {
+      // 1. Eliminar del backend PRIMERO
+      await this.mapDataService.deleteZone(zoneId);
+      
+      // 2. Forzar eliminación inmediata de la UI
       this.mapService.removeZone(zoneId);
-    }, 500);
-    
-  } catch (error) {
-    console.error('Error eliminando zona:', error);
-    this.showToast('Error al eliminar zona');
-    
-    // NO eliminar de la UI si falló el backend
-    // La zona se quedará visible, que es correcto
+      
+      // 3. Triple verificación con timeouts escalonados
+      setTimeout(() => this.mapService.removeZone(zoneId), 100);
+      setTimeout(() => this.mapService.removeZone(zoneId), 500);
+      setTimeout(() => this.mapService.removeZone(zoneId), 1000);
+      
+    } catch (error) {
+      console.error('Error eliminando zona:', error);
+      this.showToast('Error al eliminar zona');
+    }
   }
-}
 
   private mapMarkerTypeToDataType(
     formType: 'marker' | 'house' | 'poi'
@@ -848,10 +858,10 @@ private async deleteZone(zoneId: string) {
   private async showToast(message: string) {
   const toast = await this.toastCtrl.create({
     message,
-    duration: 1500, // Reducido de 2000 a 1500ms (más rápido)
-    position: 'middle', // Cambiar de 'top' a 'bottom'
+    duration: 1500,
+    position: 'middle',
     cssClass: 'custom-toast-compact',
-    mode: 'ios', // Modo iOS más discreto
+    mode: 'ios',
   });
   await toast.present();
 }
