@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, OnDestroy, signal, computed } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy, signal, computed, afterNextRender } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
@@ -248,6 +248,11 @@ export class MapControlsComponent implements OnInit, OnDestroy {
     window.addEventListener('roleChanged', () => {
       // Los computed signals se actualizan automáticamente
     });
+
+        // Setup de gestos después del primer render
+    afterNextRender(() => {
+      this.setupSwipeGestures();
+    });
   }
 
   ngOnInit() {
@@ -264,6 +269,111 @@ export class MapControlsComponent implements OnInit, OnDestroy {
       }
     );
   }
+
+  private setupSwipeGestures(): void {
+    const panels = document.querySelectorAll('.slide-panel');
+    
+    panels.forEach((panel) => {
+      let startY = 0;
+      let currentY = 0;
+      let isDragging = false;
+      
+      const panelElement = panel as HTMLElement;
+      const header = panelElement.querySelector('.panel-header') as HTMLElement;
+      
+      if (!header) return;
+      
+      // Touch start
+      const handleTouchStart = (e: TouchEvent) => {
+        // Solo permitir gesto si el panel está abierto
+        if (!this.panelOpen()) return;
+        
+        startY = e.touches[0].clientY;
+        currentY = startY;
+        isDragging = true;
+        panelElement.style.transition = 'none';
+      };
+      
+      // Touch move
+      const handleTouchMove = (e: TouchEvent) => {
+        if (!isDragging) return;
+        
+        currentY = e.touches[0].clientY;
+        const deltaY = currentY - startY;
+        
+        // Solo permitir deslizar hacia abajo
+        if (deltaY > 0) {
+          panelElement.style.transform = `translateY(${deltaY}px)`;
+        }
+      };
+      
+      // Touch end
+      const handleTouchEnd = () => {
+        if (!isDragging) return;
+        
+        isDragging = false;
+        const deltaY = currentY - startY;
+        
+        // Si desliza más de 100px, cerrar panel
+        if (deltaY > 100) {
+          // Añadir feedback háptico
+          this.triggerHapticFeedback('light');
+          
+          // Animar hacia abajo antes de cerrar
+          panelElement.style.transition = 'transform 0.3s ease-out';
+          panelElement.style.transform = 'translateY(100%)';
+          
+          // Esperar a que termine la animación antes de cambiar el signal
+          setTimeout(() => {
+            this.closePanel();
+            // Limpiar el estilo inline
+            panelElement.style.transform = '';
+            panelElement.style.transition = '';
+          }, 300);
+        } else {
+          // Volver a la posición original con animación
+          panelElement.style.transition = 'transform 0.3s cubic-bezier(0.32, 0.72, 0, 1)';
+          panelElement.style.transform = 'translateY(0)';
+          
+          // Limpiar después de la animación
+          setTimeout(() => {
+            panelElement.style.transition = '';
+            panelElement.style.transform = '';
+          }, 300);
+        }
+        
+        // Reset
+        startY = 0;
+        currentY = 0;
+      };
+      
+      // Agregar listeners
+      header.addEventListener('touchstart', handleTouchStart, { passive: true });
+      header.addEventListener('touchmove', handleTouchMove, { passive: true });
+      header.addEventListener('touchend', handleTouchEnd);
+      
+      // IMPORTANTE: Guardar referencias para poder removerlos después
+      (panelElement as any).__swipeHandlers = {
+        touchstart: handleTouchStart,
+        touchmove: handleTouchMove,
+        touchend: handleTouchEnd,
+        header: header
+      };
+    });
+  }
+
+  private cleanupSwipeGestures(): void {
+  const panels = document.querySelectorAll('.slide-panel');
+  panels.forEach((panel) => {
+    const handlers = (panel as any).__swipeHandlers;
+    if (handlers) {
+      handlers.header.removeEventListener('touchstart', handlers.touchstart);
+      handlers.header.removeEventListener('touchmove', handlers.touchmove);
+      handlers.header.removeEventListener('touchend', handlers.touchend);
+      delete (panel as any).__swipeHandlers;
+    }
+  });
+}
 
   toggleFab() {
     this.fabExpandedSignal.update((value) => !value);
@@ -362,14 +472,15 @@ export class MapControlsComponent implements OnInit, OnDestroy {
   }
 
   startCreatingMarker() {
-    this.isCreatingMarkerSignal.set(true);
-    this.clickedLocationSignal.set(null);
-    this.triggerHapticFeedback('light');
-    this.mapService.setCreatingMarkerMode(true);
-    this.panelOpenSignal.set(false);
-    this.fabExpandedSignal.set(false);
-    // this.showToast('Modo marcador activado - Toca el mapa para seleccionar ubicación');
-  }
+  this.isCreatingMarkerSignal.set(true);
+  this.clickedLocationSignal.set(null);
+  this.triggerHapticFeedback('light');
+  this.mapService.setCreatingMarkerMode(true);
+  
+  // Cerrar el panel para permitir seleccionar en el mapa
+  this.panelOpenSignal.set(false);
+  this.fabExpandedSignal.set(false);
+}
 
   stopCreatingMarker() {
     this.isCreatingMarkerSignal.set(false);
@@ -526,6 +637,9 @@ export class MapControlsComponent implements OnInit, OnDestroy {
     if (this.editModeSignal()) {
       this.disableDeleteMode();
     }
+
+    // Limpiar event listeners de swipe
+    this.cleanupSwipeGestures();
   }
 
   private resetMarkerForm() {

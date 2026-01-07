@@ -62,7 +62,7 @@
     <!-- Botón de marcador - solo si tiene permisos -->
     @if (canCreateMarker()) {
     <ion-fab-button
-      (click)="isCreatingMarker() ? openMarkerPanel() : startCreatingMarker()"
+      (click)="openMarkerPanel()"
       [color]="isCreatingMarker() ? 'tertiary' : 'success'"
       size="small"
     >
@@ -126,7 +126,7 @@
       } @else if (isCreatingMarker()) {
       <ion-chip color="medium">
         <ion-icon name="location-outline"></ion-icon>
-        <ion-label>Modo creación activo</ion-label>
+        <ion-label>Modo selección activo</ion-label>
       </ion-chip>
       <ion-button
         fill="outline"
@@ -140,10 +140,32 @@
       } @else {
       <ion-chip color="warning">
         <ion-icon name="location-outline"></ion-icon>
-        <ion-label>Toca el mapa para ubicación</ion-label>
+        <ion-label>Selecciona ubicación en el mapa</ion-label>
       </ion-chip>
+      <ion-button
+        fill="solid"
+        color="primary"
+        size="small"
+        (click)="startCreatingMarker()"
+      >
+        <ion-icon name="add-circle" slot="start" size="small"></ion-icon>
+        Elegir Ubicación
+      </ion-button>
       }
     </div>
+
+    <!-- Mensaje de ayuda dinámico -->
+    @if (!isCreatingMarker() && !clickedLocation()) {
+    <div class="help-text">
+      <p>
+        Haz clic en "Elegir Ubicación" y luego toca el mapa para seleccionar dónde colocar el marcador
+      </p>
+    </div>
+    } @else if (isCreatingMarker()) {
+    <div class="help-text zone-active">
+      <p><strong>Modo activo:</strong> Toca el mapa para seleccionar la ubicación</p>
+    </div>
+    }
 
     <!-- Formulario compacto -->
     <div class="form-compact">

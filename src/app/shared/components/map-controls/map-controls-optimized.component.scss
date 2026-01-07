@@ -323,3 +323,138 @@ ion-fab-button {
     }
   }
 }
+
+// Paneles deslizantes mejorados con gestos táctiles
+.slide-panel {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--ion-background-color, #fff);
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  max-height: 75vh;
+  overflow-y: auto;
+  transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+  will-change: transform;
+  
+  // Manija visual para deslizar
+  &::before {
+    content: '';
+    position: sticky;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+    height: 4px;
+    background: var(--ion-color-medium);
+    border-radius: 2px;
+    margin: 12px auto 8px;
+    display: block;
+    opacity: 0.5;
+    z-index: 1001;
+  }
+  
+  &.panel-closed {
+    transform: translateY(100%);
+    pointer-events: none;
+  }
+  
+  &.panel-open {
+    transform: translateY(0);
+    pointer-events: all;
+  }
+  
+  // Transición suave al abrir
+  &.panel-opening {
+    animation: slideUpBounce 0.4s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+}
+
+@keyframes slideUpBounce {
+  0% {
+    transform: translateY(100%);
+  }
+  70% {
+    transform: translateY(-10px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+// Header del panel con área táctil grande
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  background: var(--ion-background-color);
+  position: sticky;
+  top: 0;
+  z-index: 1001;
+  border-bottom: 1px solid var(--ion-color-light);
+  cursor: grab;
+  user-select: none;
+  
+  // Área táctil expandida para facilitar el gesto
+  min-height: 48px;
+  
+  &:active {
+    cursor: grabbing;
+  }
+  
+  h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--ion-color-dark);
+    flex: 1;
+  }
+  
+  ion-button {
+    --padding-start: 8px;
+    --padding-end: 8px;
+    margin: 0;
+  }
+}
+
+.panel-content {
+  padding: 16px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+}
+
+// Overlay mejorado
+.panel-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 999;
+  backdrop-filter: blur(2px);
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+// Optimización para mobile
+@media (max-width: 768px) {
+  .slide-panel {
+    max-height: 85vh; // Más altura en móvil
+    
+    &::before {
+      height: 5px;
+      width: 50px;
+    }
+  }
+}

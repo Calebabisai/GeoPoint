@@ -111,22 +111,6 @@
           </ion-select>
         </ion-item>
 
-        <!-- Departamento -->
-        <ion-item>
-          <ion-label position="stacked">Departamento</ion-label>
-          <ion-select
-            class="card-invitation"
-            formControlName="department"
-            placeholder="Seleccionar departamento"
-          >
-            @for (dept of availableDepartments; track dept) {
-            <ion-select-option [value]="dept">
-              {{ dept }}
-            </ion-select-option>
-            }
-          </ion-select>
-        </ion-item>
-
         <!-- Días de expiración -->
         <ion-item>
           <ion-label position="stacked">Duración de la Invitación</ion-label>
@@ -142,23 +126,8 @@
             }
           </ion-select>
         </ion-item>
-
-        <!-- Mensaje personal -->
-        <ion-item>
-          <ion-label position="stacked"
-            >Mensaje Personal (Opcional)</ion-label
-          >
-          <ion-textarea
-            formControlName="personalMessage"
-            placeholder="Escribe un mensaje personalizado para los invitados..."
-            rows="3"
-            maxlength="500"
-            class="card-invitation"
-          ></ion-textarea>
-        </ion-item>
       </ion-card-content>
     </ion-card>
-
     <!-- Vista previa del rol seleccionado -->
     @if (selectedRole) {
     <ion-card class="preview-card">
