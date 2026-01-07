@@ -215,7 +215,7 @@ export class GeolocationService {
       if (coords) {
         this.logger.geo('Precise location obtained - updating marker');
         this.mapService.updateUserLocation(coords);
-        this.mapService.centerMap(coords.lat, coords.lng, 17);
+        this.mapService.centerMap(coords.lat, coords.lng, 15);
 
         this._isLocationStable.set(true);
         this._consecutiveUpdatesCount.set(this.MAX_CONSECUTIVE_UPDATES);
@@ -232,7 +232,7 @@ export class GeolocationService {
         this.mapService.centerMap(
           currentLocation.coords.lat,
           currentLocation.coords.lng,
-          15
+          14
         );
         this._isLocationStable.set(true);
       }
