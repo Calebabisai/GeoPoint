@@ -67,7 +67,7 @@ interface BulkInviteResult {
   templateUrl: './email-invitation-manager.component.html',
   styleUrls: ['./email-invitation-manager.component.scss'],
   standalone: true,
-  imports: [IonContent, 
+  imports: [
     FormsModule,
     ReactiveFormsModule,
     IonButton,

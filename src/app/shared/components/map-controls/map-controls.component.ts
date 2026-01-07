@@ -368,7 +368,7 @@ export class MapControlsComponent implements OnInit, OnDestroy {
     this.mapService.setCreatingMarkerMode(true);
     this.panelOpenSignal.set(false);
     this.fabExpandedSignal.set(false);
-    this.showToast('Modo marcador activado - Toca el mapa para seleccionar ubicación');
+    // this.showToast('Modo marcador activado - Toca el mapa para seleccionar ubicación');
   }
 
   stopCreatingMarker() {
@@ -390,7 +390,7 @@ export class MapControlsComponent implements OnInit, OnDestroy {
     this.mapService.setCreatingZoneMode(true);
     this.panelOpenSignal.set(false);
     this.fabExpandedSignal.set(false);
-    this.showToast('Modo zona activado - Toca el mapa para agregar puntos');
+    // this.showToast('Modo zona activado - Toca el mapa para agregar puntos');
   }
 
   addZonePoint(coords: { lat: number; lng: number }) {
@@ -512,7 +512,7 @@ export class MapControlsComponent implements OnInit, OnDestroy {
   }
 
   cancelZoneCreation() {
-    this.showToast('Creación de zona cancelada');
+    // this.showToast('Creación de zona cancelada');
     this.stopCreatingZone();
 
     if (this.panelOpenSignal()) {
@@ -565,11 +565,10 @@ export class MapControlsComponent implements OnInit, OnDestroy {
 
     if (this.editModeSignal()) {
       this.triggerHapticFeedback('medium');
-      this.showToast('Modo editar activado - Toca elementos para eliminar');
       this.enableDeleteMode();
     } else {
       this.triggerHapticFeedback('light');
-      this.showToast('Modo editar desactivado');
+      // this.showToast('Modo editar desactivado');
       this.disableDeleteMode();
     }
   }
@@ -717,7 +716,7 @@ export class MapControlsComponent implements OnInit, OnDestroy {
   const toast = await this.toastCtrl.create({
     message,
     duration: 1500, // Reducido de 2000 a 1500ms (más rápido)
-    position: 'bottom', // Cambiar de 'top' a 'bottom'
+    position: 'middle', // Cambiar de 'top' a 'bottom'
     cssClass: 'custom-toast-compact',
     mode: 'ios', // Modo iOS más discreto
   });

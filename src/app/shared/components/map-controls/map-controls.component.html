@@ -1,10 +1,9 @@
 <!-- Selector de roles para desarrollo -->
 <div class="role-selector-container">
   <app-role-selector></app-role-selector>
-</div>
+</div>  
 
 <!-- Indicador de estado de autorización -->
-<!-- DESPUÉS (MEJORADO): -->
 <div class="auth-indicator">
   @if (currentUserRole(); as role) {
   <ion-chip [color]="role === 'admin' ? 'success' : 'primary'" size="small">
@@ -41,7 +40,7 @@
 <div class="edit-mode-indicator-enhanced">
   <ion-chip color="danger" size="default">
     <ion-icon name="trash" slot="start"></ion-icon>
-    <ion-label>Modo Eliminar - Toca elementos</ion-label>
+    <ion-label>Modo Eliminar - Toca elemen</ion-label>
   </ion-chip>
   <div class="edit-mode-instructions">
     <small>Toca marcadores o zonas para eliminarlos</small>

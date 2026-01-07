@@ -140,7 +140,6 @@ export class HomePage {
     setTimeout(async () => {
       try {
         await this.geolocationService.centerMapOnUserLocation();
-        await this.showSuccess('Mapa centrado en tu ubicación');
       } catch (error) {
         // Silent fail - don't annoy user if GPS is disabled
       }
