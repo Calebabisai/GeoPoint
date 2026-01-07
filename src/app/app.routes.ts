@@ -5,52 +5,100 @@ import {
   redirectUnauthorizedTo,
 } from '@angular/fire/auth-guard';
 
-// Redirige a la página de inicio de sesión si el usuario no está autenticado
-const redirectUnauthorizedToLogin = () => redirectUnauthorizedTo(['/auth']);
-
-// Redirige al mapa si el usuario ya está autenticado
-const redirectLoggedInToMap = () => redirectLoggedInTo(['/map']);
+// Guards y redirecciones
+const redirectUnauthorizedToLogin = () => redirectUnauthorizedTo(['/auth/login']);
+const redirectLoggedInToHome = () => redirectLoggedInTo(['/home']);
 
 export const routes: Routes = [
+  // Root redirect
   {
     path: '',
-    redirectTo: 'auth',
+    redirectTo: 'auth/login',
     pathMatch: 'full',
   },
+
+  // ============================================
+  // AUTH FEATURE
+  // ============================================
   {
     path: 'auth',
-    loadComponent: () =>
-      import('./auth/pages/auth/auth.page').then((m) => m.AuthPage),
-    ...canActivate(redirectLoggedInToMap),
+    children: [
+      {
+        path: 'login',
+        loadComponent: () =>
+          import('./features/auth/pages/login/login.page').then(
+            (m) => m.LoginPage
+          ),
+        // SIN GUARD - el login no necesita protección
+        // El componente mismo redirigirá si ya está logueado
+        data: { title: 'Iniciar Sesión' },
+      },
+      {
+        path: 'register',
+        loadComponent: () =>
+          import('./features/auth/pages/register/register.page').then(
+            (m) => m.RegisterPage
+          ),
+        // SIN GUARD
+        data: { title: 'Registrarse' },
+      },
+      {
+        path: 'auth',
+        loadComponent: () =>
+          import('./features/auth/pages/auth/auth.page').then(
+            (m) => m.AuthPage
+          ),
+        // SIN GUARD
+        data: { title: 'Autenticación' },
+      },
+      {
+        path: '',
+        redirectTo: 'login',
+        pathMatch: 'full',
+      },
+    ],
   },
-  {
-    path: 'login',
-    loadComponent: () =>
-      import('./pages/auth/login/login.page').then((m) => m.LoginPage),
-    ...canActivate(redirectLoggedInToMap),
-  },
-  {
-    path: 'register',
-    loadComponent: () =>
-      import('./pages/auth/register/register.page').then((m) => m.RegisterPage),
-    ...canActivate(redirectLoggedInToMap),
-  },
-  {
-    path: 'map',
-    loadComponent: () => import('./home/home.page').then((m) => m.HomePage),
-    ...canActivate(redirectUnauthorizedToLogin),
-  },
+
+  // ============================================
+  // HOME FEATURE
+  // ============================================
   {
     path: 'home',
-    loadComponent: () => import('./home/home.page').then((m) => m.HomePage),
+    loadComponent: () =>
+      import('./features/home/home.page').then((m) => m.HomePage),
     ...canActivate(redirectUnauthorizedToLogin),
+    data: { title: 'Inicio' },
   },
+
+  // ============================================
+  // MAP FEATURE (Solo mapa, sin UI - para casos específicos)
+  // ============================================
+  {
+    path: 'map',
+    loadComponent: () =>
+      import('./features/map/pages/map-view/map-view.component').then(
+        (m) => m.MapViewComponent
+      ),
+    ...canActivate(redirectUnauthorizedToLogin),
+    data: { title: 'Mapa' },
+  },
+
+  // ============================================
+  // PROFILE FEATURE
+  // ============================================
   {
     path: 'profile',
     loadComponent: () =>
-      import('./pages/profile/profile.page').then((m) => m.ProfilePage),
+      import('./features/profile/pages/profile/profile.page').then(
+        (m) => m.ProfilePage
+      ),
     ...canActivate(redirectUnauthorizedToLogin),
+    data: { title: 'Perfil' },
   },
+
+  // ============================================
+  // ADMIN FEATURE
+  // ============================================
   {
     path: 'admin',
     children: [
@@ -58,38 +106,72 @@ export const routes: Routes = [
         path: 'users',
         loadComponent: () =>
           import(
-            './admin/components/user-management/user-management.component'
+            './features/admin/pages/user-management/user-management.component'
           ).then((m) => m.UserManagementComponent),
         ...canActivate(redirectUnauthorizedToLogin),
+        data: { title: 'Gestión de Usuarios' },
       },
       {
-        path: 'user-management',
+        path: 'admin-panel',
         loadComponent: () =>
-          import(
-            './admin/components/user-management/user-management.component'
-          ).then((m) => m.UserManagementComponent),
-        ...canActivate(redirectUnauthorizedToLogin),
-      },
-      {
-        path: 'email-invitations',
-        loadComponent: () =>
-          import('./pages/email-invitations/email-invitations.page').then(
-            (m) => m.EmailInvitationsPage
+          import('./features/admin/pages/admin-panel/admin-panel.component').then(
+            (m) => m.AdminPanelComponent
           ),
         ...canActivate(redirectUnauthorizedToLogin),
+        data: { title: 'Panel de Administración' },
       },
       {
         path: '',
-        redirectTo: '/home',
+        redirectTo: 'users',
         pathMatch: 'full',
       },
     ],
   },
+
+  // ============================================
+  // INVITATIONS FEATURE
+  // ============================================
+  {
+    path: 'invitations',
+    children: [
+      {
+        path: 'email',
+        loadComponent: () =>
+          import(
+            './features/invitations/pages/email-invitations/email-invitations.page'
+          ).then((m) => m.EmailInvitationsPage),
+        ...canActivate(redirectUnauthorizedToLogin),
+        data: { title: 'Invitaciones por Email' },
+      },
+      {
+        path: 'join/:token',
+        loadComponent: () =>
+          import(
+            './features/invitations/pages/join-invitation/join-invitation.page'
+          ).then((m) => m.JoinInvitationPage),
+        data: { title: 'Unirse a Organización' },
+      },
+      {
+        path: '',
+        redirectTo: 'email',
+        pathMatch: 'full',
+      },
+    ],
+  },
+
+  // ============================================
+  // LEGACY PATHS (Keep for backward compatibility)
+  // ============================================
   {
     path: 'join/:token',
-    loadComponent: () =>
-      import('./pages/join-invitation/join-invitation.page').then(
-        (m) => m.JoinInvitationPage
-      ),
+    redirectTo: 'invitations/join/:token',
+  },
+
+  // ============================================
+  // 404 Not Found
+  // ============================================
+  {
+    path: '**',
+    redirectTo: 'home',
   },
 ];

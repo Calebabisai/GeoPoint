@@ -1,0 +1,535 @@
+import { Injectable, signal, computed, inject } from '@angular/core';
+import {
+  Firestore,
+  collection,
+  getDocs,
+  doc,
+  updateDoc,
+  query,
+  orderBy,
+  where,
+  getDoc,
+} from '@angular/fire/firestore';
+import { getAuth } from '@angular/fire/auth';
+import { AuthService } from '../../../core/services/auth.service';
+import { AuthorizationService } from '../../../core/services/authorization.service';
+import { OrganizationService } from '../../invitations/services/organization.service';
+import { User } from '../../../core/models/user.model';
+import { OrganizationMember } from '../../../core/models/organization.model';
+
+export interface UserWithOrganization extends User {
+  organizationName?: string;
+  organizationRole?: 'owner' | 'admin' | 'moderator' | 'user';
+  lastActivity?: Date;
+  isOnline?: boolean;
+}
+
+export interface UserRoleChangeRequest {
+  userId: string;
+  currentRole: 'admin' | 'user';
+  newRole: 'admin' | 'user';
+  organizationId?: string;
+  organizationRole?: 'owner' | 'admin' | 'moderator' | 'user';
+  reason?: string;
+}
+
+@Injectable({
+  providedIn: 'root',
+})
+export class UserManagementService {
+
+  private firestore = inject(Firestore);
+  private authService = inject(AuthService);
+  private authorizationService = inject(AuthorizationService);
+  private organizationService = inject(OrganizationService);
+
+  // Signals
+  private userSignal = signal<UserWithOrganization[]>([]);
+  private isLoadingSignal = signal<boolean>(false);
+  private errorSignal = signal<string | null>(null);
+
+  // Readonly exports
+  readonly users = this.userSignal.asReadonly();
+  readonly isLoading = this.isLoadingSignal.asReadonly();
+  readonly error = this.errorSignal.asReadonly();
+
+  // Computed signals
+  readonly totalUsers = computed(() => this.userSignal().length);
+  readonly adminUsers = computed(
+    () => this.userSignal().filter((user) => user.role === 'admin').length
+  );
+  readonly regularUsers = computed(
+    () => this.userSignal().filter((user) => user.role === 'user').length
+  );
+  readonly usersWithoutOrganization = computed(
+    () => this.userSignal().filter((user) => !user.organizationId).length
+  );
+  readonly recentlyActive = computed(() => {
+    const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+    return this.userSignal().filter(
+      (user) =>
+        user.lastActivity && user.lastActivity.getTime() > oneDayAgo
+    ).length;
+  });
+
+  // Data de desarrollo
+  private readonly developmentUsers: UserWithOrganization[] = [
+    {
+      uid: 'admin-user-1',
+      email: 'admin@geopoint.com',
+      role: 'admin',
+      organizationId: 'org-1',
+      organizationRole: 'owner',
+      organizationName: 'Empresa Demo',
+      createdAt: new Date('2024-01-15'),
+      lastActivity: new Date(),
+      isOnline: true,
+    },
+    {
+      uid: 'admin-user-2',
+      email: 'manager@geopoint.com',
+      role: 'admin',
+      organizationId: 'org-1',
+      organizationRole: 'admin',
+      organizationName: 'Empresa Demo',
+      createdAt: new Date('2024-02-01'),
+      lastActivity: new Date(Date.now() - 1000 * 60 * 30),
+      isOnline: false,
+    },
+    {
+      uid: 'user-1',
+      email: 'employee1@geopoint.com',
+      role: 'user',
+      organizationId: 'org-1',
+      organizationRole: 'user',
+      organizationName: 'Empresa Demo',
+      createdAt: new Date('2024-02-10'),
+      lastActivity: new Date(Date.now() - 1000 * 60 * 60 * 2),
+      isOnline: false,
+    },
+    {
+      uid: 'user-2',
+      email: 'employee2@geopoint.com',
+      role: 'user',
+      organizationId: 'org-1',
+      organizationRole: 'user',
+      organizationName: 'Empresa Demo',
+      createdAt: new Date('2024-02-15'),
+      lastActivity: new Date(Date.now() - 1000 * 60 * 15),
+      isOnline: true,
+    },
+    {
+      uid: 'user-3',
+      email: 'newuser@geopoint.com',
+      role: 'user',
+      organizationId: undefined,
+      organizationRole: undefined,
+      organizationName: undefined,
+      createdAt: new Date('2024-03-01'),
+      lastActivity: new Date(Date.now() - 1000 * 60 * 5),
+      isOnline: true,
+    },
+  ];
+
+  constructor() {
+    console.log(' UserManagementService initialized');
+    this.userSignal.set(this.developmentUsers);
+  }
+
+  /**
+   * Obtiene todos los usuarios del sistema (requiere permisos de admin)
+   */
+  async getAllUsers(): Promise<UserWithOrganization[]> {
+    this.isLoadingSignal.set(true);
+    this.errorSignal.set(null);
+
+    try {
+      const hasPermission = this.authorizationService.hasPermission(
+        'manage-users'
+      );
+
+      if (!hasPermission) {
+        throw new Error('No tienes permisos para gestionar usuarios');
+      }
+
+      const usersCollection = collection(this.firestore, 'users');
+      const usersQuery = query(usersCollection, orderBy('createdAt', 'desc'));
+      const snapshot = await getDocs(usersQuery);
+
+      const users = this.mapFirebaseUsersToOrganizationUsers(snapshot.docs);
+      this.userSignal.set(users);
+      return users;
+    } catch (error) {
+      console.error(' Error fetching users:', error);
+      this.errorSignal.set('Error al obtener usuarios');
+      this.userSignal.set(this.developmentUsers);
+      return this.developmentUsers;
+    } finally {
+      this.isLoadingSignal.set(false);
+    }
+  }
+
+  /**
+   * Obtiene usuarios de la organización actual
+   */
+  async getSimpleOrganizationUsers(): Promise<UserWithOrganization[]> {
+    this.isLoadingSignal.set(true);
+    this.errorSignal.set(null);
+
+    try {
+      const auth = getAuth();
+      const currentAuthUser = auth.currentUser;
+
+      if (!currentAuthUser) {
+        this.userSignal.set([]);
+        return [];
+      }
+
+      const userDoc = doc(this.firestore, 'users', currentAuthUser.uid);
+      const userSnapshot = await getDoc(userDoc);
+
+      if (!userSnapshot.exists()) {
+        this.userSignal.set([]);
+        return [];
+      }
+
+      const userData = userSnapshot.data() as User;
+      const userOrganizationId = userData.organizationId;
+
+      if (!userOrganizationId) {
+        this.userSignal.set([]);
+        return [];
+      }
+
+      const usersCollection = collection(this.firestore, 'users');
+      const orgUsersQuery = query(
+        usersCollection,
+        where('organizationId', '==', userOrganizationId)
+      );
+      const snapshot = await getDocs(orgUsersQuery);
+
+      if (snapshot.docs.length > 0) {
+        const firebaseUsers = this.mapFirebaseUsersToOrganizationUsers(
+          snapshot.docs
+        );
+        this.userSignal.set(firebaseUsers);
+        return firebaseUsers;
+      }
+
+      const orgUsers = this.developmentUsers.slice();
+      this.userSignal.set(orgUsers);
+      return orgUsers;
+    } catch (error) {
+      console.error(' Error in getSimpleOrganizationUsers:', error);
+      this.errorSignal.set('Error cargando usuarios');
+
+      const emptyList: UserWithOrganization[] = [];
+      this.userSignal.set(emptyList);
+      return emptyList;
+    } finally {
+      this.isLoadingSignal.set(false);
+    }
+  }
+
+  /**
+   * Obtiene usuarios de la organización actual con verificación de permisos
+   */
+  async getOrganizationUsers(): Promise<UserWithOrganization[]> {
+    this.isLoadingSignal.set(true);
+    this.errorSignal.set(null);
+
+    try {
+      const currentUser = this.authService.getCurrentUser()();
+
+      if (!currentUser) {
+        throw new Error('Usuario no autenticado');
+      }
+
+      const hasAdminPermission = this.authorizationService.hasPermission(
+        'manage-users'
+      );
+
+      if (!hasAdminPermission || currentUser.role !== 'admin') {
+        throw new Error(
+          'Solo los administradores pueden ver la gestión de usuarios'
+        );
+      }
+
+      const currentOrg = await this.getCurrentOrganizationWithTimeout();
+      if (!currentOrg) {
+        this.userSignal.set([]);
+        return [];
+      }
+
+      const usersCollection = collection(this.firestore, 'users');
+      const orgQuery = query(
+        usersCollection,
+        where('organizationId', '==', currentOrg.id),
+        orderBy('createdAt', 'desc')
+      );
+
+      const snapshot = await getDocs(orgQuery);
+
+      if (snapshot.docs.length > 0) {
+        const firebaseUsers = snapshot.docs.map((doc) => {
+          const userData = { uid: doc.id, ...doc.data() } as User;
+          return {
+            ...userData,
+            organizationName: currentOrg.name,
+            organizationRole: this.getOrganizationRole(userData, currentOrg),
+            lastActivity: userData.createdAt || new Date(),
+            isOnline: this.isUserOnline(userData),
+          } as UserWithOrganization;
+        });
+
+        this.userSignal.set(firebaseUsers);
+        return firebaseUsers;
+      }
+
+      const devUsersForOrg = this.developmentUsers.filter(
+        (user) => user.organizationId === currentOrg.id
+      );
+      this.userSignal.set(devUsersForOrg);
+      return devUsersForOrg;
+    } catch (error) {
+      console.error('❌ Error getting organization users:', error);
+      this.errorSignal.set('Error al obtener usuarios de la organización');
+      this.userSignal.set([]);
+      return [];
+    } finally {
+      this.isLoadingSignal.set(false);
+    }
+  }
+
+    /**
+     * Actualiza el rol de organización de un usuario
+     */
+      async updateUserOrganizationRole(
+    userId: string,
+    newRole: 'owner' | 'admin' | 'moderator' | 'user'
+  ): Promise<void> {
+    try {
+      const currentUser = this.authService.getCurrentUser()();
+
+      if (!currentUser) {
+        throw new Error('Usuario no autenticado');
+      }
+
+      // NUEVO: Solo el propietario puede cambiar roles
+      if (currentUser.organizationRole !== 'owner') {
+        throw new Error('Solo el propietario puede cambiar roles de usuarios');
+      }
+
+      // NUEVO: Verificar que el usuario a modificar no sea el propietario
+      const targetUserDoc = await getDoc(doc(this.firestore, 'users', userId));
+      if (targetUserDoc.exists()) {
+        const targetUserData = targetUserDoc.data() as User;
+        if (targetUserData.organizationRole === 'owner') {
+          throw new Error('No se puede cambiar el rol del propietario');
+        }
+      }
+
+      // NUEVO: No permitir asignar rol de propietario
+      if (newRole === 'owner') {
+        throw new Error('No se puede asignar el rol de propietario manualmente');
+      }
+
+      if (currentUser.uid === userId) {
+        throw new Error('No puedes cambiar tu propio rol');
+      }
+
+      const userDoc = doc(this.firestore, 'users', userId);
+      await updateDoc(userDoc, {
+        organizationRole: newRole,
+        updatedAt: new Date(),
+        roleUpdatedBy: currentUser.uid,
+        roleUpdatedAt: new Date(),
+      });
+
+      const updatedUsers = this.userSignal().map((u) =>
+        u.uid === userId ? { ...u, organizationRole: newRole } : u
+      );
+      this.userSignal.set(updatedUsers);
+
+    } catch (error) {
+      console.error('⚠️ Error updating user organization role:', error);
+      this.errorSignal.set(
+        error instanceof Error ? error.message : 'Error al actualizar el rol del usuario'
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Remueve un usuario de la organización
+   */
+    async removeUserFromOrganization(userId: string): Promise<void> {
+    try {
+      const currentUser = this.authService.getCurrentUser()();
+
+      if (!currentUser) {
+        throw new Error('Usuario no autenticado');
+      }
+
+      // NUEVO: Solo el propietario puede remover usuarios
+      if (currentUser.organizationRole !== 'owner') {
+        throw new Error('Solo el propietario puede remover usuarios de la organización');
+      }
+
+      // NUEVO: Verificar que el usuario a remover no sea el propietario
+      const targetUserDoc = await getDoc(doc(this.firestore, 'users', userId));
+      if (targetUserDoc.exists()) {
+        const targetUserData = targetUserDoc.data() as User;
+        if (targetUserData.organizationRole === 'owner') {
+          throw new Error('El propietario no puede ser removido de la organización');
+        }
+      }
+
+      if (currentUser.uid === userId) {
+        throw new Error('No puedes removerte a ti mismo de la organización');
+      }
+
+      const userDoc = doc(this.firestore, 'users', userId);
+      await updateDoc(userDoc, {
+        organizationId: null,
+        organizationRole: null,
+        updatedAt: new Date(),
+        removedFromOrgBy: currentUser.uid,
+        removedFromOrgAt: new Date(),
+      });
+
+      const updatedUsers = this.userSignal().filter(
+        (user) => user.uid !== userId
+      );
+      this.userSignal.set(updatedUsers);
+
+    } catch (error) {
+      console.error('⚠️ Error removing user from organization:', error);
+      this.errorSignal.set(
+        error instanceof Error ? error.message : 'Error al eliminar el usuario'
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Establece usuarios directamente (para debug)
+   */
+  setUsers(users: UserWithOrganization[]): void {
+    this.userSignal.set(users);
+  }
+
+  /**
+   * Métodos privados auxiliares
+   */
+
+  private mapFirebaseUsersToOrganizationUsers(
+    docs: any[]
+  ): UserWithOrganization[] {
+    return docs.map((doc) => {
+      const userData = { uid: doc.id, ...doc.data() } as User;
+      const createdAtDate = this.convertToDate(userData.createdAt);
+      const firebaseOrgRole = (userData as any).organizationRole;
+      const orgRole =
+        firebaseOrgRole || this.determineOrganizationRole(userData);
+
+      return {
+        ...userData,
+        createdAt: createdAtDate,
+        organizationName: 'Tu Organización',
+        organizationRole: orgRole,
+        lastActivity: createdAtDate,
+        isOnline: this.isUserOnlineSafe(createdAtDate),
+      } as UserWithOrganization;
+    });
+  }
+
+  private convertToDate(value: any): Date {
+    if (value && typeof value === 'object' && 'toDate' in value) {
+      return (value as any).toDate();
+    }
+    if (value instanceof Date) {
+      return value;
+    }
+    return new Date();
+  }
+
+  private determineOrganizationRole(
+    user: User
+  ): 'owner' | 'admin' | 'user' {
+    console.warn(
+      `User ${user.email} has NO organizationRole in Firebase. Using fallback: 'user'`
+    );
+    return 'user';
+  }
+
+  private isUserOnlineSafe(lastActivity: Date): boolean {
+    try {
+      if (!lastActivity) return false;
+      const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+      return lastActivity.getTime() > fiveMinutesAgo;
+    } catch (error) {
+      console.warn('Error checking user online status:', error);
+      return false;
+    }
+  }
+
+  private getOrganizationRole(
+  user: User,
+  organization: any
+): 'owner' | 'admin' | 'moderator' | 'user' {
+  // Buscar en el documento del usuario (tiene prioridad)
+  if (user.organizationRole) {
+    return user.organizationRole;
+  }
+
+  // Buscar en los miembros de la organización
+  const member = organization.members?.find(
+    (m: OrganizationMember) => m.userId === user.uid
+  );
+
+  if (member) {
+    return member.role;
+  }
+
+  console.warn(
+    `User ${user.email} has no organizationRole. Defaulting to 'user'`
+  );
+  return 'user';
+}
+
+  private isUserOnline(user: User): boolean {
+  if (!user.createdAt) return false;
+  
+  // Convertir a Date si es necesario
+  const createdAtDate = user.createdAt instanceof Date 
+    ? user.createdAt 
+    : (user.createdAt as any).toDate?.() || new Date(user.createdAt);
+  
+  const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+  return createdAtDate.getTime() > fiveMinutesAgo;
+}
+
+  private async getCurrentOrganizationWithTimeout(): Promise<any> {
+    // Usar el signal directamente en lugar del Observable
+    const org = this.organizationService.currentOrganization();
+    
+    if (org) {
+      return org;
+    }
+    
+    // Si no hay organización, esperar un poco y reintentar
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        const retryOrg = this.organizationService.currentOrganization();
+        if (retryOrg) {
+          resolve(retryOrg);
+        } else {
+          console.warn('No organization found, using fallback');
+          resolve(null);
+        }
+      }, 1000);
+    });
+  }
+}
+ 

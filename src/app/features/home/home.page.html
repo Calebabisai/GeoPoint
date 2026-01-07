@@ -1,0 +1,64 @@
+<ion-header [translucent]="true" class="uber-header">
+  <ion-toolbar class="uber-toolbar">
+    <ion-buttons slot="start">
+      <ion-button (click)="openMenu()" class="menu-button">
+        <ion-icon name="menu-outline"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+
+    <!-- Título centrado simple -->
+    <div slot="" class="toolbar-center">
+      <div class="brand-container">
+        <div class="brand-logo">
+          <ion-icon name="location-outline"></ion-icon>
+        </div>
+        <span class="brand-title">GeoPoint</span>
+      </div>
+    </div>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="map-content">
+  <!-- Dashboard Stats -->
+  <div class="dashboard-stats">
+    <div class="stat-card">
+      <ion-icon name="pin-outline" class="stat-icon"></ion-icon>
+      <div class="stat-content">
+        <div class="stat-number">{{ markersCount() }}</div>
+        <div class="stat-label">Marcadores</div>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <ion-icon name="shapes-outline" class="stat-icon"></ion-icon>
+      <div class="stat-content">
+        <div class="stat-number">{{ zonesCount() }}</div>
+        <div class="stat-label">Zonas</div>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <ion-icon name="git-branch" class="stat-icon"></ion-icon>
+      <div class="stat-content">
+        <div class="stat-number">{{ routesCount() }}</div>
+        <div class="stat-label">Rutas</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Map Container -->
+  <div class="map-container">
+    <app-map-view></app-map-view>
+  </div>
+
+  <!-- Floating Action Buttons -->
+  <div class="fab-container">
+    <!-- Location FAB -->
+    <div class="location-fab-wrapper">
+      <ion-fab-button class="uber-fab location-fab" (click)="refreshAll()">
+        <ion-icon name="refresh-outline"></ion-icon>
+      </ion-fab-button>
+      <div class="fab-label">Actualizar</div>
+    </div>
+  </div>
+</ion-content>

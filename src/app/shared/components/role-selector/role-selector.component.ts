@@ -11,7 +11,7 @@ import {
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import { person, shieldCheckmark } from 'ionicons/icons';
-import { AuthorizationService } from '../../../auth/services/authorization.service';
+import { AuthorizationService } from 'src/app/core/services/authorization.service';
 
 @Component({
   selector: 'app-role-selector',

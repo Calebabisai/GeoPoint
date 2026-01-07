@@ -37,15 +37,12 @@ import {
   personAddOutline,
   helpOutline,
 } from 'ionicons/icons';
-import { AuthService } from 'src/app/auth/services/auth.service';
-import { AuthorizationService } from 'src/app/auth/services/authorization.service';
-import { OrganizationService } from '../../services/organization.service';
+import { AuthService } from 'src/app/core/services/auth.service';
+import { AuthorizationService } from 'src/app/core/services/authorization.service';
+import { OrganizationService } from 'src/app/features/invitations/services/organization.service';
 import { Router } from '@angular/router';
-import {
-  User,
-  getUserDisplayName,
-  getUserShortName,
-} from '../../models/user.model';
+import { User, getUserDisplayName, getUserShortName } from 'src/app/core/models/user.model';
+
 
 @Component({
   selector: 'app-menu',
@@ -261,7 +258,7 @@ export class MenuComponent {
    */
   async inviteUser() {
     await this.menuCtrl.close();
-    this.router.navigate(['/admin/email-invitations']);
+    this.router.navigate(['/invitations/email']);
   }
 
 
@@ -315,7 +312,7 @@ export class MenuComponent {
       await this.authService.logout();
 
       //Navegar a la pantalla de login
-      await this.router.navigateByUrl('/auth', {replaceUrl: true});
+      await this.router.navigateByUrl('/auth/login', {replaceUrl: true});  
 
     }catch (error) {
       console.error('Error during logout', error);
@@ -327,7 +324,7 @@ export class MenuComponent {
    */
   openUserManagement() {
     this.menuCtrl.close();
-    this.router.navigate(['/admin/user-management']);
+    this.router.navigate(['/admin/users']);  
   }
 
   getUserDisplayName(user: User | null): string {

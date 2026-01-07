@@ -1,0 +1,1143 @@
+import { Component, inject, OnInit, OnDestroy, signal, computed, afterNextRender } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { CommonModule } from '@angular/common';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { Subscription } from 'rxjs';
+import {
+  IonButton,
+  IonIcon,
+  IonFab,
+  IonFabButton,
+  IonFabList,
+  IonInput,
+  IonTextarea,
+  IonChip,
+  IonLabel,
+  IonItem,
+  ToastController,
+  AlertController,
+} from '@ionic/angular/standalone';
+import { addIcons } from 'ionicons';
+import {
+  add,
+  home,
+  locationOutline,
+  colorPalette,
+  close,
+  location,
+  checkmarkCircle,
+  star,
+  shapes,
+  stop,
+  addCircle,
+  lockClosed,
+  settings,
+  shieldCheckmark,
+  person,
+  apps,
+  create,
+  trash,
+  pencil,
+  checkmark,
+  pin,
+  trashBin,
+  gitBranch, // Para el icono de línea
+} from 'ionicons/icons';
+import { MapService } from '../../../map/services/map.service';
+import { MapMarker } from '../../models/marker.model';
+import { MapZone } from '../../models/zone.model';
+import { FirestoreService } from 'src/app/core/services/firestore.service';
+import { MapDataService } from '../../services/map-data.service';
+import { AuthorizationService } from 'src/app/core/services/authorization.service';
+import { RoleSelectorComponent } from 'src/app/shared/components/role-selector/role-selector.component';
+import { MapRoute } from '../../models/route.model';
+
+@Component({
+  selector: 'app-map-controls',
+  templateUrl: './map-controls.component.html',
+  styleUrls: ['./map-controls-optimized.component.scss'],
+  standalone: true,
+  imports: [
+    FormsModule,
+    CommonModule,
+    IonButton,
+    IonIcon,
+    IonFab,
+    IonFabButton,
+    IonFabList,
+    IonInput,
+    IonTextarea,
+    IonChip,
+    IonLabel,
+    IonItem,
+    RoleSelectorComponent
+  ],
+})
+export class MapControlsComponent implements OnInit, OnDestroy {
+  private mapService = inject(MapService);
+  private firestoreService = inject(FirestoreService);
+  private mapDataService = inject(MapDataService);
+  private authorizationService = inject(AuthorizationService);
+  private toastCtrl = inject(ToastController);
+  private alertCtrl = inject(AlertController);
+
+  // NUEVO: Guardar subscripciones para poder cancelarlas
+  private markerDeleteSubscription?: Subscription;
+  private zoneDeleteSubscription?: Subscription;
+  private routeDeleteSubscription?: Subscription;
+
+  private isProcessingDelete = false;
+
+
+  // Signals para permisos
+  readonly canCreateMarker = computed(() => {
+  const orgRole = this.authorizationService.currentUser()?.organizationRole;
+  return orgRole === 'owner' || orgRole === 'admin' || orgRole === 'moderator' || orgRole === 'user';
+  });
+
+  readonly canCreateZone = computed(() => {
+    const orgRole = this.authorizationService.currentUser()?.organizationRole;
+    return orgRole === 'owner' || orgRole === 'admin' || orgRole === 'moderator';
+  });
+
+  readonly canEditOrDelete = computed(() => {
+    const orgRole = this.authorizationService.currentUser()?.organizationRole;
+    return orgRole === 'owner' || orgRole === 'admin' || orgRole === 'moderator';
+  });
+
+  readonly isAdmin = computed(() => this.authorizationService.isAdmin());
+  readonly currentUserRole = computed(() =>
+    this.authorizationService.currentUserRole()
+  );
+
+  readonly organizationRole = computed(() =>
+    this.authorizationService.currentUser()?.organizationRole
+  );
+
+  // Signals para controles del FAB y paneles
+  private fabExpandedSignal = signal(false);
+  private panelOpenSignal = signal(false);
+  private panelTypeSignal = signal<'marker' | 'zone' | 'route'>('marker');
+  private clickedLocationSignal = signal<{ lat: number; lng: number } | null>(
+    null
+  );
+
+  readonly fabExpanded = this.fabExpandedSignal.asReadonly();
+  readonly panelOpen = this.panelOpenSignal.asReadonly();
+  readonly panelType = this.panelTypeSignal.asReadonly();
+  readonly clickedLocation = this.clickedLocationSignal.asReadonly();
+
+  // Signals para modo editar
+  private editModeSignal = signal(false);
+  readonly editMode = this.editModeSignal.asReadonly();
+
+  // Signals para modos de creación
+  private isCreatingMarkerSignal = signal(false);
+  private isCreatingZoneSignal = signal(false);
+  private zonePointsSignal = signal<{ lat: number; lng: number }[]>([]);
+  private isCreatingRouteSignal = signal(false);
+  private routePointsSignal = signal<{ lat: number; lng: number }[]>([]);
+
+  readonly isCreatingMarker = this.isCreatingMarkerSignal.asReadonly();
+  readonly isCreatingZone = this.isCreatingZoneSignal.asReadonly();
+  readonly zonePoints = this.zonePointsSignal.asReadonly();
+  readonly isCreatingRoute = this.isCreatingRouteSignal.asReadonly();
+  readonly routePoints = this.routePointsSignal.asReadonly();
+
+  // Signals para formularios
+  private markerFormSignal = signal({
+    title: '',
+    description: '',
+    type: 'marker' as 'marker' | 'house' | 'poi',
+    color: '#FF6B6B',
+  });
+
+  private zoneFormSignal = signal({
+    name: '',
+    description: '',
+    number: 1,
+    type: 'zone' as 'zone' | 'area' | 'sector',
+    color: '#4ECDC4',
+  });
+
+  private routeFormSignal = signal({
+    name: '',
+    description: '',
+    color: '#3388ff',
+    width: 4,
+  });
+
+  readonly markerForm = this.markerFormSignal.asReadonly();
+  readonly zoneForm = this.zoneFormSignal.asReadonly();
+  readonly routeForm = this.routeFormSignal.asReadonly();
+
+  // Colores
+  colors = [
+    { name: 'Rojo', value: '#FF6B6B' },
+    { name: 'Verde', value: '#45B7D1' },
+    { name: 'Azul', value: '#4ECDC4' },
+    { name: 'Amarillo', value: '#FFA07A' },
+    { name: 'Púrpura', value: '#D6A2E8' },
+    { name: 'Naranja', value: '#FFB347' },
+    { name: 'Rosa', value: '#FF69B4' },
+    { name: 'Turquesa', value: '#40E0D0' },
+    { name: 'Lima', value: '#32CD32' },
+    { name: 'Coral', value: '#FF7F50' },
+    { name: 'Violeta', value: '#8A2BE2' },
+    { name: 'Dorado', value: '#FFD700' },
+    { name: 'Índigo', value: '#4B0082' },
+    { name: 'Esmeralda', value: '#50C878' },
+    { name: 'Magenta', value: '#FF1493' },
+    { name: 'Cian', value: '#00FFFF' },
+    { name: 'Salmón', value: '#FA8072' },
+    { name: 'Oliva', value: '#9ACD32' },
+    { name: 'Granate', value: '#800020' },
+    { name: 'Verde Oscuro', value: '#006400' },
+    { name: 'Azul Marino', value: '#000080' },
+    { name: 'Marrón', value: '#8B4513' },
+    { name: 'Gris Oscuro', value: '#696969' },
+    { name: 'Negro', value: '#2C2C2C' },
+  ];
+
+  // Anchos de línea disponibles
+  lineWidths = [2, 3, 4, 5, 6, 8];
+
+  private zoneCounter = 1;
+
+  // Marker form updates
+  updateMarkerTitle(title: string): void {
+    this.markerFormSignal.update(form => ({ ...form, title }));
+  }
+
+  updateMarkerDescription(description: string): void {
+    this.markerFormSignal.update(form => ({ ...form, description }));
+  }
+
+  updateMarkerType(type: 'marker' | 'house' | 'poi'): void {
+    this.markerFormSignal.update(form => ({ ...form, type }));
+  }
+
+  updateMarkerColor(color: string): void {
+    this.markerFormSignal.update(form => ({ ...form, color }));
+  }
+
+  // Zone form updates
+  updateZoneName(name: string): void {
+    this.zoneFormSignal.update(form => ({ ...form, name }));
+  }
+
+  updateZoneDescription(description: string): void {
+    this.zoneFormSignal.update(form => ({ ...form, description }));
+  }
+
+  updateZoneNumber(number: number): void {
+    this.zoneFormSignal.update(form => ({ ...form, number }));
+  }
+
+  updateZoneType(type: 'zone' | 'area' | 'sector'): void {
+    this.zoneFormSignal.update(form => ({ ...form, type }));
+  }
+
+  updateZoneColor(color: string): void {
+    this.zoneFormSignal.update(form => ({ ...form, color }));
+  }
+
+  // Route form updates
+  updateRouteName(name: string): void {
+    this.routeFormSignal.update(form => ({ ...form, name }));
+  }
+
+  updateRouteDescription(description: string): void {
+    this.routeFormSignal.update(form => ({ ...form, description }));
+  }
+
+  updateRouteColor(color: string): void {
+    this.routeFormSignal.update(form => ({ ...form, color }));
+  }
+
+  updateRouteWidth(width: number): void {
+    this.routeFormSignal.update(form => ({ ...form, width }));
+  }
+
+  constructor() {
+    addIcons({
+      add,
+      home,
+      locationOutline,
+      colorPalette,
+      close,
+      location,
+      checkmarkCircle,
+      star,
+      shapes,
+      stop,
+      addCircle,
+      lockClosed,
+      settings,
+      shieldCheckmark,
+      person,
+      apps,
+      create,
+      trash,
+      pencil,
+      checkmark,
+      pin,
+      trashBin,
+      gitBranch,
+    });
+
+    this.resetZoneForm();
+
+    // Escuchar cambios de rol
+    window.addEventListener('roleChanged', () => {
+      // Los computed signals se actualizan automáticamente
+    });
+
+        // Setup de gestos después del primer render
+    afterNextRender(() => {
+      this.setupSwipeGestures();
+    });
+  }
+
+  ngOnInit() {
+    this.mapService.mapClick$.subscribe(
+      (coords: { lat: number; lng: number }) => {
+        if (this.isCreatingZone()) {
+          this.addZonePoint(coords);
+        } else if (this.isCreatingRoute()) {
+          this.addRoutePoint(coords);
+        } else if (this.isCreatingMarker()) {
+          this.clickedLocationSignal.set(coords);
+          this.openMarkerPanel();
+        } else {
+          this.clickedLocationSignal.set(coords);
+        }
+      }
+    );
+  }
+
+  private setupSwipeGestures(): void {
+    const panels = document.querySelectorAll('.slide-panel');
+    
+    panels.forEach((panel) => {
+      let startY = 0;
+      let currentY = 0;
+      let isDragging = false;
+      
+      const panelElement = panel as HTMLElement;
+      const header = panelElement.querySelector('.panel-header') as HTMLElement;
+      
+      if (!header) return;
+      
+      // Touch start
+      const handleTouchStart = (e: TouchEvent) => {
+        // Solo permitir gesto si el panel está abierto
+        if (!this.panelOpen()) return;
+        
+        startY = e.touches[0].clientY;
+        currentY = startY;
+        isDragging = true;
+        panelElement.style.transition = 'none';
+      };
+      
+      // Touch move
+      const handleTouchMove = (e: TouchEvent) => {
+        if (!isDragging) return;
+        
+        currentY = e.touches[0].clientY;
+        const deltaY = currentY - startY;
+        
+        // Solo permitir deslizar hacia abajo
+        if (deltaY > 0) {
+          panelElement.style.transform = `translateY(${deltaY}px)`;
+        }
+      };
+      
+      // Touch end
+      const handleTouchEnd = () => {
+        if (!isDragging) return;
+        
+        isDragging = false;
+        const deltaY = currentY - startY;
+        
+        // Si desliza más de 100px, cerrar panel
+        if (deltaY > 100) {
+          // Añadir feedback háptico
+          this.triggerHapticFeedback('light');
+          
+          // Animar hacia abajo antes de cerrar
+          panelElement.style.transition = 'transform 0.3s ease-out';
+          panelElement.style.transform = 'translateY(100%)';
+          
+          // Esperar a que termine la animación antes de cambiar el signal
+          setTimeout(() => {
+            this.closePanel();
+            // Limpiar el estilo inline
+            panelElement.style.transform = '';
+            panelElement.style.transition = '';
+          }, 300);
+        } else {
+          // Volver a la posición original con animación
+          panelElement.style.transition = 'transform 0.3s cubic-bezier(0.32, 0.72, 0, 1)';
+          panelElement.style.transform = 'translateY(0)';
+          
+          // Limpiar después de la animación
+          setTimeout(() => {
+            panelElement.style.transition = '';
+            panelElement.style.transform = '';
+          }, 300);
+        }
+        
+        // Reset
+        startY = 0;
+        currentY = 0;
+      };
+      
+      // Agregar listeners
+      header.addEventListener('touchstart', handleTouchStart, { passive: true });
+      header.addEventListener('touchmove', handleTouchMove, { passive: true });
+      header.addEventListener('touchend', handleTouchEnd);
+      
+      // IMPORTANTE: Guardar referencias para poder removerlos después
+      (panelElement as any).__swipeHandlers = {
+        touchstart: handleTouchStart,
+        touchmove: handleTouchMove,
+        touchend: handleTouchEnd,
+        header: header
+      };
+    });
+  }
+
+  private cleanupSwipeGestures(): void {
+  const panels = document.querySelectorAll('.slide-panel');
+  panels.forEach((panel) => {
+    const handlers = (panel as any).__swipeHandlers;
+    if (handlers) {
+      handlers.header.removeEventListener('touchstart', handlers.touchstart);
+      handlers.header.removeEventListener('touchmove', handlers.touchmove);
+      handlers.header.removeEventListener('touchend', handlers.touchend);
+      delete (panel as any).__swipeHandlers;
+    }
+  });
+}
+
+  toggleFab() {
+    this.fabExpandedSignal.update((value) => !value);
+    if (!this.fabExpandedSignal() && this.panelOpenSignal()) {
+      this.closePanel();
+    }
+  }
+
+  openMarkerPanel() {
+    this.panelTypeSignal.set('marker');
+    this.panelOpenSignal.set(true);
+    this.fabExpandedSignal.set(false);
+
+    if (!this.isCreatingMarker()) {
+      this.resetMarkerForm();
+    }
+  }
+
+  openZonePanel() {
+    this.panelTypeSignal.set('zone');
+    this.panelOpenSignal.set(true);
+    this.fabExpandedSignal.set(false);
+
+    if (!this.isCreatingZone()) {
+      this.resetZoneForm();
+    }
+  }
+
+  openRoutePanel() {
+    this.panelTypeSignal.set('route' as any);
+    this.panelOpenSignal.set(true);
+    this.fabExpandedSignal.set(false);
+
+    if (!this.isCreatingRoute()) {
+      this.resetRouteForm();
+    }
+  }
+
+  closePanel() {
+    this.panelOpenSignal.set(false);
+    this.fabExpandedSignal.set(false);
+
+    if (!this.isCreatingZone()) {
+      this.stopCreatingZone();
+    }
+
+    if (!this.isCreatingMarker()) {
+      this.stopCreatingMarker();
+    }
+
+    if (!this.isCreatingRoute()) {
+      this.stopCreatingRoute();
+    }
+  }
+
+  async addMarker() {
+    if (!this.clickedLocationSignal()) {
+      this.showToast('Selecciona una ubicación en el mapa');
+      return;
+    }
+
+    const markerForm = this.markerFormSignal();
+    if (!markerForm.title.trim()) {
+      this.showToast('El título es obligatorio');
+      return;
+    }
+
+    try {
+      const currentUser = { uid: 'anonymous' };
+      const marker: Omit<MapMarker, 'id'> = {
+        lat: this.clickedLocationSignal()!.lat,
+        lng: this.clickedLocationSignal()!.lng,
+        title: markerForm.title,
+        description: markerForm.description,
+        type: markerForm.type,
+        color: markerForm.color,
+        createdAt: new Date(),
+        createdBy: currentUser.uid,
+        organizationId: '',
+      };
+
+      try {
+        const newMarker = await this.mapDataService.createMarker({
+          title: markerForm.title,
+          description: markerForm.description,
+          latitude: this.clickedLocationSignal()!.lat,
+          longitude: this.clickedLocationSignal()!.lng,
+          type: this.mapMarkerTypeToDataType(markerForm.type),
+          color: markerForm.color,
+          isVisible: true,
+        });
+        this.showToast('Marcador añadido correctamente');
+      } catch (mapDataError) {
+        try {
+          await this.firestoreService.addMarker(marker);
+          this.showToast('Marcador añadido correctamente');
+        } catch (firestoreError) {
+          const tempMarkerId = Math.random().toString(36).substr(2, 9);
+          this.mapService.addMarker({ ...marker, id: tempMarkerId });
+          this.showToast('Marcador añadido localmente');
+        }
+      }
+
+      this.stopCreatingMarker();
+      this.closePanel();
+      this.resetMarkerForm();
+    } catch (error) {
+      this.showToast('Error al añadir marcador');
+    }
+  }
+
+  startCreatingMarker() {
+  this.isCreatingMarkerSignal.set(true);
+  this.clickedLocationSignal.set(null);
+  this.triggerHapticFeedback('light');
+  this.mapService.setCreatingMarkerMode(true);
+  
+  // Cerrar el panel para permitir seleccionar en el mapa
+  this.panelOpenSignal.set(false);
+  this.fabExpandedSignal.set(false);
+}
+
+  stopCreatingMarker() {
+    this.isCreatingMarkerSignal.set(false);
+    this.clickedLocationSignal.set(null);
+    this.mapService.setCreatingMarkerMode(false);
+  }
+
+  startCreatingZone() {
+  // NUEVO: Verificar permisos antes de permitir crear zona
+    if (!this.canCreateZone()) {
+      this.showToast('No tienes permisos para crear zonas. Solo miembros con rol de Moderador o superior pueden crear zonas.');
+      return;
+    }
+
+    this.isCreatingZoneSignal.set(true);
+    this.zonePointsSignal.set([]);
+    this.triggerHapticFeedback('light');
+    this.mapService.setCreatingZoneMode(true);
+    this.panelOpenSignal.set(false);
+    this.fabExpandedSignal.set(false);
+    // this.showToast('Modo zona activado - Toca el mapa para agregar puntos');
+  }
+
+  addZonePoint(coords: { lat: number; lng: number }) {
+    this.zonePointsSignal.update((points) => [...points, coords]);
+    const count = this.zonePointsSignal().length;
+
+    if (count === 1) {
+      this.showToast('Primer punto agregado');
+    } else if (count === 2) {
+      this.showToast('Segundo punto agregado');
+    } else if (count === 3) {
+      this.showToast('Ya tienes los puntos mínimos para crear la zona');
+    } else {
+      this.showToast(`Punto ${count} agregado`);
+    }
+  }
+
+  async createZone() {
+    // NUEVO: Validación adicional de seguridad
+    if (!this.canCreateZone()) {
+      this.showToast('No tienes permisos para crear zonas');
+      return;
+    }
+
+    const zonePoints = this.zonePointsSignal();
+    if (zonePoints.length < 3) {
+      this.showToast('Se necesitan al menos 3 puntos para crear una zona');
+      return;
+    }
+
+    const zoneForm = this.zoneFormSignal();
+    if (!zoneForm.name.trim()) {
+      this.showToast('El nombre de la zona es obligatorio');
+      return; 
+    }
+
+    try {
+      const polygonCoordinates: [number, number][] = zonePoints.map((point) => [
+        point.lat,
+        point.lng,
+      ]);
+
+      const firstPoint = polygonCoordinates[0];
+      const lastPoint = polygonCoordinates[polygonCoordinates.length - 1];
+      if (firstPoint[0] !== lastPoint[0] || firstPoint[1] !== lastPoint[1]) {
+        polygonCoordinates.push(firstPoint);
+      }
+
+      try {
+        const newZone = await this.mapDataService.createZone({
+          name: zoneForm.name,
+          description: zoneForm.description,
+          type: 'polygon',
+          coordinates: {
+            polygon: polygonCoordinates,
+          },
+          style: {
+            fillColor: zoneForm.color,
+            fillOpacity: 0.3,
+            strokeColor: zoneForm.color,
+            strokeWeight: 2,
+            strokeOpacity: 0.8,
+          },
+          isVisible: true,
+          metadata: {
+            category: zoneForm.type,
+            customFields: {
+              number: zoneForm.number,
+            },
+          },
+        });
+        this.showToast('Zona creada correctamente');
+      } catch (mapDataError) {
+        try {
+          const zone: Omit<MapZone, 'id'> = {
+            name: zoneForm.name,
+            description: zoneForm.description,
+            coordinates: zonePoints,
+            color: zoneForm.color,
+            number: zoneForm.number,
+            type: zoneForm.type,
+            createdAt: new Date(),
+            createdBy: 'anonymous',
+            organizationId: '',
+          };
+
+          await this.firestoreService.addZone(zone);
+          this.showToast('Zona creada correctamente');
+        } catch (firestoreError) {
+          const tempZoneId = Math.random().toString(36).substr(2, 9);
+          const zone: Omit<MapZone, 'id'> = {
+            name: zoneForm.name,
+            description: zoneForm.description,
+            coordinates: zonePoints,
+            color: zoneForm.color,
+            number: zoneForm.number,
+            type: zoneForm.type,
+            createdAt: new Date(),
+            createdBy: 'anonymous',
+            organizationId: '',
+          };
+          this.mapService.addZone({ ...zone, id: tempZoneId });
+          this.showToast('Zona añadida localmente');
+        }
+      }
+
+      this.stopCreatingZone();
+      this.closePanel();
+      this.resetZoneForm();
+    } catch (error) {
+      this.showToast('Error al crear zona');
+    }
+  }
+
+  startCreatingRoute() {
+    if (!this.canCreateZone()) {
+      this.showToast('No tienes permisos para crear líneas. Solo miembros con rol de Moderador o superior pueden crear líneas.');
+      return;
+    }
+
+    this.isCreatingRouteSignal.set(true);
+    this.routePointsSignal.set([]);
+    this.triggerHapticFeedback('light');
+    this.mapService.setCreatingRouteMode(true);
+    this.panelOpenSignal.set(false);
+    this.fabExpandedSignal.set(false);
+  }
+
+  addRoutePoint(coords: { lat: number; lng: number }) {
+    this.routePointsSignal.update((points) => [...points, coords]);
+    const count = this.routePointsSignal().length;
+
+    if (count === 1) {
+      this.showToast('Punto inicial agregado');
+    } else if (count === 2) {
+      this.showToast('Ya tienes los puntos mínimos para crear la línea');
+    } else {
+      this.showToast(`Punto ${count} agregado`);
+    }
+  }
+
+  async createRoute() {
+    if (!this.canCreateZone()) {
+      this.showToast('No tienes permisos para crear líneas');
+      return;
+    }
+
+    const routePoints = this.routePointsSignal();
+    if (routePoints.length < 2) {
+      this.showToast('Se necesitan al menos 2 puntos para crear una línea');
+      return;
+    }
+
+    const routeForm = this.routeFormSignal();
+    if (!routeForm.name.trim()) {
+      this.showToast('El nombre de la línea es obligatorio');
+      return;
+    }
+
+    try {
+      const waypoints: [number, number][] = routePoints.map((point) => [
+        point.lat,
+        point.lng,
+      ]);
+
+      const newRoute = await this.mapDataService.createRoute({
+        name: routeForm.name,
+        description: routeForm.description,
+        waypoints: waypoints,
+        color: routeForm.color,
+        width: routeForm.width,
+      });
+
+      this.showToast('Línea creada correctamente');
+
+      this.stopCreatingRoute();
+      this.closePanel();
+      this.resetRouteForm();
+    } catch (error) {
+      console.error('Error creando línea:', error);
+      this.showToast('Error al crear línea');
+    }
+  }
+
+  stopCreatingZone() {
+    this.isCreatingZoneSignal.set(false);
+    this.zonePointsSignal.set([]);
+    this.mapService.setCreatingZoneMode(false);
+  }
+
+  stopCreatingRoute() {
+    this.isCreatingRouteSignal.set(false);
+    this.routePointsSignal.set([]);
+    this.mapService.setCreatingRouteMode(false);
+  }
+
+  cancelZoneCreation() {
+    // this.showToast('Creación de zona cancelada');
+    this.stopCreatingZone();
+
+    if (this.panelOpenSignal()) {
+      this.resetZoneForm();
+    }
+  }
+
+  cancelRouteCreation() {
+    this.stopCreatingRoute();
+
+    if (this.panelOpenSignal()) {
+      this.resetRouteForm();
+    }
+  }
+
+  ngOnDestroy() {
+    window.removeEventListener('roleChanged', () => {});
+
+    if (this.editModeSignal()) {
+      this.disableDeleteMode();
+    }
+
+    // Limpiar event listeners de swipe
+    this.cleanupSwipeGestures();
+  }
+
+  private resetMarkerForm() {
+    this.markerFormSignal.set({
+      title: '',
+      description: '',
+      type: 'marker',
+      color: '#FF6B6B',
+    });
+    this.clickedLocationSignal.set(null);
+  }
+
+  private getNextZoneNumber(): number {
+    return this.zoneCounter++;
+  }
+
+  private resetZoneForm() {
+    this.zoneFormSignal.set({
+      name: '',
+      description: '',
+      number: this.getNextZoneNumber(),
+      type: 'zone',
+      color: '#4ECDC4',
+    });
+    this.stopCreatingZone();
+  }
+
+  private resetRouteForm() {
+    this.routeFormSignal.set({
+      name: '',
+      description: '',
+      color: '#3388ff',
+      width: 4,
+    });
+    this.stopCreatingRoute();
+  }
+
+  toggleEditMode() {
+  // NUEVO: Verificar permisos antes de activar modo edición
+    if (!this.canEditOrDelete()) {
+      this.showToast('No tienes permisos para editar o eliminar elementos. Solo miembros con rol de Moderador o superior pueden hacerlo.');
+      return;
+    }
+
+    this.editModeSignal.update((value) => !value);
+    this.fabExpandedSignal.set(false);
+
+    if (this.editModeSignal()) {
+      this.triggerHapticFeedback('medium');
+      this.enableDeleteMode();
+    } else {
+      this.triggerHapticFeedback('light');
+      // this.showToast('Modo editar desactivado');
+      this.disableDeleteMode();
+    }
+  }
+
+  private enableDeleteMode() {
+    this.mapService.setDeleteMode(true);
+
+    this.markerDeleteSubscription?.unsubscribe();
+    this.zoneDeleteSubscription?.unsubscribe();
+    this.routeDeleteSubscription?.unsubscribe();
+
+    this.markerDeleteSubscription = this.mapService.markerDelete$.subscribe((markerId: string) => {
+      if (this.editModeSignal()) {
+        this.confirmDeleteMarker(markerId);
+      }
+    });
+
+    this.zoneDeleteSubscription = this.mapService.zoneDelete$.subscribe((zoneId: string) => {
+      if (this.editModeSignal()) {
+        this.confirmDeleteZone(zoneId);
+      }
+    });
+
+    this.routeDeleteSubscription = this.mapService.routeDelete$.subscribe((routeId: string) => {
+      if (this.editModeSignal()) {
+        this.confirmDeleteRoute(routeId);
+      }
+    });
+  }
+
+  private disableDeleteMode() {
+    this.mapService.setDeleteMode(false);
+    
+    this.markerDeleteSubscription?.unsubscribe();
+    this.zoneDeleteSubscription?.unsubscribe();
+    this.routeDeleteSubscription?.unsubscribe();
+    this.markerDeleteSubscription = undefined;
+    this.zoneDeleteSubscription = undefined;
+    this.routeDeleteSubscription = undefined;
+    
+    this.cleanupDeleteModeStyles();
+  }
+
+  private cleanupDeleteModeStyles() {
+    const deleteElements = document.querySelectorAll('.delete-mode');
+    deleteElements.forEach((element) => {
+      element.classList.remove('delete-mode');
+      (element as HTMLElement).style.cursor = '';
+    });
+
+    document.body.style.cursor = '';
+
+    const mapContainer = document.querySelector('#map-container');
+    if (mapContainer) {
+      (mapContainer as HTMLElement).style.cursor = '';
+      mapContainer.classList.remove('delete-mode');
+    }
+
+    const leafletContainer = document.querySelector('.leaflet-container');
+    if (leafletContainer) {
+      (leafletContainer as HTMLElement).style.cursor = '';
+      leafletContainer.classList.remove('delete-mode');
+    }
+  }
+
+  private async confirmDeleteMarker(markerId: string) {
+    // Evitar múltiples procesamientos
+    if (this.isProcessingDelete) {
+      return;
+    }
+
+    // Cerrar cualquier alerta existente primero
+    try {
+      const existingAlert = await this.alertCtrl.getTop();
+      if (existingAlert) {
+        await existingAlert.dismiss();
+        // Pequeña pausa para que termine de cerrarse
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    } catch (e) {
+      // Ignorar errores al cerrar
+    }
+
+    this.isProcessingDelete = true;
+    this.triggerHapticFeedback();
+
+    const alert = await this.alertCtrl.create({
+      header: 'Eliminar Marcador',
+      message: '¿Estás seguro de que quieres eliminar este marcador?\n\nEsta acción no se puede deshacer.',
+      backdropDismiss: false,
+      buttons: [
+        {
+          text: 'Cancelar',
+          role: 'cancel',
+          cssClass: 'alert-button-cancel',
+        },
+        {
+          text: 'Eliminar',
+          cssClass: 'alert-button-destructive',
+          handler: () => {
+            this.triggerHapticFeedback('medium');
+            this.deleteMarker(markerId);
+          },
+        },
+      ],
+      cssClass: 'delete-confirmation-alert mobile-optimized',
+    });
+
+    await alert.present();
+
+    // Resetear flag cuando se cierra el alert
+    alert.onDidDismiss().then(() => {
+      this.isProcessingDelete = false;
+    });
+  }
+
+  private async confirmDeleteZone(zoneId: string) {
+    // Evitar múltiples procesamientos
+    if (this.isProcessingDelete) {
+      return;
+    }
+
+    // Cerrar cualquier alerta existente primero
+    try {
+      const existingAlert = await this.alertCtrl.getTop();
+      if (existingAlert) {
+        await existingAlert.dismiss();
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    } catch (e) {
+      // Ignorar errores al cerrar
+    }
+
+    this.isProcessingDelete = true;
+    this.triggerHapticFeedback();
+
+    const alert = await this.alertCtrl.create({
+      header: 'Eliminar Zona',
+      message: '¿Estás seguro de que quieres eliminar esta zona?\n\nEsta acción no se puede deshacer.',
+      backdropDismiss: false,
+      buttons: [
+        {
+          text: 'Cancelar',
+          role: 'cancel',
+          cssClass: 'alert-button-cancel',
+        },
+        {
+          text: 'Eliminar',
+          cssClass: 'alert-button-destructive',
+          handler: () => {
+            this.triggerHapticFeedback('medium');
+            this.deleteZone(zoneId);
+          },
+        },
+      ],
+      cssClass: 'delete-confirmation-alert mobile-optimized',
+    });
+
+    await alert.present();
+
+    alert.onDidDismiss().then(() => {
+      this.isProcessingDelete = false;
+    });
+  }
+
+  private async confirmDeleteRoute(routeId: string) {
+    // Evitar múltiples procesamientos
+    if (this.isProcessingDelete) {
+      return;
+    }
+
+    // Cerrar cualquier alerta existente primero
+    try {
+      const existingAlert = await this.alertCtrl.getTop();
+      if (existingAlert) {
+        await existingAlert.dismiss();
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    } catch (e) {
+      // Ignorar errores al cerrar
+    }
+
+    this.isProcessingDelete = true;
+    this.triggerHapticFeedback();
+
+    const alert = await this.alertCtrl.create({
+      header: 'Eliminar Línea',
+      message: '¿Estás seguro de que quieres eliminar esta línea?\n\nEsta acción no se puede deshacer.',
+      backdropDismiss: false,
+      buttons: [
+        {
+          text: 'Cancelar',
+          role: 'cancel',
+          cssClass: 'alert-button-cancel',
+        },
+        {
+          text: 'Eliminar',
+          cssClass: 'alert-button-destructive',
+          handler: () => {
+            this.triggerHapticFeedback('medium');
+            this.deleteRoute(routeId);
+          },
+        },
+      ],
+      cssClass: 'delete-confirmation-alert mobile-optimized',
+    });
+
+    await alert.present();
+
+    alert.onDidDismiss().then(() => {
+      this.isProcessingDelete = false;
+    });
+  }
+
+  // Métodos de eliminación - PRIMERO UI, LUEGO BACKEND
+  private async deleteMarker(markerId: string) {
+    try {
+      // 1. Eliminar de la UI PRIMERO (instantáneo)
+      this.mapService.removeMarker(markerId);
+      
+      // 2. Luego eliminar del backend
+      await this.mapDataService.deleteMarker(markerId);
+      
+      this.showToast('Marcador eliminado');
+    } catch (error) {
+      console.error('Error eliminando marcador del backend:', error);
+      // El marcador ya se eliminó de la UI, mostrar advertencia
+      this.showToast('Marcador eliminado (sincronización pendiente)');
+    }
+  }
+
+  private async deleteZone(zoneId: string) {
+    try {
+      // 1. Eliminar de la UI PRIMERO (instantáneo)
+      this.mapService.removeZone(zoneId);
+      
+      // 2. Luego eliminar del backend
+      await this.mapDataService.deleteZone(zoneId);
+      
+      this.showToast('Zona eliminada');
+    } catch (error) {
+      console.error('Error eliminando zona del backend:', error);
+      this.showToast('Zona eliminada (sincronización pendiente)');
+    }
+  }
+
+  private async deleteRoute(routeId: string) {
+    try {
+      // 1. Eliminar de la UI PRIMERO (instantáneo)
+      this.mapService.removeRoute(routeId);
+      
+      // 2. Luego eliminar del backend
+      await this.mapDataService.deleteRoute(routeId);
+      
+      this.showToast('Línea eliminada');
+    } catch (error) {
+      console.error('Error eliminando línea del backend:', error);
+      this.showToast('Línea eliminada (sincronización pendiente)');
+    }
+  }
+
+  private mapMarkerTypeToDataType(
+    formType: 'marker' | 'house' | 'poi'
+  ): 'default' | 'warning' | 'danger' | 'success' | 'info' {
+    switch (formType) {
+      case 'marker':
+        return 'default';
+      case 'house':
+        return 'info';
+      case 'poi':
+        return 'success';
+      default:
+        return 'default';
+    }
+  }
+
+  private async showToast(message: string) {
+  const toast = await this.toastCtrl.create({
+    message,
+    duration: 1500,
+    position: 'middle',
+    cssClass: 'custom-toast-compact',
+    mode: 'ios',
+  });
+  await toast.present();
+}
+
+  private async triggerHapticFeedback(
+    style: 'light' | 'medium' | 'heavy' = 'medium'
+  ) {
+    try {
+      const impactStyle =
+        style === 'light'
+          ? ImpactStyle.Light
+          : style === 'heavy'
+          ? ImpactStyle.Heavy
+          : ImpactStyle.Medium;
+
+      await Haptics.impact({ style: impactStyle });
+    } catch (error) {
+      // Haptic feedback not available
+    }
+  }
+}

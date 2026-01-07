@@ -20,7 +20,7 @@ import { addIcons } from 'ionicons';
 import { navigateOutline, star, location } from 'ionicons/icons';
 
 // Manejador global de errores
-import { GlobalErrorHandler } from './app/shared/services/error-handler.service';
+import { GlobalErrorHandler } from './app/shared/utils/error-handler.service';
 
 if (environment.production) {
   enableProdMode();

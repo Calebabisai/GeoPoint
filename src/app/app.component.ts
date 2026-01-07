@@ -3,10 +3,10 @@ import { CommonModule } from '@angular/common';
 import { IonApp, IonRouterOutlet, Platform } from '@ionic/angular/standalone';
 import { MenuComponent } from './shared/components/menu/menu.component';
 import { NetworkStatusComponent } from './shared/components/network-status/network-status.component';
-import { AuthService } from './auth/services/auth.service';
-import { MobilePlatformService } from './services/mobile-platform.service';
-import { NetworkService } from './shared/services/network.service';
-import { LoggerService } from './shared/services/logger.service';
+import { AuthService } from './core/services/auth.service';
+import { MobilePlatformService } from './core/services/platform.service';
+import { NetworkService } from './core/services/network.service';
+import { LoggerService } from './core/services/logger.service';
 import { App } from '@capacitor/app';
 
 @Component({

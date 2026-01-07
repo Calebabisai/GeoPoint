@@ -5,7 +5,7 @@ import {
   cloudOfflineOutline,
   cloudDoneOutline,
 } from 'ionicons/icons';
-import { NetworkService } from '../../services/network.service';
+import { NetworkService } from 'src/app/core/services/network.service';
 
 @Component({
   selector: 'app-network-status',
