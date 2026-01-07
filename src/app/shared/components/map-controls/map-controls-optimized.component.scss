@@ -458,3 +458,100 @@ ion-fab-button {
     }
   }
 }
+// Contenedor para botón FAB con label (sin código duplicado)
+.fab-button-with-label {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+  
+  // Restaurar animación de Ionic para los botones dentro del wrapper
+  ion-fab-button {
+    animation: fab-list-scale-y 200ms ease-in-out;
+    transform-origin: center center;
+  }
+}
+
+// Animación de aparición para los botones del FAB list
+@keyframes fab-list-scale-y {
+  0% {
+    opacity: 0;
+    transform: scale(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+// Label lateral para los botones FAB
+.fab-label-side {
+  position: absolute;
+  right: calc(100% + 8px);
+  background: var(--ion-color-medium);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  transition: all 0.3s ease;
+  opacity: 0;
+  transform: translateX(10px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  
+  // Animar entrada del label junto con el botón
+  animation: label-slide-in 200ms ease-in-out 100ms forwards;
+  
+  // Estado activo
+  &.active {
+    opacity: 1;
+  }
+}
+
+// Animación de entrada para los labels
+@keyframes label-slide-in {
+  0% {
+    opacity: 0;
+    transform: translateX(10px);
+  }
+  100% {
+    opacity: 0.9;
+    transform: translateX(0);
+  }
+}
+
+// Labels específicos por color de botón
+.fab-button-with-label {
+  // Marcador (success/tertiary)
+  ion-fab-button[color="success"] ~ .fab-label-side {
+    background: var(--ion-color-success);
+  }
+  
+  ion-fab-button[color="tertiary"] ~ .fab-label-side {
+    background: var(--ion-color-tertiary);
+  }
+  
+  // Zona (secondary/tertiary)
+  ion-fab-button[color="secondary"] ~ .fab-label-side {
+    background: var(--ion-color-secondary);
+  }
+  
+  // Eliminar (medium/danger)
+  ion-fab-button[color="medium"] ~ .fab-label-side {
+    background: var(--ion-color-medium);
+  }
+  
+  ion-fab-button[color="danger"] ~ .fab-label-side {
+    background: var(--ion-color-danger);
+  }
+}
+
+// Asegurar que ion-fab-list tenga espaciado uniforme
+ion-fab-list {
+  ion-fab-button {
+    margin-bottom: 8px;
+  }
+}

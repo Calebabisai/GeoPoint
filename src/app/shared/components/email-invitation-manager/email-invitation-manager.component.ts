@@ -73,7 +73,6 @@ interface BulkInviteResult {
     IonButton,
     IonIcon,
     IonInput,
-    IonTextarea,
     IonSelect,
     IonSelectOption,
     IonItem,

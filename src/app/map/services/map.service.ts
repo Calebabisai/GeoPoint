@@ -620,6 +620,12 @@ export class MapService {
       });
     } else {
       polygon.on('click', (e: L.LeafletMouseEvent) => {
+        // Si estamos en modo de creación de marcador, permitir que el clic pase al mapa
+        if (this._isCreatingMarker()) {
+          // NO detener propagación, dejar que llegue al listener del mapa
+          return;
+        }
+
         try {
           const original = e.originalEvent as MouseEvent;
           const elements = document.elementsFromPoint(
@@ -648,21 +654,17 @@ export class MapService {
             }
           }
 
-          if (!this._isCreatingMarker()) {
-            if (polygon.popupContent) {
-              polygon.bindPopup(polygon.popupContent).openPopup();
-            }
-            this.zoneClick$.next({ ...zone, id: zoneId });
-            e.originalEvent?.stopPropagation();
+          if (polygon.popupContent) {
+            polygon.bindPopup(polygon.popupContent).openPopup();
           }
+          this.zoneClick$.next({ ...zone, id: zoneId });
+          e.originalEvent?.stopPropagation();
         } catch {
-          if (!this._isCreatingMarker()) {
-            if (polygon.popupContent) {
-              polygon.bindPopup(polygon.popupContent).openPopup();
-            }
-            this.zoneClick$.next({ ...zone, id: zoneId });
-            e.originalEvent?.stopPropagation();
+          if (polygon.popupContent) {
+            polygon.bindPopup(polygon.popupContent).openPopup();
           }
+          this.zoneClick$.next({ ...zone, id: zoneId });
+          e.originalEvent?.stopPropagation();
         }
       });
     }

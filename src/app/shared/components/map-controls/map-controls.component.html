@@ -58,46 +58,54 @@
     <ion-icon [name]="fabExpanded() ? 'close' : 'add'" size="large"></ion-icon>
   </ion-fab-button>
 
-  <ion-fab-list side="top" [activated]="fabExpanded()">
+    <ion-fab-list side="top" [activated]="fabExpanded()">
     <!-- Botón de marcador - solo si tiene permisos -->
     @if (canCreateMarker()) {
-    <ion-fab-button
-      (click)="openMarkerPanel()"
-      [color]="isCreatingMarker() ? 'tertiary' : 'success'"
-      size="small"
-    >
-      <ion-icon
-        [name]="isCreatingMarker() ? 'checkmark-circle' : 'pin'"
+    <div class="fab-button-with-label">
+      <ion-fab-button
+        (click)="openMarkerPanel()"
+        [color]="isCreatingMarker() ? 'tertiary' : 'success'"
         size="small"
-      ></ion-icon>
-    </ion-fab-button>
+      >
+        <ion-icon
+          [name]="isCreatingMarker() ? 'checkmark-circle' : 'pin'"
+          size="small"
+        ></ion-icon>
+      </ion-fab-button>
+      <span class="fab-label-side" [class.active]="isCreatingMarker()">Marcador</span>
+    </div>
     }
 
     <!-- Botón de zona - solo si tiene permisos -->
     @if (canCreateZone()) {
-    <ion-fab-button
-      (click)="openZonePanel()"
-      [color]="isCreatingZone() ? 'tertiary' : 'secondary'"
-      size="small"
-    >
-      <ion-icon
-        [name]="isCreatingZone() ? 'checkmark-circle' : 'shapes'"
+    <div class="fab-button-with-label">
+      <ion-fab-button
+        (click)="openZonePanel()"
+        [color]="isCreatingZone() ? 'tertiary' : 'secondary'"
         size="small"
-      ></ion-icon>
-    </ion-fab-button>
+      >
+        <ion-icon
+          [name]="isCreatingZone() ? 'checkmark-circle' : 'shapes'"
+          size="small"
+        ></ion-icon>
+      </ion-fab-button>
+      <span class="fab-label-side" [class.active]="isCreatingZone()">Zona</span>
+    </div>
     }
 
     <!-- Botón de modo editar - solo para admins -->
     @if (canEditOrDelete()) {
-    <ion-fab-button
-      (click)="toggleEditMode()"
-      [color]="editMode() ? 'danger' : 'medium'"
-      size="small"
-      [class]="editMode() ? 'edit-mode-active' : ''"
-    >
-      <ion-icon [name]="editMode() ? 'trash-bin' : 'pencil'" size="small">
-      </ion-icon>
-    </ion-fab-button>
+    <div class="fab-button-with-label">
+      <ion-fab-button
+        (click)="toggleEditMode()"
+        [color]="editMode() ? 'danger' : 'medium'"
+        size="small"
+        [class]="editMode() ? 'edit-mode-active' : ''"
+      >
+        <ion-icon name="trash-bin" size="small"></ion-icon>
+      </ion-fab-button>
+      <span class="fab-label-side" [class.active]="editMode()">Eliminar</span>
+    </div>
     }     
   </ion-fab-list>
 </ion-fab>
