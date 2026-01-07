@@ -813,6 +813,7 @@ export class MapService {
       zone.off('mouseout');
 
       const zoneElement = zone.getElement() as HTMLElement;
+      const zoneData = this.zoneData.get(id);
 
       if (this._deleteMode()) {
         zoneElement?.classList.add('delete-mode');
@@ -830,10 +831,61 @@ export class MapService {
           zoneElement.style.pointerEvents = 'auto';
         }
 
+        // CORREGIDO: Reconfigurar evento respetando modos de creación
         zone.on('click', (e: L.LeafletMouseEvent) => {
-          if (!this._isCreatingMarker() && zone.popupContent) {
+          // Si estamos en modo de creación de marcador O línea, permitir que el clic pase al mapa
+          if (this._isCreatingMarker() || this._isCreatingRoute()) {
+            // NO detener propagación, dejar que llegue al listener del mapa
+            return;
+          }
+
+          // Si no estamos creando nada, mostrar popup normal
+          if (zone.popupContent) {
             zone.bindPopup(zone.popupContent).openPopup();
+            if (zoneData) {
+              this.zoneClick$.next({ ...zoneData, id });
+            }
             e.originalEvent?.stopPropagation();
+          }
+        });
+      }
+    });
+
+    // NUEVO: También actualizar rutas
+    this.routes.forEach((route, id) => {
+      route.off('click');
+      route.off('mouseover');
+      route.off('mouseout');
+
+      const routeData = this.routeData.get(id);
+
+      if (this._deleteMode()) {
+        route.on('click', (e: L.LeafletMouseEvent) => {
+          L.DomEvent.stopPropagation(e);
+          this.routeDelete$.next(id);
+        });
+      } else {
+        // Reconfigurar eventos normales
+        route.on('click', (e: L.LeafletMouseEvent) => {
+          // Si estamos creando marcador O línea, permitir que el click pase al mapa
+          if (this._isCreatingMarker() || this._isCreatingRoute()) {
+            return;
+          }
+
+          L.DomEvent.stopPropagation(e);
+          route.openPopup();
+        });
+
+        // Estilo hover
+        route.on('mouseover', () => {
+          if (routeData) {
+            route.setStyle({ weight: (routeData.width || 4) + 2, opacity: 1 });
+          }
+        });
+
+        route.on('mouseout', () => {
+          if (routeData) {
+            route.setStyle({ weight: routeData.width || 4, opacity: 0.8 });
           }
         });
       }
