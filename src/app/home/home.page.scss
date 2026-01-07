@@ -722,3 +722,19 @@
     }
   }
 }
+
+// ============================================
+// SAFE AREA - SOPORTE PARA NOTCH
+// ============================================
+
+// Safe area SOLO para el header
+.uber-header {
+  ion-toolbar {
+    padding-top: env(safe-area-inset-top);
+  }
+}
+
+// Safe area SOLO para stats si están en la parte superior
+.dashboard-stats {
+  margin-top: calc(env(safe-area-inset-top) + 8px);
+}

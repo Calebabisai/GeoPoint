@@ -18,3 +18,39 @@
   min-height: 300px;
 }
 
+
+.caching-indicator {
+  position: fixed;
+  top: 80px;
+  right: 16px;
+  z-index: 9999;
+  
+  ion-chip {
+    --background: var(--ion-color-primary);
+    color: #000000;
+    font-weight: 500;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+}
+
+
+.loading-location {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10000;
+  padding: 24px;
+  border-radius: 50%;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  ion-spinner {
+    width: 48px;
+    height: 48px;
+    --color: var(--ion-color-primary);
+  }
+}
+

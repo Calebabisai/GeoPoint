@@ -237,7 +237,7 @@ export class GeolocationService {
         this._isLocationStable.set(true);
       }
     }
-  }
+  } 
 
   public destroy(): void {
     this.stopWatching();

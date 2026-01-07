@@ -76,12 +76,6 @@ type UserRole = 'admin' | 'user' | null;
     IonIcon,
     IonButton,
     IonButtons,
-    IonMenu,
-    IonList,
-    IonItem,
-    IonLabel,
-    IonFooter,
-    IonTitle,
     MapViewComponent,
   ],
 })
@@ -196,9 +190,6 @@ async refreshAll(): Promise<void> {
     // Ocultar indicador de carga
     await this.uiService.hideLoading();
     
-    // Mostrar mensaje de éxito
-    await this.showSuccess('Mapa actualizado correctamente');
-    
   } catch (error) {
     await this.uiService.hideLoading();
     console.error('Error al refrescar:', error);
@@ -291,6 +282,5 @@ async refreshAll(): Promise<void> {
   private async showWarning(message: string): Promise<void> {
     await this.uiService.showWarning(message);
   }
-
 
 }

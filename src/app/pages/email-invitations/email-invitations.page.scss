@@ -13,6 +13,10 @@ ion-header {
     --border-color: #00d46a;
     border-bottom: 2px solid #00d46a;
     padding: 8px 0;
+    
+    // NUEVO: Safe area para notch/cámara
+    padding-top: calc(env(safe-area-inset-top) + 8px);
+    --min-height: calc(56px + env(safe-area-inset-top));
   }
 
   ion-title {
@@ -50,35 +54,5 @@ ion-content {
   to {
     opacity: 1;
     transform: translateY(0);
-  }
-}
-
-// Efecto de resplandor sutil en el header
-ion-header::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, #00d46a, transparent);
-  opacity: 0.5;
-}
-
-// Estilos responsive para móvil
-@media (max-width: 768px) {
-  ion-header ion-title {
-    font-size: 1.1em;
-  }
-  
-  ion-content {
-    --background: linear-gradient(135deg, #1a1a1a 0%, #2d2d30 100%);
-  }
-}
-
-// Modo oscuro mejorado
-@media (prefers-color-scheme: dark) {
-  ion-content {
-    --background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%);
   }
 }

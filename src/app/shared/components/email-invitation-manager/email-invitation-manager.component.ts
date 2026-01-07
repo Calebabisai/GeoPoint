@@ -8,10 +8,6 @@ import {
   FormArray,
 } from '@angular/forms';
 import {
-  IonContent,
-  IonHeader,
-  IonTitle,
-  IonToolbar,
   IonButton,
   IonIcon,
   IonInput,
@@ -29,8 +25,7 @@ import {
   IonBadge,
   ToastController,
   AlertController,
-  LoadingController,
-} from '@ionic/angular/standalone';
+  LoadingController, IonContent } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import {
   mailOutline,
@@ -72,13 +67,9 @@ interface BulkInviteResult {
   templateUrl: './email-invitation-manager.component.html',
   styleUrls: ['./email-invitation-manager.component.scss'],
   standalone: true,
-  imports: [
+  imports: [IonContent, 
     FormsModule,
     ReactiveFormsModule,
-    IonContent,
-    IonHeader,
-    IonTitle,
-    IonToolbar,
     IonButton,
     IonIcon,
     IonInput,

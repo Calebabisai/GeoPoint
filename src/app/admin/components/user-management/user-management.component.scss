@@ -1,4 +1,4 @@
-// 🎨 ESTILOS DEL HEADER
+// 🎨 ESTILOS DEL HEADER - CON SAFE AREA
 ion-content {
   --background: linear-gradient(135deg, #1a1a1a 0%, #2d2d30 100%);
   color: white;
@@ -11,6 +11,10 @@ ion-header {
     --border-color: #00d46a;
     border-bottom: 2px solid #00d46a;
     padding: 4px 0;
+    
+    // NUEVO: Safe area para notch/cámara
+    padding-top: calc(env(safe-area-inset-top) + 4px);
+    --min-height: calc(56px + env(safe-area-inset-top));
   }
 
   ion-title {
@@ -24,6 +28,11 @@ ion-header {
   ion-back-button {
     --color: #00d46a;
   }
+}
+
+// Safe area para el contenido (evitar que se tape con el header)
+.content-container {
+  padding-top: calc(env(safe-area-inset-top) + 8px);
 }
 
 // 🎨 CONTENIDO COMPACTO
@@ -232,4 +241,6 @@ ion-header {
     }
   }
 }
+
+
 

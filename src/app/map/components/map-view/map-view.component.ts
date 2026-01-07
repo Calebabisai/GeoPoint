@@ -162,12 +162,12 @@ export class MapViewComponent {
       
       if (location) {
         this._userLocation.set(location);
-        this.logger.firebase('📍 Ubicación obtenida:', location);
+        this.logger.firebase(' Ubicación obtenida:', location);
       } else {
         // Ubicación por defecto (centro de tu ciudad/organización)
         const defaultLocation = { lat: 19.4326, lng: -99.1332 }; // CDMX ejemplo
         this._userLocation.set(defaultLocation);
-        this.logger.warn('📍 Usando ubicación por defecto');
+        this.logger.warn(' Usando ubicación por defecto');
       }
 
       this._isLoadingLocation.set(false);
