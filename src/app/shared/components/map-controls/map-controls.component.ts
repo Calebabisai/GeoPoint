@@ -41,6 +41,7 @@ import {
   checkmark,
   pin,
   trashBin,
+  gitBranch, // Para el icono de línea
 } from 'ionicons/icons';
 import { MapService } from '../../../map/services/map.service';
 import { MapMarker } from '../../models/marker.model';
@@ -49,6 +50,7 @@ import { FirestoreService } from '../../../services/firestore.service';
 import { MapDataService } from '../../services/map-data.service';
 import { AuthorizationService } from '../../../auth/services/authorization.service';
 import { RoleSelectorComponent } from '../role-selector/role-selector.component';
+import { MapRoute } from '../../models/route.model';
 
 @Component({
   selector: 'app-map-controls',
@@ -82,6 +84,7 @@ export class MapControlsComponent implements OnInit, OnDestroy {
   // NUEVO: Guardar subscripciones para poder cancelarlas
   private markerDeleteSubscription?: Subscription;
   private zoneDeleteSubscription?: Subscription;
+  private routeDeleteSubscription?: Subscription;
 
   // Signals para permisos
   readonly canCreateMarker = computed(() => {
@@ -111,7 +114,7 @@ export class MapControlsComponent implements OnInit, OnDestroy {
   // Signals para controles del FAB y paneles
   private fabExpandedSignal = signal(false);
   private panelOpenSignal = signal(false);
-  private panelTypeSignal = signal<'marker' | 'zone'>('marker');
+  private panelTypeSignal = signal<'marker' | 'zone' | 'route'>('marker');
   private clickedLocationSignal = signal<{ lat: number; lng: number } | null>(
     null
   );
@@ -129,10 +132,14 @@ export class MapControlsComponent implements OnInit, OnDestroy {
   private isCreatingMarkerSignal = signal(false);
   private isCreatingZoneSignal = signal(false);
   private zonePointsSignal = signal<{ lat: number; lng: number }[]>([]);
+  private isCreatingRouteSignal = signal(false);
+  private routePointsSignal = signal<{ lat: number; lng: number }[]>([]);
 
   readonly isCreatingMarker = this.isCreatingMarkerSignal.asReadonly();
   readonly isCreatingZone = this.isCreatingZoneSignal.asReadonly();
   readonly zonePoints = this.zonePointsSignal.asReadonly();
+  readonly isCreatingRoute = this.isCreatingRouteSignal.asReadonly();
+  readonly routePoints = this.routePointsSignal.asReadonly();
 
   // Signals para formularios
   private markerFormSignal = signal({
@@ -150,8 +157,16 @@ export class MapControlsComponent implements OnInit, OnDestroy {
     color: '#4ECDC4',
   });
 
+  private routeFormSignal = signal({
+    name: '',
+    description: '',
+    color: '#3388ff',
+    width: 4,
+  });
+
   readonly markerForm = this.markerFormSignal.asReadonly();
   readonly zoneForm = this.zoneFormSignal.asReadonly();
+  readonly routeForm = this.routeFormSignal.asReadonly();
 
   // Colores
   colors = [
@@ -180,6 +195,9 @@ export class MapControlsComponent implements OnInit, OnDestroy {
     { name: 'Gris Oscuro', value: '#696969' },
     { name: 'Negro', value: '#2C2C2C' },
   ];
+
+  // Anchos de línea disponibles
+  lineWidths = [2, 3, 4, 5, 6, 8];
 
   private zoneCounter = 1;
 
@@ -221,6 +239,23 @@ export class MapControlsComponent implements OnInit, OnDestroy {
     this.zoneFormSignal.update(form => ({ ...form, color }));
   }
 
+  // Route form updates
+  updateRouteName(name: string): void {
+    this.routeFormSignal.update(form => ({ ...form, name }));
+  }
+
+  updateRouteDescription(description: string): void {
+    this.routeFormSignal.update(form => ({ ...form, description }));
+  }
+
+  updateRouteColor(color: string): void {
+    this.routeFormSignal.update(form => ({ ...form, color }));
+  }
+
+  updateRouteWidth(width: number): void {
+    this.routeFormSignal.update(form => ({ ...form, width }));
+  }
+
   constructor() {
     addIcons({
       add,
@@ -245,6 +280,7 @@ export class MapControlsComponent implements OnInit, OnDestroy {
       checkmark,
       pin,
       trashBin,
+      gitBranch,
     });
 
     this.resetZoneForm();
@@ -265,6 +301,8 @@ export class MapControlsComponent implements OnInit, OnDestroy {
       (coords: { lat: number; lng: number }) => {
         if (this.isCreatingZone()) {
           this.addZonePoint(coords);
+        } else if (this.isCreatingRoute()) {
+          this.addRoutePoint(coords);
         } else if (this.isCreatingMarker()) {
           this.clickedLocationSignal.set(coords);
           this.openMarkerPanel();
@@ -407,6 +445,16 @@ export class MapControlsComponent implements OnInit, OnDestroy {
     }
   }
 
+  openRoutePanel() {
+    this.panelTypeSignal.set('route' as any);
+    this.panelOpenSignal.set(true);
+    this.fabExpandedSignal.set(false);
+
+    if (!this.isCreatingRoute()) {
+      this.resetRouteForm();
+    }
+  }
+
   closePanel() {
     this.panelOpenSignal.set(false);
     this.fabExpandedSignal.set(false);
@@ -417,6 +465,10 @@ export class MapControlsComponent implements OnInit, OnDestroy {
 
     if (!this.isCreatingMarker()) {
       this.stopCreatingMarker();
+    }
+
+    if (!this.isCreatingRoute()) {
+      this.stopCreatingRoute();
     }
   }
 
@@ -621,10 +673,86 @@ export class MapControlsComponent implements OnInit, OnDestroy {
     }
   }
 
+  startCreatingRoute() {
+    if (!this.canCreateZone()) {
+      this.showToast('No tienes permisos para crear líneas. Solo miembros con rol de Moderador o superior pueden crear líneas.');
+      return;
+    }
+
+    this.isCreatingRouteSignal.set(true);
+    this.routePointsSignal.set([]);
+    this.triggerHapticFeedback('light');
+    this.mapService.setCreatingRouteMode(true);
+    this.panelOpenSignal.set(false);
+    this.fabExpandedSignal.set(false);
+  }
+
+  addRoutePoint(coords: { lat: number; lng: number }) {
+    this.routePointsSignal.update((points) => [...points, coords]);
+    const count = this.routePointsSignal().length;
+
+    if (count === 1) {
+      this.showToast('Punto inicial agregado');
+    } else if (count === 2) {
+      this.showToast('Ya tienes los puntos mínimos para crear la línea');
+    } else {
+      this.showToast(`Punto ${count} agregado`);
+    }
+  }
+
+  async createRoute() {
+    if (!this.canCreateZone()) {
+      this.showToast('No tienes permisos para crear líneas');
+      return;
+    }
+
+    const routePoints = this.routePointsSignal();
+    if (routePoints.length < 2) {
+      this.showToast('Se necesitan al menos 2 puntos para crear una línea');
+      return;
+    }
+
+    const routeForm = this.routeFormSignal();
+    if (!routeForm.name.trim()) {
+      this.showToast('El nombre de la línea es obligatorio');
+      return;
+    }
+
+    try {
+      const waypoints: [number, number][] = routePoints.map((point) => [
+        point.lat,
+        point.lng,
+      ]);
+
+      const newRoute = await this.mapDataService.createRoute({
+        name: routeForm.name,
+        description: routeForm.description,
+        waypoints: waypoints,
+        color: routeForm.color,
+        width: routeForm.width,
+      });
+
+      this.showToast('Línea creada correctamente');
+
+      this.stopCreatingRoute();
+      this.closePanel();
+      this.resetRouteForm();
+    } catch (error) {
+      console.error('Error creando línea:', error);
+      this.showToast('Error al crear línea');
+    }
+  }
+
   stopCreatingZone() {
     this.isCreatingZoneSignal.set(false);
     this.zonePointsSignal.set([]);
     this.mapService.setCreatingZoneMode(false);
+  }
+
+  stopCreatingRoute() {
+    this.isCreatingRouteSignal.set(false);
+    this.routePointsSignal.set([]);
+    this.mapService.setCreatingRouteMode(false);
   }
 
   cancelZoneCreation() {
@@ -633,6 +761,14 @@ export class MapControlsComponent implements OnInit, OnDestroy {
 
     if (this.panelOpenSignal()) {
       this.resetZoneForm();
+    }
+  }
+
+  cancelRouteCreation() {
+    this.stopCreatingRoute();
+
+    if (this.panelOpenSignal()) {
+      this.resetRouteForm();
     }
   }
 
@@ -672,6 +808,16 @@ export class MapControlsComponent implements OnInit, OnDestroy {
     this.stopCreatingZone();
   }
 
+  private resetRouteForm() {
+    this.routeFormSignal.set({
+      name: '',
+      description: '',
+      color: '#3388ff',
+      width: 4,
+    });
+    this.stopCreatingRoute();
+  }
+
   toggleEditMode() {
   // NUEVO: Verificar permisos antes de activar modo edición
     if (!this.canEditOrDelete()) {
@@ -695,11 +841,10 @@ export class MapControlsComponent implements OnInit, OnDestroy {
   private enableDeleteMode() {
     this.mapService.setDeleteMode(true);
 
-    // Cancelar subscripciones anteriores antes de crear nuevas
     this.markerDeleteSubscription?.unsubscribe();
     this.zoneDeleteSubscription?.unsubscribe();
+    this.routeDeleteSubscription?.unsubscribe();
 
-    // Guardar las nuevas subscripciones
     this.markerDeleteSubscription = this.mapService.markerDelete$.subscribe((markerId: string) => {
       if (this.editModeSignal()) {
         this.confirmDeleteMarker(markerId);
@@ -711,16 +856,23 @@ export class MapControlsComponent implements OnInit, OnDestroy {
         this.confirmDeleteZone(zoneId);
       }
     });
+
+    this.routeDeleteSubscription = this.mapService.routeDelete$.subscribe((routeId: string) => {
+      if (this.editModeSignal()) {
+        this.confirmDeleteRoute(routeId);
+      }
+    });
   }
 
   private disableDeleteMode() {
     this.mapService.setDeleteMode(false);
     
-    //Cancelar subscripciones al desactivar modo edición
     this.markerDeleteSubscription?.unsubscribe();
     this.zoneDeleteSubscription?.unsubscribe();
+    this.routeDeleteSubscription?.unsubscribe();
     this.markerDeleteSubscription = undefined;
     this.zoneDeleteSubscription = undefined;
+    this.routeDeleteSubscription = undefined;
     
     this.cleanupDeleteModeStyles();
   }
@@ -801,6 +953,33 @@ export class MapControlsComponent implements OnInit, OnDestroy {
     await alert.present();
   }
 
+  private async confirmDeleteRoute(routeId: string) {
+    this.triggerHapticFeedback();
+
+    const alert = await this.alertCtrl.create({
+      header: 'Eliminar Línea',
+      message: '¿Estás seguro de que quieres eliminar esta línea?\n\nEsta acción no se puede deshacer.',
+      buttons: [
+        {
+          text: 'Cancelar',
+          role: 'cancel',
+          cssClass: 'alert-button-cancel',
+        },
+        {
+          text: 'Eliminar',
+          cssClass: 'alert-button-destructive',
+          handler: () => {
+            this.triggerHapticFeedback('medium');
+            this.deleteRoute(routeId);
+          },
+        },
+      ],
+      cssClass: 'delete-confirmation-alert mobile-optimized',
+    });
+
+    await alert.present();
+  }
+
   // Eliminación más robusta
   private async deleteMarker(markerId: string) {
     try {
@@ -837,6 +1016,22 @@ export class MapControlsComponent implements OnInit, OnDestroy {
     } catch (error) {
       console.error('Error eliminando zona:', error);
       this.showToast('Error al eliminar zona');
+    }
+  }
+
+  private async deleteRoute(routeId: string) {
+    try {
+      await this.mapDataService.deleteRoute(routeId);
+      
+      this.mapService.removeRoute(routeId);
+      
+      setTimeout(() => this.mapService.removeRoute(routeId), 100);
+      setTimeout(() => this.mapService.removeRoute(routeId), 500);
+      setTimeout(() => this.mapService.removeRoute(routeId), 1000);
+      
+    } catch (error) {
+      console.error('Error eliminando línea:', error);
+      this.showToast('Error al eliminar línea');
     }
   }
 

@@ -349,7 +349,9 @@ export class FirestoreService {
       shareReplay(1)
     );
   }
-
+  /**
+   * Agrega una nueva ruta a Firestore
+   */
   async addRoute(route: unknown): Promise<string> {
     const currentOrg = await this.getCurrentOrgOrThrow();
     const routesCollection = collection(this.firestore, 'routes');
@@ -360,6 +362,21 @@ export class FirestoreService {
       createdAt: Timestamp.now(),
     });
     return docRef.id;
+  }
+  /**
+   * Elimina una ruta de Firestore por su ID
+   */
+  async deleteRoute(routeId: string): Promise<void> {
+    const routeDoc = doc(this.firestore, 'routes', routeId);
+    await deleteDoc(routeDoc);
+  }
+
+  async updateRoute(routeId: string, data: Partial<unknown>): Promise<void> {
+    const routeDoc = doc(this.firestore, 'routes', routeId);
+    await updateDoc(routeDoc, {
+      ...(data as object),
+      updatedAt: Timestamp.now(),
+    });
   }
 
   // ==================== HELPERS ====================

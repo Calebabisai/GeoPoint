@@ -549,9 +549,31 @@ ion-fab-button {
   }
 }
 
-// Asegurar que ion-fab-list tenga espaciado uniforme
-ion-fab-list {
-  ion-fab-button {
-    margin-bottom: 8px;
+// Color para el botón de línea (warning = naranja/amarillo)
+.fab-button-with-label ion-fab-button[color="warning"] + .fab-label-side {
+  background: var(--ion-color-warning);
+  color: var(--ion-color-warning-contrast);
+}
+
+// Estilo activo para línea
+.fab-button-with-label ion-fab-button[color="warning"] + .fab-label-side.active,
+.fab-button-with-label ion-fab-button[color="tertiary"] + .fab-label-side.active {
+  background: var(--ion-color-tertiary);
+  color: var(--ion-color-tertiary-contrast);
+}
+
+// Estilos para panel de rutas
+.route-panel {
+  .help-text.route-active {
+    background: rgba(var(--ion-color-warning-rgb), 0.1);
+    border-left: 3px solid var(--ion-color-warning);
+    padding: 8px 12px;
+    border-radius: 4px;
+    margin-bottom: 12px;
+    
+    p {
+      margin: 4px 0;
+      font-size: 0.9rem;
+    }
   }
 }

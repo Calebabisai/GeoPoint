@@ -8,6 +8,7 @@ import { MapZone } from '../../shared/models/zone.model';
 import { LatLng, MemoryStats, ExtendedPolygon } from 'src/app/shared/models/map-model';
 import { MapCacheService } from './map-cache.service';
 import { LoggerService } from 'src/app/shared/services/logger.service';
+import { MapRoute } from 'src/app/shared/models/route.model';
 
 type ZoneColorKey = 'red' | 'blue' | 'green' | 'yellow' | 'purple' | 'orange';
 
@@ -79,6 +80,8 @@ export class MapService {
   private markerData: Map<string, MapMarker> = new Map();
   private zones: Map<string, ExtendedPolygon> = new Map();
   private zoneData: Map<string, MapZone> = new Map();
+  private routes: Map<string, L.Polyline> = new Map();
+  private routeData: Map<string, MapRoute> = new Map();
 
   // Subjects para eventos
   mapClick$ = new Subject<LatLng>();
@@ -86,6 +89,8 @@ export class MapService {
   zoneClick$ = new Subject<MapZone>();
   markerDelete$ = new Subject<string>();
   zoneDelete$ = new Subject<string>();
+  routeDelete$ = new Subject<string>();
+
 
   // Signals para estado reactivo
   private readonly _deleteMode = signal(false);
@@ -93,14 +98,17 @@ export class MapService {
   private readonly _isCreatingZone = signal(false);
   private readonly _markersLoadedCount = signal(0);
   private readonly _zonesLoadedCount = signal(0);
+  private readonly _routesLoadedCount = signal(0);
+  private readonly _isCreatingRoute = signal(false);
+  private readonly _maxMarkersOnMobile = signal(50);
+  private readonly _maxZonesOnMobile = signal(20);
+  private readonly _maxRoutesOnMobile = signal(30);
 
   // Signals de configuración
   private readonly _isMobile = signal(Capacitor.isNativePlatform());
   private readonly _isTouchDevice = signal(
     'ontouchstart' in window || navigator.maxTouchPoints > 0
   );
-  private readonly _maxMarkersOnMobile = signal(50);
-  private readonly _maxZonesOnMobile = signal(20);
 
   // Computed signals para valores derivados
   readonly isMobilePlatform = computed(
@@ -110,6 +118,7 @@ export class MapService {
   readonly deleteMode = computed(() => this._deleteMode());
   readonly isCreatingMarker = computed(() => this._isCreatingMarker());
   readonly isCreatingZone = computed(() => this._isCreatingZone());
+  readonly isCreatingRoute = computed(() => this._isCreatingRoute());
 
   readonly iconSize = computed<[number, number]>(() =>
     this.isMobilePlatform() ? [40, 52] : [32, 42]
@@ -145,6 +154,7 @@ export class MapService {
 
   readonly hasMarkers = computed(() => this._markersLoadedCount() > 0);
   readonly hasZones = computed(() => this._zonesLoadedCount() > 0);
+  readonly hasRoutes = computed(() => this._routesLoadedCount() > 0);
 
   private async hapticLight(): Promise<void> {
     if (this._isMobile()) {
@@ -240,17 +250,23 @@ export class MapService {
     this.zones.clear();
     this.zoneData.clear();
 
+    this.routes.forEach((route) => this.map?.removeLayer(route));
+    this.routes.clear();
+    this.routeData.clear();
+
     this.mapClick$.complete();
     this.markerClick$.complete();
     this.zoneClick$.complete();
     this.markerDelete$.complete();
     this.zoneDelete$.complete();
+    this.routeDelete$.complete();
 
     this.map?.remove();
     this.map = undefined;
 
     this._markersLoadedCount.set(0);
     this._zonesLoadedCount.set(0);
+    this._routesLoadedCount.set(0);
   }
 
   initMap(containerId: string): void {
@@ -448,6 +464,93 @@ export class MapService {
     }
   }
 
+  addRoute(route: MapRoute): string {
+    if (!this.map || !route.waypoints.length || route.waypoints.length < 2) return '';
+
+    const routeId = route.id || this.generateId();
+    
+    const polyline = L.polyline(route.waypoints, {
+      color: route.color || '#3388ff',
+      weight: route.width || 4,
+      opacity: 0.8,
+      lineCap: 'round',
+      lineJoin: 'round',
+    }).addTo(this.map);
+
+    const el = polyline.getElement() as HTMLElement | null;
+    el?.setAttribute('data-route-id', routeId);
+
+    // Popup con información
+    const popupContent = `
+      <div class="route-popup">
+        <h4>${route.name}</h4>
+        ${route.description ? `<p>${route.description}</p>` : ''}
+        <small>${route.waypoints.length} puntos</small>
+      </div>
+    `;
+    polyline.bindPopup(popupContent);
+
+    // Configurar eventos
+    this.configureRouteEvents(polyline, routeId, route);
+
+    this.routes.set(routeId, polyline);
+    this.routeData.set(routeId, route);
+
+    this._routesLoadedCount.update((count) => count + 1);
+
+    return routeId;
+  }
+
+  private configureRouteEvents(polyline: L.Polyline, routeId: string, route: MapRoute): void {
+    polyline.on('click', (e: L.LeafletMouseEvent) => {
+      // Si estamos creando marcador O línea, permitir que el click pase al mapa
+      if (this._isCreatingMarker() || this._isCreatingRoute()) {
+        return;
+      }
+
+      L.DomEvent.stopPropagation(e);
+
+      if (this._deleteMode()) {
+        this.hapticLight();
+        this.routeDelete$.next(routeId);
+      } else {
+        polyline.openPopup();
+      }
+    });
+
+    // Estilo hover
+    polyline.on('mouseover', () => {
+      if (!this._deleteMode()) {
+        polyline.setStyle({ weight: (route.width || 4) + 2, opacity: 1 });
+      }
+    });
+
+    polyline.on('mouseout', () => {
+      polyline.setStyle({ weight: route.width || 4, opacity: 0.8 });
+    });
+  }
+
+  removeRoute(id: string): void {
+    const route = this.routes.get(id);
+    if (route && this.map) {
+      this.map.removeLayer(route);
+      this.routes.delete(id);
+      this.routeData.delete(id);
+      this._routesLoadedCount.update((count) => Math.max(0, count - 1));
+    }
+  }
+
+  clearAllRoutes(): void {
+    this.routes.forEach((route) => {
+      if (this.map) {
+        this.map.removeLayer(route);
+      }
+    });
+    this.routes.clear();
+    this.routeData.clear();
+    this._routesLoadedCount.set(0);
+  }
+
   private createIcon(
     className: string,
     iconName: string,
@@ -620,8 +723,8 @@ export class MapService {
       });
     } else {
       polygon.on('click', (e: L.LeafletMouseEvent) => {
-        // Si estamos en modo de creación de marcador, permitir que el clic pase al mapa
-        if (this._isCreatingMarker()) {
+        // Si estamos en modo de creación de marcador O línea, permitir que el clic pase al mapa
+        if (this._isCreatingMarker() || this._isCreatingRoute()) {
           // NO detener propagación, dejar que llegue al listener del mapa
           return;
         }
@@ -743,5 +846,9 @@ export class MapService {
 
   setCreatingZoneMode(enabled: boolean): void {
     this._isCreatingZone.set(enabled);
+  }
+
+  setCreatingRouteMode(enabled: boolean): void {
+    this._isCreatingRoute.set(enabled);
   }
 }

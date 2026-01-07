@@ -93,6 +93,23 @@
     </div>
     }
 
+    <!-- Botón de línea - solo si tiene permisos -->
+    @if (canCreateZone()) {
+    <div class="fab-button-with-label">
+      <ion-fab-button
+        (click)="openRoutePanel()"
+        [color]="isCreatingRoute() ? 'tertiary' : 'warning'"
+        size="small"
+      >
+        <ion-icon
+          [name]="isCreatingRoute() ? 'checkmark-circle' : 'git-branch'"
+          size="small"
+        ></ion-icon>
+      </ion-fab-button>
+      <span class="fab-label-side" [class.active]="isCreatingRoute()">Línea</span>
+    </div>
+    }
+
     <!-- Botón de modo editar - solo para admins -->
     @if (canEditOrDelete()) {
     <div class="fab-button-with-label">
@@ -443,8 +460,154 @@
   </div>
 </div>
 
+<!-- Panel deslizante para líneas/rutas -->
+<div
+  class="slide-panel route-panel"
+  [class.panel-open]="panelOpen() && panelType() === 'route'"
+  [class.panel-closed]="!panelOpen() || panelType() !== 'route'"
+>
+  <div class="panel-header">
+    <h3>Crear Línea</h3>
+    <ion-button fill="clear" (click)="closePanel()">
+      <ion-icon name="close" slot="icon-only"></ion-icon>
+    </ion-button>
+  </div>
+
+  <div class="panel-content">
+    <!-- Estado de puntos -->
+    <div class="points-status">
+      @if (!isCreatingRoute()) {
+      <ion-chip color="medium">
+        <ion-icon name="git-branch"></ion-icon>
+        <ion-label>Modo definición: Inactivo</ion-label>
+      </ion-chip>
+      <ion-button
+        fill="solid"
+        color="primary"
+        size="small"
+        (click)="startCreatingRoute()"
+      >
+        <ion-icon name="add-circle" slot="start" size="small"></ion-icon>
+        Empezar Línea
+      </ion-button>
+      } @else { @if (routePoints().length >= 2) {
+      <ion-chip color="success">
+        <ion-icon name="checkmark-circle"></ion-icon>
+        <ion-label>{{ routePoints().length }} puntos - Lista para crear</ion-label>
+      </ion-chip>
+      } @else {
+      <ion-chip color="warning">
+        <ion-icon name="location-outline"></ion-icon>
+        <ion-label>{{ routePoints().length }}/2 puntos mínimos</ion-label>
+      </ion-chip>
+      }
+      <ion-button
+        fill="outline"
+        color="danger"
+        size="small"
+        (click)="cancelRouteCreation()"
+      >
+        <ion-icon name="stop" slot="start" size="small"></ion-icon>
+        Cancelar
+      </ion-button>
+      }
+    </div>
+
+    <!-- Mensaje de ayuda dinámico -->
+    @if (!isCreatingRoute()) {
+    <div class="help-text">
+      <p>
+        Haz clic en "Empezar Línea" y luego toca el mapa para definir los
+        puntos de la línea
+      </p>
+    </div>
+    } @else {
+    <div class="help-text route-active">
+      <p><strong>Modo activo:</strong> Toca el mapa para agregar puntos</p>
+      @if (routePoints().length < 2) {
+      <p>
+        Necesitas {{ 2 - routePoints().length }} puntos más para crear la línea
+      </p>
+      } @else {
+      <p>Ya puedes crear la línea con {{ routePoints().length }} puntos</p>
+      }
+    </div>
+    }
+
+    <!-- Formulario compacto -->
+    <div class="form-compact">
+      <ion-item lines="none" class="form-item">
+        <ion-input
+          [value]="routeForm().name"
+          (ionInput)="updateRouteName($any($event.target).value)"
+          placeholder="Nombre de la línea *"
+          fill="outline"
+          clearInput="true"
+        >
+        </ion-input>
+      </ion-item>
+
+      <ion-item lines="none" class="form-item">
+        <ion-textarea
+          [value]="routeForm().description"
+          (ionInput)="updateRouteDescription($any($event.target).value)"
+          placeholder="Descripción (opcional)"
+          fill="outline"
+          rows="2"
+          autoGrow="true"
+        >
+        </ion-textarea>
+      </ion-item>
+
+      <!-- Selección de grosor de línea -->
+      <div class="type-selector">
+        <p class="selector-label">Grosor de línea:</p>
+        <div class="type-buttons">
+          @for (width of lineWidths; track width) {
+          <ion-button
+            [fill]="routeForm().width === width ? 'solid' : 'outline'"
+            size="small"
+            (click)="updateRouteWidth(width)"
+          >
+            {{ width }}px
+          </ion-button>
+          }
+        </div>
+      </div>
+
+      <!-- Selección de colores -->
+      <div class="color-selector">
+        <p class="selector-label">Color:</p>
+        <div class="color-options">
+          @for (color of colors; track color.value) {
+          <button
+            class="color-button"
+            [class.selected]="routeForm().color === color.value"
+            [style.background-color]="color.value"
+            [title]="color.name"
+            (click)="updateRouteColor(color.value)"
+          ></button>
+          }
+        </div>
+      </div>
+
+      <!-- Botón de acción principal -->
+      <ion-button
+        expand="block"
+        size="large"
+        (click)="createRoute()"
+        [disabled]="routePoints().length < 2 || !routeForm().name.trim()"
+        class="action-button"
+      >
+        <ion-icon name="git-branch" slot="start"></ion-icon>
+        Crear Línea
+      </ion-button>
+    </div>
+  </div>
+</div>
+
 <!-- Overlay para cerrar paneles - solo cuando no estamos interactuando con el mapa -->
-@if (panelOpen() && !isCreatingZone() && !isCreatingMarker() && (panelType() !==
+@if (panelOpen() && !isCreatingZone() && !isCreatingMarker() && !isCreatingRoute() && (panelType() !==
 'marker' || clickedLocation())) {
 <div class="panel-overlay" (click)="closePanel()"></div>
 }

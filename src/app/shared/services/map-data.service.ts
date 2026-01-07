@@ -6,9 +6,10 @@ import { AuthService } from '../../auth/services/auth.service';
 import { OrganizationService } from './organization.service';
 import { AuthorizationService } from '../../auth/services/authorization.service';
 import { FirestoreService } from '../../services/firestore.service';
-import { MapMarker, MapZone, MapPermissions } from '../models/map-data.model';
+import { MapMarker, MapZone, MapPermissions} from '../models/map-data.model';
 import { MapMarker as FirestoreMarker } from '../models/marker.model';
 import { MapZone as FirestoreZone } from '../models/zone.model';
+import { MapRoute } from '../models/route.model';
 
 @Injectable({
   providedIn: 'root',
@@ -26,11 +27,15 @@ export class MapDataService {
   private isLoadingSignal = signal(false);
   private lastErrorSignal = signal<string | null>(null);
 
+  // Agregar signal para rutas
+  private routesSignal = signal<MapRoute[]>([]);
+
   // Readonly exports
   readonly markers = this.markersSignal.asReadonly();
   readonly zones = this.zonesSignal.asReadonly();
   readonly isLoading = this.isLoadingSignal.asReadonly();
   readonly lastError = this.lastErrorSignal.asReadonly();
+  readonly routes = this.routesSignal.asReadonly();
 
   // Computed signals
   readonly hasError = computed(() => this.lastErrorSignal() !== null);
@@ -198,6 +203,27 @@ export class MapDataService {
         );
         this.zonesSignal.set(convertedZones);
         return convertedZones;
+      })
+    );
+  }
+
+  // NUEVO: Método para obtener rutas
+  getRoutes(): Observable<MapRoute[]> {
+    return this.firestoreService.getRoutes().pipe(
+      map((firestoreRoutes) => {
+        const convertedRoutes = firestoreRoutes.map((route: any) => ({
+          id: route.id,
+          name: route.name || '',
+          description: route.description || '',
+          waypoints: route.waypoints || [],
+          color: route.color || '#3388ff',
+          width: route.width || 4,
+          createdBy: route.createdBy || '',
+          createdAt: route.createdAt?.toDate?.() || new Date(),
+          organizationId: route.organizationId || '',
+        } as MapRoute));
+        this.routesSignal.set(convertedRoutes);
+        return convertedRoutes;
       })
     );
   }
@@ -512,6 +538,82 @@ export class MapDataService {
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Error eliminando zona';
+      this.lastErrorSignal.set(errorMessage);
+      throw error;
+    } finally {
+      this.isLoadingSignal.set(false);
+    }
+  }
+
+  // NUEVO: Método para crear rutas
+  async createRoute(routeData: {
+    name: string;
+    description?: string;
+    waypoints: [number, number][];
+    color?: string;
+    width?: number;
+  }): Promise<MapRoute> {
+    this.isLoadingSignal.set(true);
+    this.lastErrorSignal.set(null);
+
+    try {
+      const currentUser = this.authService.getCurrentUser()();
+      const currentOrg = this.organizationService.currentOrganization();
+
+      if (!currentUser || !currentOrg) {
+        throw new Error('Usuario u organización no encontrados');
+      }
+
+      // Convertir waypoints de [lat, lng][] a {lat, lng}[] para Firebase
+      const waypointsAsObjects = routeData.waypoints.map(([lat, lng]) => ({ lat, lng }));
+
+      const firestoreRouteData = {
+        name: routeData.name,
+        description: routeData.description || '',
+        waypoints: waypointsAsObjects, // Ahora es [{lat, lng}, {lat, lng}]
+        color: routeData.color || '#3388ff',
+        width: routeData.width || 4,
+        createdBy: currentUser.uid,
+        organizationId: currentOrg.id,
+        createdAt: new Date(),
+      };
+
+      const savedRouteId = await this.firestoreService.addRoute(firestoreRouteData);
+
+      const savedRoute: MapRoute = {
+        ...firestoreRouteData,
+        id: savedRouteId,
+        waypoints: routeData.waypoints, // Mantener el formato original para el mapa
+      };
+
+      this.routesSignal.update((routes) => [...routes, savedRoute]);
+
+      return savedRoute;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Error creando línea';
+      this.lastErrorSignal.set(errorMessage);
+      throw error;
+    } finally {
+      this.isLoadingSignal.set(false);
+    }
+  }
+
+  /**
+   * Elimina una ruta
+   */
+  async deleteRoute(routeId: string): Promise<void> {
+    this.isLoadingSignal.set(true);
+    this.lastErrorSignal.set(null);
+
+    try {
+      await this.firestoreService.deleteRoute(routeId);
+      this.routesSignal.update((routes) =>
+        routes.filter((route) => route.id !== routeId)
+      );
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Error eliminando línea';
       this.lastErrorSignal.set(errorMessage);
       throw error;
     } finally {

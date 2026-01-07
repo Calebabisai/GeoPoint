@@ -20,6 +20,7 @@ import { toSignal, takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MapCacheService } from '../../services/map-cache.service';
 import { LoggerService } from 'src/app/shared/services/logger.service';
 import { IonSpinner, IonChip, IonIcon, IonLabel } from "@ionic/angular/standalone";
+import { MapRoute } from '../../../shared/models/route.model';
 
 type MarkerType = 'marker' | 'house' | 'poi';
 type LegacyZoneType = 'zone';
@@ -87,6 +88,7 @@ export class MapViewComponent {
   private readonly _mapInitialized = signal(false);
   private readonly _loadedMarkers = signal<Set<string>>(new Set());
   private readonly _loadedZones = signal<Set<string>>(new Set());
+  private readonly _loadedRoutes = signal<Set<string>>(new Set());
 
     // Signals para estado de carga
   private readonly _isLoadingLocation = signal(true);
@@ -107,8 +109,13 @@ export class MapViewComponent {
     initialValue: [],
   });
 
+  readonly routes = toSignal(this.mapDataService.getRoutes(), {
+    initialValue: [],
+  });
+
   readonly markersCount = computed(() => this.markers().length);
   readonly zonesCount = computed(() => this.zones().length);
+  readonly routesCount = computed(() => this.routes().length);
 
   constructor() {
     //Esperar ubicacion antes de inicializar mapa
@@ -120,6 +127,7 @@ export class MapViewComponent {
         if (this._mapInitialized()) {
           this.syncMarkers();
           this.syncZones();
+          this.syncRoutes();
         }
       }, this.DATA_LOAD_DELAY_MS);
     }, this.MAP_INIT_DELAY_MS);
@@ -133,6 +141,12 @@ export class MapViewComponent {
     effect(() => {
       if (this._mapInitialized()) {
         this.syncZones();
+      }
+    });
+
+    effect(() => {
+      if (this._mapInitialized()) {
+        this.syncRoutes();
       }
     });
 
@@ -197,6 +211,7 @@ export class MapViewComponent {
         if (this._mapInitialized()) {
           this.syncMarkers();
           this.syncZones();
+          this.syncRoutes();
         }
       }, this.DATA_LOAD_DELAY_MS);
 
@@ -294,6 +309,41 @@ export class MapViewComponent {
     });
   }
 
+  private syncRoutes(): void {
+    if (!this._mapInitialized()) {
+      setTimeout(() => this.syncRoutes(), this.RETRY_DELAY_MS);
+      return;
+    }
+
+    const currentRoutes = this.routes();
+    const loadedRoutes = this._loadedRoutes();
+    const currentRouteIds = new Set(
+      currentRoutes.map((r) => r.id).filter((id): id is string => !!id)
+    );
+
+    // Eliminar rutas que ya no existen
+    loadedRoutes.forEach((routeId) => {
+      if (!currentRouteIds.has(routeId)) {
+        this.mapService.removeRoute(routeId);
+        const updated = new Set(loadedRoutes);
+        updated.delete(routeId);
+        this._loadedRoutes.set(updated);
+      }
+    });
+
+    // Agregar rutas nuevas
+    currentRoutes.forEach((route) => {
+      if (route.id && !loadedRoutes.has(route.id)) {
+        // Convertir waypoints de {lat, lng}[] a [number, number][] si es necesario
+        const convertedRoute = this.convertToMapRoute(route);
+        this.mapService.addRoute(convertedRoute);
+        const updated = new Set(loadedRoutes);
+        updated.add(route.id);
+        this._loadedRoutes.set(updated);
+      }
+    });
+  }
+
   private convertToLegacyMarker(newMarker: MapDataMarker): LegacyMarker {
     const legacyType: MarkerType =
       this.MARKER_TYPE_MAP[newMarker.type as keyof MarkerTypeMap] || 'marker';
@@ -376,5 +426,33 @@ export class MapViewComponent {
       { lat: ne[0], lng: ne[1] },
       { lat: ne[0], lng: sw[1] },
     ];
+  }
+
+  private convertToMapRoute(route: any): MapRoute {
+    // Los waypoints pueden venir como [{lat, lng}] o [[lat, lng]]
+    let waypoints: [number, number][] = [];
+    
+    if (route.waypoints && route.waypoints.length > 0) {
+      // Verificar si es array de objetos o array de arrays
+      if (typeof route.waypoints[0] === 'object' && !Array.isArray(route.waypoints[0])) {
+        // Es [{lat, lng}, ...] - convertir a [[lat, lng], ...]
+        waypoints = route.waypoints.map((wp: {lat: number, lng: number}) => [wp.lat, wp.lng] as [number, number]);
+      } else {
+        // Ya es [[lat, lng], ...]
+        waypoints = route.waypoints;
+      }
+    }
+
+    return {
+      id: route.id,
+      name: route.name || '',
+      description: route.description || '',
+      waypoints: waypoints,
+      color: route.color || '#3388ff',
+      width: route.width || 4,
+      createdBy: route.createdBy || '',
+      createdAt: route.createdAt instanceof Date ? route.createdAt : new Date(),
+      organizationId: route.organizationId || '',
+    };
   }
 }

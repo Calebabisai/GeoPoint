@@ -7,4 +7,8 @@ export interface MapRoute {
   width: number;
   createdBy: string;
   createdAt: Date;
+  organizationId?: string;
 }
+
+// Tipo para crear sin los campos autogenerados
+export type CreateRouteData = Omit<MapRoute, 'id' | 'createdBy' | 'createdAt' | 'organizationId'>;
