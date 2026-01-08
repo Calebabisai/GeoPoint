@@ -12,7 +12,7 @@ import { environment } from './environments/environment';
 
 // Importaciones de Firebase y providers
 import { initializeApp, provideFirebaseApp } from '@angular/fire/app';
-import { getAuth, provideAuth } from '@angular/fire/auth';
+import { getAuth, indexedDBLocalPersistence, initializeAuth, provideAuth } from '@angular/fire/auth';
 import { getFirestore, provideFirestore } from '@angular/fire/firestore';
 
 // Iconos para marcadores POI
@@ -21,6 +21,7 @@ import { navigateOutline, star, location } from 'ionicons/icons';
 
 // Manejador global de errores
 import { GlobalErrorHandler } from './app/shared/utils/error-handler.service';
+import { Capacitor } from '@capacitor/core';
 
 if (environment.production) {
   enableProdMode();
@@ -39,9 +40,25 @@ bootstrapApplication(AppComponent, {
     { provide: ErrorHandler, useClass: GlobalErrorHandler }, 
     provideIonicAngular(),
     provideRouter(routes),
+    
     // Provee las configuraciones de Firebase
     provideFirebaseApp(() => initializeApp(environment.firebaseConfig)),
-    provideAuth(() => getAuth()),
+    
+    // Configuración de Auth con persistencia
+    provideAuth(() => {
+      const app = initializeApp(environment.firebaseConfig); // Obtener la app directamente
+      
+      if (Capacitor.isNativePlatform()) {
+        // Para móvil (Android/iOS) usa initializeAuth con persistencia
+        return initializeAuth(app, {
+          persistence: indexedDBLocalPersistence
+        });
+      } else {
+        // Para web usa getAuth (ya tiene persistencia por defecto)
+        return getAuth(app);
+      }
+    }),
+    
     provideFirestore(() => getFirestore()),
   ],
 });
