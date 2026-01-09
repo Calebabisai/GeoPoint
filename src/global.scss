@@ -1290,3 +1290,42 @@ ion-toast.custom-toast.toast-warning {
   --ion-safe-area-left: env(safe-area-inset-left);
   --ion-safe-area-right: env(safe-area-inset-right);
 }
+
+/* ============================================
+   USER LOCATION MARKER STYLES
+   ============================================ */
+
+.user-location-marker {
+  background: #007AFF !important;
+  border: 3px solid #FFFFFF !important;
+  border-radius: 50% !important;
+  box-shadow: 0 0 0 rgba(0, 122, 255, 0.4);
+  animation: pulse-location 2s infinite;
+  z-index: 1000 !important;
+  
+  /* NUEVO: Forzar tamaño fijo independiente del zoom */
+  width: 16px !important;
+  height: 16px !important;
+  margin-left: -8px !important;
+  margin-top: -8px !important;
+}
+
+@keyframes pulse-location {
+  0% {
+    box-shadow: 0 0 0 0 rgba(0, 122, 255, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 15px rgba(0, 122, 255, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(0, 122, 255, 0);
+  }
+}
+
+/* Modo oscuro */
+@media (prefers-color-scheme: dark) {
+  .user-location-marker {
+    border-color: rgba(255, 255, 255, 0.9) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  }
+}

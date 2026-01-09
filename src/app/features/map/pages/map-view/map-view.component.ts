@@ -4,7 +4,8 @@ import {
   signal,
   computed,
   effect,
-  untracked
+  untracked,
+  OnDestroy,
 } from '@angular/core';
 
 import { MapService } from '../../services/map.service';
@@ -22,6 +23,9 @@ import { MapCacheService } from '../../services/map-cache.service';
 import { LoggerService } from 'src/app/core/services/logger.service';
 import { IonSpinner, IonChip, IonIcon, IonLabel } from "@ionic/angular/standalone";
 import { MapRoute } from '../../models/route.model';
+import { UserLocationControlComponent } from "../../components/user-location-control/user-location-control.component";
+import { GeolocationService } from '../../services/geolocation.service';
+import { LocationTrackingMode } from '../../models/geolocation.model';
 
 type MarkerType = 'marker' | 'house' | 'poi';
 type LegacyZoneType = 'zone';
@@ -61,9 +65,9 @@ interface MarkerTypeMap {
   templateUrl: './map-view.component.html',
   styleUrls: ['./map-view.component.scss'],
   standalone: true,
-  imports: [IonLabel, IonIcon, IonChip, IonSpinner, CommonModule, MapControlsComponent],
+  imports: [IonLabel, IonIcon, IonChip, IonSpinner, CommonModule, MapControlsComponent, UserLocationControlComponent],
 })
-export class MapViewComponent {
+export class MapViewComponent implements OnDestroy {
   private readonly MAP_INIT_DELAY_MS = 200;
   private readonly DATA_LOAD_DELAY_MS = 500;
   private readonly RETRY_DELAY_MS = 500;
@@ -84,6 +88,8 @@ export class MapViewComponent {
   private readonly mapDataService = inject(MapDataService);
   private readonly mapCacheService = inject(MapCacheService);
   private readonly logger = inject(LoggerService);
+  private readonly geolocationService = inject(GeolocationService);
+
 
 
   private readonly _mapInitialized = signal(false);
@@ -175,6 +181,34 @@ export class MapViewComponent {
       });
   }
 
+  ngOnDestroy(): void {
+    this.logger.log('MapViewComponent: Cleaning up resources...');
+
+    // 1. Detener tracking de ubicación en tiempo real
+    if (this.geolocationService.isRealTimeTracking()) {
+      this.logger.geo('Stopping real-time location tracking...');
+      this.geolocationService.stopRealTimeTracking();
+    }
+
+    // 2. Limpiar el servicio de geolocalización
+    this.geolocationService.destroy();
+
+    // 3. Limpiar el mapa y sus recursos
+    this.mapService.destroy();
+
+    // 4. Limpiar los sets de elementos cargados
+    this._loadedMarkers.set(new Set());
+    this._loadedZones.set(new Set());
+    this._loadedRoutes.set(new Set());
+
+    // 5. Reset de flags
+    this._mapInitialized.set(false);
+    this._isLoadingLocation.set(false);
+    this._userLocation.set(null);
+
+    this.logger.log('MapViewComponent: Cleanup completed');
+  }
+
   private async initializeWithLocation(): Promise<void> {
     try {
       // 1. Obtener ubicación del usuario
@@ -243,8 +277,33 @@ export class MapViewComponent {
       }
       
       this._mapInitialized.set(true);
+
+      // NUEVO: Iniciar tracking automático después de inicializar el mapa
+      await this.startAutomaticLocationTracking();
+
     } catch (error) {
       this.logger.error('Error inicializando mapa:', error);
+    }
+  }
+
+  // NUEVO MÉTODO: Inicia el tracking automático de ubicación
+  private async startAutomaticLocationTracking(): Promise<void> {
+    try {
+      this.logger.geo('Iniciando tracking automático de ubicación...');
+      
+      await this.geolocationService.startRealTimeTracking({
+        mode: LocationTrackingMode.ACTIVE,
+        updateInterval: 5000, // Actualizar cada 5 segundos
+        showAccuracyCircle: false, // Mostrar círculo de precisión
+        centerMapOnUpdate: false, // NO centrar automáticamente al moverse
+        smoothTransition: true, // Transiciones suaves
+      });
+      
+      this.logger.geo('Tracking automático iniciado exitosamente');
+    } catch (error) {
+      this.logger.warn('No se pudo iniciar el tracking automático:', error);
+      // No mostrar error al usuario, el tracking es opcional
+      // El mapa seguirá funcionando sin tracking
     }
   }
 

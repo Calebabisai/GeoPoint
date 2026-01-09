@@ -1,0 +1,23 @@
+<div class="user-location-control">
+      <ion-button
+        [disabled]="isLoading()"
+        [color]="buttonColor()"
+        (click)="toggleTracking()"
+        size="default"
+        class="location-button"
+      >
+        @if (isLoading()) {
+          <ion-spinner name="circular" />
+        } @else {
+          <ion-icon [name]="iconName()" slot="icon-only" />
+        }
+      </ion-button>
+
+      @if (showAccuracy() && geolocationService.userLocationData()) {
+        <div class="accuracy-indicator">
+          <span class="accuracy-text">
+            ±{{ geolocationService.userLocationData()!.accuracy.toFixed(0) }}m
+          </span>
+        </div>
+      }
+    </div>

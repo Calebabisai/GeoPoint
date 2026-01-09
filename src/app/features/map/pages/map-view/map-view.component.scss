@@ -1,3 +1,5 @@
+// src/app/features/map/pages/map-view/map-view.component.scss
+
 .map-wrapper {
   height: 100%;
   width: 100%;
@@ -18,7 +20,7 @@
   min-height: 300px;
 }
 
-
+// Indicador de caché (arriba a la derecha - NO SE MUEVE)
 .caching-indicator {
   position: fixed;
   top: 80px;
@@ -33,7 +35,7 @@
   }
 }
 
-
+// Loading de ubicación (centro - NO SE MUEVE)
 .loading-location {
   position: fixed;
   top: 50%;
@@ -51,6 +53,54 @@
     width: 48px;
     height: 48px;
     --color: var(--ion-color-primary);
+  }
+}
+
+// NUEVO: Control de ubicación en tiempo real
+// Posición: Arriba a la IZQUIERDA para no chocar con el indicador de caché
+.user-location-control-wrapper {
+  position: fixed;
+  top: 80px; // Misma altura que el indicador de caché
+  left: 16px; // A la izquierda
+  z-index: 9999;
+  pointer-events: none; // El contenedor no captura clicks
+
+  // El componente hijo sí debe capturar clicks
+  > * {
+    pointer-events: auto;
+  }
+}
+
+// Responsive para móviles
+@media (max-width: 768px) {
+  .caching-indicator {
+    top: 70px;
+    right: 12px;
+  }
+
+  .user-location-control-wrapper {
+    top: 70px;
+    left: 12px;
+  }
+}
+
+// Responsive para tablets
+@media (min-width: 769px) and (max-width: 1024px) {
+  .user-location-control-wrapper {
+    top: 90px;
+    left: 20px;
+  }
+  
+  .caching-indicator {
+    top: 90px;
+    right: 20px;
+  }
+}
+
+// Dark mode
+@media (prefers-color-scheme: dark) {
+  .loading-location {
+    background: rgba(0, 0, 0, 0.9);
   }
 }
 

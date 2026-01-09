@@ -9,6 +9,8 @@ import { LatLng, MemoryStats, ExtendedPolygon } from '../models/map-model';
 import { MapCacheService } from './map-cache.service';
 import { LoggerService } from 'src/app/core/services/logger.service';
 import { MapRoute } from '../models/route.model';
+import { LocationTrackingConfig } from '../models/geolocation.model';
+
 
 type ZoneColorKey = 'red' | 'blue' | 'green' | 'yellow' | 'purple' | 'orange';
 
@@ -23,6 +25,11 @@ export class MapService {
   private readonly REFRESH_DELAY_MS = 100;
   private readonly ZONE_LABEL_SIZE: [number, number] = [30, 30];
   private readonly ZONE_LABEL_ANCHOR: [number, number] = [15, 15];
+
+  // NUEVAS PROPIEDADES para el marcador de ubicación del usuario
+  private userLocationMarker: L.CircleMarker | null = null;
+  private userAccuracyCircle: L.Circle | null = null;
+  private readonly _isUserLocationVisible = signal(false);
 
   private readonly MOBILE_MAP_CONFIG = {
     center: [25.6866, -100.3161] as L.LatLngTuple,
@@ -58,6 +65,25 @@ export class MapService {
     tileSize: 256,
     zoomOffset: 0,
     crossOrigin: true,
+  } as const;
+
+  // Configuración del marcador de usuario
+  private readonly USER_MARKER_CONFIG = {
+    radius: 8,
+    fillColor: '#007AFF',
+    fillOpacity: 1,
+    color: '#FFFFFF',
+    weight: 3,
+    opacity: 1,
+    pane: 'markerPane', // Usar el pane correcto
+  } as const;
+  
+  private readonly USER_ACCURACY_CONFIG = {
+    fillColor: '#007AFF',
+    fillOpacity: 0.15,
+    color: '#007AFF',
+    weight: 1,
+    opacity: 0.3,
   } as const;
 
   private readonly DESKTOP_TILE_CONFIG = {
@@ -119,6 +145,8 @@ export class MapService {
   readonly isCreatingMarker = computed(() => this._isCreatingMarker());
   readonly isCreatingZone = computed(() => this._isCreatingZone());
   readonly isCreatingRoute = computed(() => this._isCreatingRoute());
+  readonly isUserLocationVisible = computed(() => this._isUserLocationVisible());
+
 
   readonly iconSize = computed<[number, number]>(() =>
     this.isMobilePlatform() ? [40, 52] : [32, 42]
@@ -237,6 +265,9 @@ export class MapService {
   }
 
   public destroy(): void {
+
+    this.hideUserLocationMarker();
+
     this.markers.forEach((marker) => this.map?.removeLayer(marker));
     this.markers.clear();
     this.markerData.clear();
@@ -917,6 +948,101 @@ export class MapService {
         });
       }
     });
+  }
+
+  /**
+   * Actualiza o crea el marcador de ubicación del usuario
+   */
+  updateUserLocationMarker(
+    coords: LatLng,
+    accuracy: number,
+    config: LocationTrackingConfig
+  ): void {
+    if (!this.map) {
+      this.logger.warn('Cannot update user location: map not initialized');
+      return;
+    }
+
+    // Remover marcadores anteriores si existen
+    if (this.userLocationMarker) {
+      this.map.removeLayer(this.userLocationMarker);
+    }
+    if (this.userAccuracyCircle) {
+      this.map.removeLayer(this.userAccuracyCircle);
+    }
+
+    // NO crear círculo de precisión (eliminado)
+
+    // Crear el marcador de usuario con tamaño fijo
+    this.userLocationMarker = L.circleMarker([coords.lat, coords.lng], {
+      ...this.USER_MARKER_CONFIG,
+      className: 'user-location-marker',
+    }).addTo(this.map);
+
+    this._isUserLocationVisible.set(true);
+
+    this.logger.geo('User location marker updated', {
+      coords,
+      accuracy: `${accuracy}m`,
+    });
+  }
+
+  /**
+   * Oculta el marcador de ubicación del usuario
+   */
+  hideUserLocationMarker(): void {
+    if (this.userLocationMarker) {
+      this.map?.removeLayer(this.userLocationMarker);
+      this.userLocationMarker = null;
+    }
+
+    if (this.userAccuracyCircle) {
+      this.map?.removeLayer(this.userAccuracyCircle);
+      this.userAccuracyCircle = null;
+    }
+
+    this._isUserLocationVisible.set(false);
+    this.logger.geo('User location marker hidden');
+  }
+
+  /**
+   * Centra el mapa en la ubicación del usuario
+   */
+  centerMapOnUserLocation(coords: LatLng, smooth: boolean = true): void {
+    if (!this.map) {
+      return;
+    }
+
+    const currentZoom = this.map.getZoom();
+    const targetZoom = currentZoom < 15 ? 16 : currentZoom;
+
+    if (smooth) {
+      this.map.flyTo([coords.lat, coords.lng], targetZoom, {
+        duration: 0.5,
+        easeLinearity: 0.25,
+      });
+    } else {
+      this.map.setView([coords.lat, coords.lng], targetZoom, {
+        animate: false,
+      });
+    }
+
+    this.logger.geo('Map centered on user location', coords);
+  }
+
+  /**
+   * Obtiene las coordenadas actuales del centro del mapa
+   */
+  getMapCenter(): LatLng | null {
+    if (!this.map) {
+      return null;
+    }
+
+    const center = this.map.getCenter();
+    return {
+      lat: center.lat,
+      lng: center.lng,
+    };
   }
 
   setCreatingMarkerMode(enabled: boolean): void {

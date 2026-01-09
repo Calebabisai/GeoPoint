@@ -19,6 +19,18 @@ import {
 
 @Injectable({ providedIn: 'root' })
 export class GeolocationService {
+
+  // Configuración por defecto
+  private readonly DEFAULT_TRACKING_CONFIG: LocationTrackingConfig = {
+    mode: LocationTrackingMode.ACTIVE,
+    updateInterval: 5000,
+    showAccuracyCircle: true,
+    centerMapOnUpdate: false,
+    smoothTransition: true,
+  };
+  
+  private currentTrackingConfig: LocationTrackingConfig = this.DEFAULT_TRACKING_CONFIG;
+
   // Constantes de configuración
   private readonly BUFFER_SIZE = 5;
   private readonly MIN_DISTANCE_THRESHOLD = 3;
@@ -64,6 +76,12 @@ export class GeolocationService {
   private readonly _isLocationStable = signal(false);
   private readonly _consecutiveUpdatesCount = signal(0);
 
+  // NUEVAS PROPIEDADES para tracking de ubicación en tiempo real
+  private readonly _isRealTimeTracking = signal(false);
+  private readonly _trackingMode = signal<LocationTrackingMode>(LocationTrackingMode.OFF);
+  private readonly _userLocationData = signal<UserLocationData | null>(null);
+  private realTimeWatchId: string | null = null;
+
   // Estado interno
   private watchId: string | null = null;
   private lastKnownLocation: UserLocation | null = null;
@@ -80,6 +98,12 @@ export class GeolocationService {
   readonly isHighAccuracy = computed(
     () => this.locationAccuracy() <= this.STABLE_ACCURACY_THRESHOLD
   );
+
+  //Computed signals publicos para tracking en tiempo real
+  readonly isRealTimeTracking = computed(() => this._isRealTimeTracking());
+  readonly trackingMode = computed(() => this._trackingMode());
+  readonly userLocationData = computed(() => this._userLocationData());
+  readonly hasUserLocation = computed(() => this._userLocationData() !== null);
 
   private readonly platform = inject(Platform);
   private readonly mapService = inject(MapService);
@@ -546,6 +570,212 @@ export class GeolocationService {
       this.logger.error('Retry failed:', error);
       return null;
     }
+  }
+
+  // NUEVOS MÉTODOS para tracking en tiempo real
+
+  /**
+   * Inicia el tracking de ubicación en tiempo real
+   * Este método actualiza continuamente la ubicación del usuario en el mapa
+   */
+  async startRealTimeTracking(config?: Partial<LocationTrackingConfig>): Promise<void> {
+    if (this._isRealTimeTracking()) {
+      this.logger.warn('Real-time tracking already active');
+      return;
+    }
+
+    this.currentTrackingConfig = {
+      ...this.DEFAULT_TRACKING_CONFIG,
+      ...config,
+    };
+
+    this.logger.geo('Starting real-time location tracking', {
+      mode: this.currentTrackingConfig.mode,
+      interval: this.currentTrackingConfig.updateInterval,
+    });
+
+    try {
+      const permissions = await this.requestPermissions();
+      if (!permissions.granted) {
+        this.logger.error('Location permissions denied for real-time tracking');
+        throw new Error('Location permissions required');
+      }
+
+      this._isRealTimeTracking.set(true);
+      this._trackingMode.set(this.currentTrackingConfig.mode);
+
+      if (this.platform.is('capacitor')) {
+        await this.startCapacitorRealTimeWatch();
+      } else {
+        await this.startBrowserRealTimeWatch();
+      }
+
+      this.logger.geo('Real-time tracking started successfully');
+    } catch (error) {
+      this.logger.error('Failed to start real-time tracking:', error);
+      this._isRealTimeTracking.set(false);
+      this._trackingMode.set(LocationTrackingMode.OFF);
+      throw error;
+    }
+  }
+
+  /**
+   * Detiene el tracking de ubicación en tiempo real
+   */
+  async stopRealTimeTracking(): Promise<void> {
+    if (!this._isRealTimeTracking()) {
+      return;
+    }
+
+    this.logger.geo('Stopping real-time location tracking');
+
+    if (this.realTimeWatchId) {
+      if (this.platform.is('capacitor')) {
+        await Geolocation.clearWatch({ id: this.realTimeWatchId });
+      } else {
+        navigator.geolocation.clearWatch(parseInt(this.realTimeWatchId));
+      }
+      this.realTimeWatchId = null;
+    }
+
+    this._isRealTimeTracking.set(false);
+    this._trackingMode.set(LocationTrackingMode.OFF);
+    this.mapService.hideUserLocationMarker();
+    
+    this.logger.geo('Real-time tracking stopped');
+  }
+
+  /**
+   * Actualiza la configuración del tracking en tiempo real
+   */
+  updateTrackingConfig(config: Partial<LocationTrackingConfig>): void {
+    this.currentTrackingConfig = {
+      ...this.currentTrackingConfig,
+      ...config,
+    };
+
+    if (config.mode) {
+      this._trackingMode.set(config.mode);
+    }
+
+    this.logger.geo('Tracking config updated', this.currentTrackingConfig);
+  }
+
+  /**
+   * Inicia el watch de Capacitor para tracking en tiempo real
+   */
+  private async startCapacitorRealTimeWatch(): Promise<void> {
+    const watchConfig = this.getWatchConfigForMode(this.currentTrackingConfig.mode);
+
+    this.realTimeWatchId = await Geolocation.watchPosition(
+      watchConfig,
+      (position, error) => {
+        if (error) {
+          this.logger.error('Real-time watch position error:', error);
+          return;
+        }
+
+        if (position) {
+          this.handleRealTimeLocationUpdate(position);
+        }
+      }
+    );
+  }
+
+  /**
+   * Inicia el watch del navegador para tracking en tiempo real
+   */
+  private async startBrowserRealTimeWatch(): Promise<void> {
+    const watchConfig = this.getWatchConfigForMode(this.currentTrackingConfig.mode);
+
+    this.realTimeWatchId = navigator.geolocation.watchPosition(
+      (position) => {
+        this.handleRealTimeLocationUpdate(this.convertBrowserPosition(position));
+      },
+      (error) => {
+        this.logger.error('Browser watch position error:', error);
+      },
+      watchConfig
+    ).toString();
+  }
+
+  /**
+   * Maneja la actualización de ubicación en tiempo real
+   */
+  private handleRealTimeLocationUpdate(position: Position): void {
+    const locationData: UserLocationData = {
+      coords: {
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+      },
+      accuracy: position.coords.accuracy,
+      timestamp: position.timestamp,
+      heading: position.coords.heading ?? undefined,
+      speed: position.coords.speed ?? undefined,
+    };
+
+    // Filtrar actualizaciones con baja precisión si estamos en modo HIGH_ACCURACY
+    if (
+      this.currentTrackingConfig.mode === LocationTrackingMode.HIGH_ACCURACY &&
+      locationData.accuracy > this.STABLE_ACCURACY_THRESHOLD
+    ) {
+      this.logger.warn('Location accuracy too low, skipping update', {
+        accuracy: locationData.accuracy,
+        threshold: this.STABLE_ACCURACY_THRESHOLD,
+      });
+      return;
+    }
+
+    this._userLocationData.set(locationData);
+
+    // Actualizar el marcador en el mapa
+    this.mapService.updateUserLocationMarker(
+      locationData.coords,
+      locationData.accuracy,
+      this.currentTrackingConfig
+    );
+
+    // Centrar el mapa si está configurado
+    if (this.currentTrackingConfig.centerMapOnUpdate) {
+      this.mapService.centerMapOnUserLocation(
+        locationData.coords,
+        this.currentTrackingConfig.smoothTransition
+      );
+    }
+  }
+
+  /**
+   * Obtiene la configuración de watch según el modo
+   */
+  private getWatchConfigForMode(mode: LocationTrackingMode): LocationConfig {
+    switch (mode) {
+      case LocationTrackingMode.HIGH_ACCURACY:
+        return this.HIGH_PRECISION_CONFIG;
+      case LocationTrackingMode.ACTIVE:
+        return this.WATCH_CONFIG;
+      case LocationTrackingMode.PASSIVE:
+        return this.STANDARD_CONFIG;
+      default:
+        return this.FALLBACK_CONFIG;
+    }
+  }
+
+  /**
+   * Convierte la posición del navegador al formato de Capacitor
+   */
+  private convertBrowserPosition(position: GeolocationPosition): Position {
+    return {
+      coords: {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        accuracy: position.coords.accuracy,
+        altitude: position.coords.altitude,
+        altitudeAccuracy: position.coords.altitudeAccuracy,
+        heading: position.coords.heading,
+        speed: position.coords.speed,
+      },
+      timestamp: position.timestamp,
+    };
   }
 
   private startBrowserWatch(): void {
