@@ -289,19 +289,11 @@ export class RegisterPage implements OnInit {
             visibility: 'private',
           },
         });
-
-        await this.showSuccessAlert(
-          'Bienvenido!',
-          `Hola ${formData.displayName}! Tu cuenta de administrador y organización han sido creadas exitosamente. Ya puedes comenzar a usar GeoPoint.`,
-          'Comenzar'
-        );
-      } else {
-        await this.showSuccessAlert(
-          'Cuenta creada!',
-          `Hola ${formData.displayName}! Tu cuenta ha sido creada exitosamente. Ya puedes acceder a todas las funciones de GeoPoint.`,
-          'Comenzar'
-        );
       }
+
+      // ELIMINAR los alerts de bienvenida y navegar directamente
+      this.router.navigate(['/home']);
+
     } catch (error: any) {
       await this.showErrorAlert(
         'Error en el registro',
@@ -313,29 +305,6 @@ export class RegisterPage implements OnInit {
     }
   }
 
-  private async showSuccessAlert(
-    title: string,
-    message: string,
-    buttonText: string = 'OK'
-  ): Promise<void> {
-    const alert = await this.alertController.create({
-      header: title,
-      message,
-      cssClass: 'success-alert',
-      buttons: [
-        {
-          text: buttonText,
-          cssClass: 'success-button',
-          handler: () => {
-            this.router.navigate(['/home']);
-          },
-        },
-      ],
-      backdropDismiss: false,
-    });
-
-    await alert.present();
-  }
 
   private async showErrorAlert(
     title: string,
