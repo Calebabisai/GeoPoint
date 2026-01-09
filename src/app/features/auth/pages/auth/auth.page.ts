@@ -38,4 +38,12 @@ export class AuthPage {
       }
     })
   }
+
+  goToLogin() {
+    this.router.navigate(['/auth/login']);
+  }
+
+  goToRegister() {
+    this.router.navigate(['/auth/register']);
+  }
 }

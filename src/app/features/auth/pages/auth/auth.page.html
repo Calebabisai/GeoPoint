@@ -33,7 +33,7 @@
       <h2 class="actions-title">Comienza tu experiencia</h2>
 
       <div class="auth-buttons">
-        <ion-button expand="block" class="primary-button" routerLink="/login">
+        <ion-button expand="block" class="primary-button" (click)="goToLogin()">
           <ion-icon name="log-in-outline" slot="start"></ion-icon>
           Iniciar Sesión
         </ion-button>
@@ -46,7 +46,7 @@
           expand="block"
           fill="outline"
           class="secondary-button"
-          routerLink="/register"
+          (click)="goToRegister()"
         >
           <ion-icon name="person-add-outline" slot="start"></ion-icon>
           Crear Cuenta Nueva

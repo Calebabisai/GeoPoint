@@ -5,26 +5,17 @@ import { Geolocation, Position } from '@capacitor/geolocation';
 import { MapService } from './map.service';
 import { LoggerService } from 'src/app/core/services/logger.service';
 import { LatLng } from '../models/map-model';
+import {
+  LocationPermissionStatus,
+  UserLocation,
+  UserLocationData,
+  LocationConfig,
+  LocationTrackingMode,
+  LocationTrackingConfig,
+} from '../models/geolocation.model';
 
-export interface LocationPermissionStatus {
-  granted: boolean;
-  denied: boolean;
-  restricted: boolean;
-}
 
-export interface UserLocation {
-  coords: LatLng;
-  accuracy: number;
-  timestamp: number;
-  heading?: number;
-  speed?: number;
-}
 
-interface LocationConfig {
-  enableHighAccuracy: boolean;
-  timeout: number;
-  maximumAge: number;
-}
 
 @Injectable({ providedIn: 'root' })
 export class GeolocationService {
