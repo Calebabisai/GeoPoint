@@ -1,39 +1,3 @@
-<!-- Selector de roles para desarrollo -->
-<div class="role-selector-container">
-  <app-role-selector></app-role-selector>
-</div>  
-
-<!-- Indicador de estado de autorización -->
-<div class="auth-indicator">
-  @if (currentUserRole(); as role) {
-  <ion-chip [color]="role === 'admin' ? 'success' : 'primary'" size="small">
-    <ion-icon
-      [name]="role === 'admin' ? 'shield-checkmark' : 'person'"
-      slot="start"
-    ></ion-icon>
-    <ion-label>{{ role | titlecase }}</ion-label>
-  </ion-chip>
-  }
-  
-  @if (organizationRole(); as orgRole) {
-  <ion-chip 
-    [color]="orgRole === 'owner' ? 'warning' : 
-             orgRole === 'admin' ? 'danger' : 
-             orgRole === 'moderator' ? 'secondary' : 
-             'medium'" 
-    size="small"
-  >
-    <ion-icon
-      [name]="orgRole === 'owner' ? 'ribbon-outline' : 
-              orgRole === 'admin' ? 'shield-checkmark-outline' : 
-              orgRole === 'moderator' ? 'shield-outline' : 
-              'person-outline'"
-      slot="start"
-    ></ion-icon>
-    <ion-label>{{ orgRole | titlecase }}</ion-label>
-  </ion-chip>
-  }
-</div>
 
 <!-- Indicador de modo editar mejorado -->
 @if (editMode()) {

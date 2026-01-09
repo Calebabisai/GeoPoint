@@ -49,7 +49,6 @@ import { MapZone } from '../../models/zone.model';
 import { FirestoreService } from 'src/app/core/services/firestore.service';
 import { MapDataService } from '../../services/map-data.service';
 import { AuthorizationService } from 'src/app/core/services/authorization.service';
-import { RoleSelectorComponent } from 'src/app/shared/components/role-selector/role-selector.component';
 import { MapRoute } from '../../models/route.model';
 
 @Component({
@@ -70,7 +69,6 @@ import { MapRoute } from '../../models/route.model';
     IonChip,
     IonLabel,
     IonItem,
-    RoleSelectorComponent
   ],
 })
 export class MapControlsComponent implements OnInit, OnDestroy {
