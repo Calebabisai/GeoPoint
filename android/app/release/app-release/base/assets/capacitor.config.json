@@ -1,0 +1,46 @@
+{
+	"appId": "com.imaginetz.geopoint",
+	"appName": "GeoPoint",
+	"webDir": "www",
+	"bundledWebRuntime": false,
+	"plugins": {
+		"Geolocation": {
+			"permissions": {
+				"location": "always"
+			}
+		},
+		"StatusBar": {
+			"style": "dark",
+			"backgroundColor": "#000000",
+			"overlaysWebView": false
+		},
+		"SplashScreen": {
+			"launchShowDuration": 1500,
+			"launchAutoHide": true,
+			"backgroundColor": "#000000",
+			"showSpinner": false,
+			"splashFullScreen": true,
+			"splashImmersive": true
+		},
+		"Network": {
+			"allowedHostnames": [
+				"firebaseapp.com",
+				"googleapis.com",
+				"emailjs.com",
+				"tile.openstreetmap.org"
+			]
+		}
+	},
+	"server": {
+		"allowNavigation": [
+			"https://firebaseapp.com",
+			"https://*.firebaseapp.com",
+			"https://googleapis.com",
+			"https://*.googleapis.com",
+			"https://emailjs.com",
+			"https://*.tile.openstreetmap.org"
+		],
+		"androidScheme": "https",
+		"cleartext": false
+	}
+}
