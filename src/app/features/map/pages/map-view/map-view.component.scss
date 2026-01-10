@@ -20,11 +20,12 @@
   min-height: 300px;
 }
 
-// Indicador de caché (arriba a la derecha - NO SE MUEVE)
+// Indicador de caché (CENTRADO)
 .caching-indicator {
   position: fixed;
-  top: 80px;
-  right: 16px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   z-index: 9999;
   
   ion-chip {
@@ -32,6 +33,7 @@
     color: #000000;
     font-weight: 500;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    font-size: 16px;
   }
 }
 

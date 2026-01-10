@@ -5,12 +5,14 @@
 </ion-header>
 
 <ion-content [fullscreen]="true" class="join-invitation">
-  @if (isLoading()) {
+    @if (isLoading()) {
     <div class="loading-container">
       <div class="loading-content">
-        <ion-spinner name="crescent" color="secondary"></ion-spinner>
-        <h2>Procesando invitación...</h2>
-        <p>Esto solo tomará un momento</p>
+        <div class="spinner-wrapper">
+          <ion-spinner name="crescent" color="secondary"></ion-spinner>
+        </div>
+        <h2>Validando invitación</h2>
+        <p>Conectando con la organización...</p>
       </div>
     </div>
   }

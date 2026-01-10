@@ -16,7 +16,6 @@ import {
   IonItem,
   IonLabel,
   ToastController,
-  LoadingController,
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import {
@@ -60,7 +59,6 @@ export class JoinInvitationPage implements OnInit {
   private readonly organizationService = inject(OrganizationService);
   private readonly authService = inject(AuthService);
   private readonly toastController = inject(ToastController);
-  private readonly loadingController = inject(LoadingController);
 
   // Signals
   readonly inviteToken = signal('');
@@ -106,9 +104,6 @@ export class JoinInvitationPage implements OnInit {
   private async processInvitation() {
     try {
       this.isLoading.set(true);
-      
-      // Mostrar loading para dar tiempo al usuario a ver la información
-      await this.showProcessingLoader();
 
       // Procesar la invitación directamente usando Firebase
       const org = await this.organizationService.acceptEmailInvite(
@@ -132,19 +127,10 @@ export class JoinInvitationPage implements OnInit {
     }
   }
 
-  private async showProcessingLoader() {
-    const loading = await this.loadingController.create({
-      message: 'Procesando invitación...',
-      duration: 2000,
-    });
-    await loading.present();
-    await loading.onDidDismiss();
-  }
-
   private async showSuccessMessage() {
     const org = this.organization();
     const toast = await this.toastController.create({
-      message: `Te has unido exitosamente a ${org?.name}!`,
+      message: `¡Te has unido exitosamente a ${org?.name}!`,
       duration: 3000,
       color: 'success',
       position: 'top',
