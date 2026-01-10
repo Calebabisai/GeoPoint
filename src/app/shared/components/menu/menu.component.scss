@@ -479,3 +479,36 @@ ion-accordion-group {
     box-shadow: 0 2px 8px rgba(0, 212, 106, 0.1);
   }
 }
+
+// Agrega estos estilos al final del archivo:
+
+.menu-item.clickable {
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  
+  &:hover {
+    background-color: rgba(var(--ion-color-primary-rgb), 0.1);
+  }
+  
+  &:active {
+    background-color: rgba(var(--ion-color-primary-rgb), 0.2);
+  }
+}
+
+.invitation-icon {
+  background: linear-gradient(135deg, #00d46a 0%, #00ff7f 100%) !important;
+  
+  ion-icon {
+    color: #000 !important;
+  }
+}
+
+.item-chevron {
+  display: flex;
+  align-items: center;
+  color: var(--ion-color-medium);
+  
+  ion-icon {
+    font-size: 18px;
+  }
+}

@@ -34,6 +34,32 @@
   <ion-content class="menu-content">
     @if (currentUser(); as user) {
       <div class="menu-sections">
+        
+        <!-- Unirse a Organización -->
+        <div class="menu-section">
+          <div class="section-header">
+            <h4 class="section-title">
+              <ion-icon name="ticket-outline" class="section-icon"></ion-icon>
+              Invitación
+            </h4>
+          </div>
+
+          <div class="menu-items">
+            <div class="menu-item clickable" (click)="enterInvitationCode()">
+              <div class="item-icon invitation-icon">
+                <ion-icon name="qr-code-outline"></ion-icon>
+              </div>
+              <div class="item-content">
+                <div class="item-title">Tengo un código</div>
+                <div class="item-subtitle">Ingresa el código</div>
+              </div>
+              <div class="item-chevron">
+                <ion-icon name="chevron-forward-outline"></ion-icon>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Organization Section -->
         @if (currentOrganization(); as organization) {
           <div class="menu-section">

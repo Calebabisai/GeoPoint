@@ -35,8 +35,7 @@ import {
   shareOutline,
   copyOutline,
   personAddOutline,
-  helpOutline,
-} from 'ionicons/icons';
+  helpOutline, ticketOutline, qrCodeOutline, chevronForwardOutline } from 'ionicons/icons';
 import { AuthService } from 'src/app/core/services/auth.service';
 import { AuthorizationService } from 'src/app/core/services/authorization.service';
 import { OrganizationService } from 'src/app/features/invitations/services/organization.service';
@@ -89,24 +88,7 @@ export class MenuComponent {
   });
 
   constructor() {
-    addIcons({
-      personOutline,
-      helpOutline,
-      businessOutline,
-      settingsOutline,
-      personAddOutline,
-      peopleOutline,
-      copyOutline,
-      mailOutline,
-      swapHorizontalOutline,
-      ribbonOutline,
-      addOutline,
-      logOutOutline,
-      shieldCheckmarkOutline,
-      keyOutline,
-      codeSlashOutline,
-      shareOutline,
-    });
+    addIcons({personOutline,helpOutline,ticketOutline,qrCodeOutline,chevronForwardOutline,businessOutline,settingsOutline,personAddOutline,peopleOutline,mailOutline,logOutOutline,copyOutline,swapHorizontalOutline,ribbonOutline,addOutline,shieldCheckmarkOutline,keyOutline,codeSlashOutline,shareOutline,});
   }
 
   getRoleDisplayName(role: string): string {
@@ -147,6 +129,56 @@ export class MenuComponent {
         return 'role-user';
     }
   }
+
+  async enterInvitationCode() {
+  const alert = await this.alertCtrl.create({
+    header: 'Código de Invitación',
+    message: 'Ingresa el código que recibiste por email para unirte a una organización',
+    cssClass: 'invitation-code-alert',
+    inputs: [
+      {
+        name: 'code',
+        type: 'text',
+        placeholder: 'Ej: ABC-123-XYZ',
+        attributes: {
+          autocapitalize: 'characters',
+          autocomplete: 'off',
+          maxlength: 20,
+        },
+      },
+    ],
+    buttons: [
+      {
+        text: 'Cancelar',
+        role: 'cancel',
+      },
+      {
+        text: 'Unirme',
+        handler: async (data) => {
+          const code = data.code?.trim().toUpperCase();
+          
+          if (!code) {
+            const toast = await this.toastCtrl.create({
+              message: 'Por favor ingresa un código válido',
+              duration: 2000,
+              color: 'warning',
+              position: 'top',
+            });
+            await toast.present();
+            return false; // No cerrar el alert
+          }
+
+          // Cerrar el menú y navegar a la página de join
+          await this.menuCtrl.close();
+          this.router.navigate(['/invitations/join', code]);
+          return true;
+        },
+      },
+    ],
+  });
+
+  await alert.present();
+}
 
   /**
    * Cambiar rol (solo disponible para admins)

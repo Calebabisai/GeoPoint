@@ -55,7 +55,14 @@ export class DeepLinkService {
     try {
       let path = '';
       
-      if (url.startsWith('geopoint://')) {
+      // Manejar intent:// URLs
+      if (url.startsWith('intent://')) {
+        // intent://join/CODE#Intent;scheme=geopoint;...
+        const match = url.match(/intent:\/\/(.+?)#/);
+        if (match) {
+          path = '/' + match[1];
+        }
+      } else if (url.startsWith('geopoint://')) {
         // Esquema personalizado: geopoint://join/CODIGO
         path = url.replace('geopoint://', '/');
       } else if (url.includes('geopoint.app') || url.includes('localhost')) {
@@ -71,7 +78,7 @@ export class DeepLinkService {
 
       // Manejar rutas de invitación
       if (path.startsWith('/join/')) {
-        const token = path.replace('/join/', '').split('?')[0]; // Remover query params
+        const token = path.replace('/join/', '').split('?')[0];
         if (token) {
           this.logger.log('Navigating to invitation with token:', token);
           this.router.navigate(['/invitations/join', token]);

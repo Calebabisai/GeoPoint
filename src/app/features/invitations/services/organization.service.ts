@@ -644,7 +644,7 @@ export class OrganizationService {
             inviterName: firebaseUser.email || 'Administrador',
             inviterEmail: firebaseUser.email || '',
             inviteToken: inviteCode,
-            joinUrl: `geopoint://join/${inviteCode}`,
+            joinUrl: `${window.location.origin}/join/${inviteCode}`,
             expirationDate: expiresAt,
             personalMessage: inviteRequest.message || request.personalMessage,
             userRole: inviteRequest.role || request.defaultRole,
