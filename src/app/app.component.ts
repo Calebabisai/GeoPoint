@@ -8,6 +8,7 @@ import { MobilePlatformService } from './core/services/platform.service';
 import { NetworkService } from './core/services/network.service';
 import { LoggerService } from './core/services/logger.service';
 import { App } from '@capacitor/app';
+import { DeepLinkService } from './core/services/deep-link.service';
 
 @Component({
   selector: 'app-root',
@@ -28,34 +29,32 @@ export class AppComponent implements OnInit {
   private platform = inject(Platform);
   private networkService = inject(NetworkService);
   private logger = inject(LoggerService);
+  private deepLinkService = inject(DeepLinkService);
 
   ngOnInit() {
     this.initializeAppLifecycle();
+    this.deepLinkService.initialize();
   }
 
   private initializeAppLifecycle() {
-    if (this.platform.is('capacitor')) {
-      App.addListener('appStateChange', ({ isActive }) => {
-        this.logger.log(
-          `App state changed: ${isActive ? 'Active' : 'Background'}`
-        );
+  if (this.platform.is('capacitor')) {
+    App.addListener('appStateChange', ({ isActive }) => {
+      this.logger.log(
+        `App state changed: ${isActive ? 'Active' : 'Background'}`
+      );
 
-        if (isActive) {
-          this.networkService.processOfflineQueue();
-        } else {
-          this.logger.log('App going to background - pausing heavy operations');
-        }
-      });
+      if (isActive) {
+        this.networkService.processOfflineQueue();
+      } else {
+        this.logger.log('App going to background - pausing heavy operations');
+      }
+    });
 
-      App.addListener('appUrlOpen', (data) => {
-        this.logger.log('App opened with URL:', data.url);
-      });
-
-      App.addListener('backButton', ({ canGoBack }) => {
-        if (!canGoBack) {
-          App.exitApp();
-        }
-      });
-    }
+    App.addListener('backButton', ({ canGoBack }) => {
+      if (!canGoBack) {
+        App.exitApp();
+      }
+    });
   }
+}
 }

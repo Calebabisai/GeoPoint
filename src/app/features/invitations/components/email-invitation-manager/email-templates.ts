@@ -1,41 +1,44 @@
 export const EMAIL_TEMPLATES = {
-  /**
-   * Template de invitación
-   */
-  invitationTemplate: (config: {
-    organizationName: string;
-    inviterName: string;
-    inviterEmail: string;
-    joinUrl: string;
-    expirationDate: Date;
-    personalMessage?: string;
-    userRole: string;
-    department?: string;
-  }) => {
-    const expirationDateStr = config.expirationDate.toLocaleDateString(
-      'es-ES',
-      {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      }
-    );
 
-    const roleText =
-      {
-        owner: 'Propietario',
-        admin: 'Administrador',
-        moderator: 'Moderador',
-        user: 'Miembro',
-      }[config.userRole] || 'Miembro';
+    invitationTemplate: (config: {
+        organizationName: string;
+        inviterName: string;
+        inviterEmail: string;
+        inviteToken: string; // Cambiado de inviteCode a inviteToken
+        joinUrl: string;
+        expirationDate: Date;
+        personalMessage?: string;
+        userRole: string;
+        department?: string;
+    }) => {
+        const expirationDateStr = config.expirationDate.toLocaleDateString(
+        'es-ES',
+        {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+        }
+        );
 
-    const htmlBody = `
+        const roleText =
+        {
+            owner: 'Propietario',
+            admin: 'Administrador',
+            moderator: 'Moderador',
+            user: 'Miembro',
+        }[config.userRole] || 'Miembro';
+
+        // URLs para la app - usar inviteToken
+        const appDeepLink = `geopoint://join/${config.inviteToken}`;
+        const playStoreUrl = 'https://play.google.com/store/apps/details?id=com.imaginetz.geopoint';
+
+        const htmlBody = `
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Invitación a ${config.organizationName}</title>
+    <title>Invitacion a ${config.organizationName}</title>
     <style>
         body {
             font-family: 'Inter', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -53,7 +56,6 @@ export const EMAIL_TEMPLATES = {
             border: 1px solid #00d46a;
             box-shadow: 0 8px 32px rgba(0, 212, 106, 0.15), 0 2px 8px rgba(0, 0, 0, 0.3);
             overflow: hidden;
-            position: relative;
         }
         .header {
             background: linear-gradient(135deg, #00d46a 0%, #00ff7f 100%);
@@ -91,7 +93,41 @@ export const EMAIL_TEMPLATES = {
             padding: 18px 36px;
             border-radius: 30px;
             font-weight: 700;
-            margin: 24px 0;
+            margin: 12px 0;
+            font-size: 16px;
+        }
+        .secondary-button {
+            display: inline-block;
+            background: transparent;
+            color: #00d46a !important;
+            text-decoration: none;
+            padding: 14px 28px;
+            border-radius: 30px;
+            font-weight: 600;
+            margin: 8px 0;
+            border: 2px solid #00d46a;
+            font-size: 14px;
+        }
+        .buttons-container {
+            text-align: center;
+            margin: 30px 0;
+        }
+        .divider {
+            display: flex;
+            align-items: center;
+            margin: 20px 0;
+            color: #6b7280;
+        }
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            border-bottom: 1px solid #374151;
+        }
+        .divider span {
+            padding: 0 16px;
+            font-size: 12px;
+            text-transform: uppercase;
         }
         .footer {
             background: linear-gradient(135deg, #111111 0%, #000000 100%);
@@ -100,6 +136,19 @@ export const EMAIL_TEMPLATES = {
             font-size: 14px;
             color: #9ca3af;
             border-top: 1px solid #00d46a;
+        }
+        .help-text {
+            font-size: 13px;
+            color: #9ca3af;
+            margin-top: 8px;
+        }
+        .warning-box {
+            background: rgba(255, 149, 0, 0.1);
+            border: 1px solid #ff9500;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 20px 0;
+            color: #ff9500;
         }
         @media (max-width: 600px) {
             body { padding: 10px; }
@@ -110,60 +159,78 @@ export const EMAIL_TEMPLATES = {
 <body>
     <div class="email-container">
         <div class="header">
-            <h1> ¡Bienvenido al equipo!</h1>
+            <h1>📍 ¡Te han invitado!</h1>
         </div>
         
         <div class="content">
-            <p><strong>${config.inviterName}</strong> (${config.inviterEmail}) te ha invitado a unirte a su organización:</p>
+            <p><strong>${config.inviterName}</strong> te ha invitado a unirte a su organizacion en GeoPoint:</p>
             
             <div class="organization-info">
-                <div class="organization-name"> ${config.organizationName}</div>
-                <p>Te invitamos a formar parte de nuestro equipo como <strong>${roleText}</strong>${config.department ? ` en el departamento de ${config.department}` : ''}.</p>
+                <div class="organization-name">${config.organizationName}</div>
+                <p>Te uniras como <strong>${roleText}</strong>${config.department ? ` en el departamento de ${config.department}` : ''}.</p>
             </div>
 
-            ${
-              config.personalMessage
-                ? `<div style="background: rgba(0, 168, 255, 0.1); border-left: 4px solid #00a8ff; padding: 20px; margin: 24px 0; border-radius: 8px;"><strong>Mensaje personal:</strong><br>"${config.personalMessage}"</div>`
-                : ''
-            }
-            
-            <div style="text-align: center;">
-                <a href="${config.joinUrl}" class="cta-button"> Unirme a ${config.organizationName}</a>
+            ${config.personalMessage ? `
+            <div style="background: rgba(0, 168, 255, 0.1); border-left: 4px solid #00a8ff; padding: 20px; margin: 24px 0; border-radius: 8px;">
+                <strong>Mensaje personal:</strong><br>"${config.personalMessage}"
+            </div>
+            ` : ''}
+
+            <!-- Botones de accion -->
+            <div class="buttons-container">
+                <a href="${appDeepLink}" class="cta-button">📱 Abrir en GeoPoint</a>
+                <p class="help-text">Toca aqui si ya tienes la app instalada</p>
+                
+                <div class="divider"><span>¿No tienes la app?</span></div>
+                
+                <a href="${playStoreUrl}" class="secondary-button">⬇️ Descargar desde Play Store</a>
+                <p class="help-text">Instala la app y vuelve a tocar "Abrir en GeoPoint"</p>
             </div>
             
-            <div style="background: rgba(255, 149, 0, 0.1); border: 1px solid #ff9500; border-radius: 8px; padding: 16px; margin: 20px 0; color: #ff9500;">
-                  <strong>Importante:</strong> Esta invitación expira el ${expirationDateStr}.
+            <div class="warning-box">
+                <strong>⏰ Importante:</strong> Esta invitacion expira el ${expirationDateStr}.
             </div>
         </div>
         
         <div class="footer">
-            <p>Este email fue enviado desde GeoPoint</p>
+            <p>Este email fue enviado desde <strong>GeoPoint</strong></p>
+            <p style="font-size: 12px; margin-top: 8px;">Si no esperabas esta invitacion, puedes ignorar este correo.</p>
         </div>
     </div>
 </body>
 </html>`;
 
-    const textBody = `
-¡Te invitamos a unirte a ${config.organizationName}!
+        const textBody = `
+¡Te han invitado a unirte a ${config.organizationName}!
 
-Invitación enviada por: ${config.inviterName} (${config.inviterEmail})
+${config.inviterName} te ha invitado a formar parte de su organizacion en GeoPoint.
 
-Para unirte al equipo, abre este enlace:
-${config.joinUrl}
-
-Importante: Esta invitación expira el ${expirationDateStr}.
+Tu rol sera: ${roleText}${config.department ? ` en el departamento de ${config.department}` : ''}
 
 ${config.personalMessage ? `Mensaje personal: "${config.personalMessage}"` : ''}
 
+COMO UNIRTE:
+
+1. Si ya tienes la app GeoPoint instalada:
+   Abre este enlace en tu telefono: ${appDeepLink}
+
+2. Si no tienes la app:
+   - Descargala desde Play Store: ${playStoreUrl}
+   - Despues de instalarla, vuelve a abrir este correo y toca el enlace de arriba
+
+IMPORTANTE: Esta invitacion expira el ${expirationDateStr}.
+
+---
 Este email fue enviado desde GeoPoint.
+Si no esperabas esta invitacion, puedes ignorar este correo.
 `;
 
-    return {
-      subject: `${config.inviterName} te invitó a unirte a ${config.organizationName} en GeoPoint`,
-      htmlBody,
-      textBody,
-    };
-  },
+        return {
+        subject: `📍 ${config.inviterName} te invito a ${config.organizationName}`,
+        htmlBody,
+        textBody,
+        };
+    },
 
   /**
    * Template de bienvenida
@@ -235,7 +302,7 @@ Este email fue enviado desde GeoPoint.
 <body>
     <div class="email-container">
         <div class="header">
-            <h1> ¡Bienvenido a bordo!</h1>
+            <h1>¡Bienvenido a bordo!</h1>
         </div>
         
         <div class="content">
@@ -246,10 +313,10 @@ Este email fue enviado desde GeoPoint.
             
             <p>¡Felicidades! Ahora puedes:</p>
             <ul>
-                <li> Crear y ver marcadores en el mapa</li>
-                <li> Definir zonas de trabajo</li>
-                <li> Colaborar con tu equipo</li>
-                <li> Acceder a los datos de tu organización</li>
+                <li>Crear y ver marcadores en el mapa</li>
+                <li>Definir zonas de trabajo</li>
+                <li>Colaborar con tu equipo</li>
+                <li>Acceder a los datos de tu organización</li>
             </ul>
             
             <p>Si tienes alguna pregunta, no dudes en contactar a tu administrador.</p>

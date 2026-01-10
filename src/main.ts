@@ -11,8 +11,8 @@ import { AppComponent } from './app/app.component';
 import { environment } from './environments/environment';
 
 // Importaciones de Firebase y providers
-import { initializeApp, provideFirebaseApp } from '@angular/fire/app';
-import { getAuth, indexedDBLocalPersistence, initializeAuth, provideAuth } from '@angular/fire/auth';
+import { initializeApp, provideFirebaseApp, getApp } from '@angular/fire/app';
+import { getAuth, indexedDBLocalPersistence, initializeAuth, provideAuth, browserLocalPersistence } from '@angular/fire/auth';
 import { getFirestore, provideFirestore } from '@angular/fire/firestore';
 
 // Iconos para marcadores POI
@@ -41,21 +41,23 @@ bootstrapApplication(AppComponent, {
     provideIonicAngular(),
     provideRouter(routes),
     
-    // Provee las configuraciones de Firebase
+    // Provee Firebase App (solo una vez)
     provideFirebaseApp(() => initializeApp(environment.firebaseConfig)),
     
-    // Configuración de Auth con persistencia
+    // Configuración de Auth con persistencia correcta
     provideAuth(() => {
-      const app = initializeApp(environment.firebaseConfig); // Obtener la app directamente
+      const app = getApp(); // Usa getApp() para obtener la app ya inicializada
       
       if (Capacitor.isNativePlatform()) {
-        // Para móvil (Android/iOS) usa initializeAuth con persistencia
+        // Para móvil usa indexedDB persistence
         return initializeAuth(app, {
           persistence: indexedDBLocalPersistence
         });
       } else {
-        // Para web usa getAuth (ya tiene persistencia por defecto)
-        return getAuth(app);
+        // Para web usa browserLocalPersistence explícitamente
+        return initializeAuth(app, {
+          persistence: browserLocalPersistence
+        });
       }
     }),
     

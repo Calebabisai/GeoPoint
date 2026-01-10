@@ -28,6 +28,7 @@ import { Organization,
   OrganizationStats } from 'src/app/core/models/organization.model';
 import { User } from 'src/app/core/models/user.model';
 import { FirestoreService } from 'src/app/core/services/firestore.service';
+import { DeepLinkService } from 'src/app/core/services/deep-link.service';
 
 @Injectable({
   providedIn: 'root',
@@ -38,6 +39,7 @@ export class OrganizationService {
   private authService = inject(AuthService);
   private emailService = inject(EmailService);
   private injector = inject(Injector);
+  private deepLinkService = inject(DeepLinkService);
 
   // Signals
   private currentOrganizationSignal = signal<Organization | null>(null);
@@ -642,7 +644,7 @@ export class OrganizationService {
             inviterName: firebaseUser.email || 'Administrador',
             inviterEmail: firebaseUser.email || '',
             inviteToken: inviteCode,
-            joinUrl: `${window.location.origin}/join/${inviteCode}`,
+            joinUrl: `geopoint://join/${inviteCode}`,
             expirationDate: expiresAt,
             personalMessage: inviteRequest.message || request.personalMessage,
             userRole: inviteRequest.role || request.defaultRole,
@@ -1338,9 +1340,9 @@ export class OrganizationService {
       });
     }
 
-    console.log('✅ Miembro agregado a la organización:', userData.email);
+    console.log(' Miembro agregado a la organización:', userData.email);
   } catch (error) {
-    console.error('❌ Error añadiendo miembro:', error);
+    console.error(' Error añadiendo miembro:', error);
     const errorMsg = error instanceof Error ? error.message : 'Error añadiendo miembro';
     this.lastErrorSignal.set(errorMsg);
     throw error;
@@ -1361,6 +1363,11 @@ export class OrganizationService {
    */
   clearLastError(): void {
     this.lastErrorSignal.set(null);
+  }
+
+  private generateJoinUrl(inviteCode: string): string {
+
+    return `https://geopoint.app/join/${inviteCode}`;
   }
 }
 

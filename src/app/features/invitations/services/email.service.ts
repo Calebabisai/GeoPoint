@@ -112,6 +112,7 @@ export class EmailService {
         message: emailTemplate.textBody,
         organization_name: config.organizationName,
         join_url: config.joinUrl,
+        invite_token: config.inviteToken, // ← AGREGAR ESTA LÍNEA
         user_role: config.userRole,
         department: config.department || '',
         personal_message: config.personalMessage || '',
