@@ -4217,7 +4217,7 @@ Name: base/dex/classes2.dex
 SHA-256-Digest: vYcdg5pPEfhzWXg1kCh7uIRZ4WN1wTc2Cx8ZMZiQZxc=
 
 Name: base/manifest/AndroidManifest.xml
-SHA-256-Digest: RhWyUH/yey3Gf4Lh1jpwKAKPK/ZS20IshebTzjcXFSc=
+SHA-256-Digest: 3bLSmVO0dX+Q86VWtYtqQuFE5TMUIPaP6Txm/mLI3Vs=
 
 Name: base/res/anim-v21/fragment_fast_out_extra_slow_in.xml
 SHA-256-Digest: mMWWmImvmwVyS8dM8vkjlQs3c3/cqLaEXfDdJ0ALabw=
