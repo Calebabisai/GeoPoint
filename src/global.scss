@@ -1,8 +1,3 @@
-/*
- * GeoPoint - Estilos Globales Estilo Uber
- * ----------------------------------------------------------------------------
- * Tema oscuro profesional inspirado en Uber
- */
 
 /* Core CSS required for Ionic components to work properly */
 @import "@ionic/angular/css/core.css";
@@ -26,7 +21,6 @@
 /* Leaflet CSS para mapas */
 @import "leaflet/dist/leaflet.css";
 
-/* === ESTILOS GLOBALES ESTILO UBER === */
 
 * {
   box-sizing: border-box;
@@ -409,7 +403,7 @@ ion-fab-button {
 
 /* === UTILIDADES === */
 
-/* Efectos de hover estilo Uber */
+/* Efectos de hover */
 .hover-lift {
   transition: all 0.2s ease;
   

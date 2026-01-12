@@ -49,7 +49,8 @@ export class EmailService {
   }
 
   /**
-   * Inicializa EmailJS
+   * Inicializa EmailJs con la clave publica.
+   * Este metodo asegura que EmailJS este configuradop correctamente antes de enviar correos
    */
   private initializeEmailJS(): void {
     if (this.EMAILJS_PUBLIC_KEY === 'P8VW0wTiHSQj6qIPX') {
@@ -58,7 +59,11 @@ export class EmailService {
   }
 
   /**
-   * Envía una invitación por email
+   * Envía una invitación por correo electrónico.
+   * @param invite - Información del destinatario de la invitación.
+   * @param config - Configuración del correo, incluyendo el nombre de la organización, el rol del usuario, y el mensaje personalizado.
+   * 
+   * Este método utiliza EmailJS para enviar un correo electrónico con una plantilla específica.
    */
   async sendInvitation(
     invite: OrganizationInvite,
@@ -93,7 +98,12 @@ export class EmailService {
   }
 
   /**
-   * Envía email usando EmailJS
+   * Envía un correo electrónico utilizando EmailJS.
+   * @param toEmail - Dirección de correo del destinatario.
+   * @param emailTemplate - Plantilla del correo que incluye el asunto, el cuerpo en HTML y texto plano.
+   * @param config - Configuración adicional del correo.
+   * 
+   * Este método construye los parámetros necesarios para la plantilla y los envía a través de EmailJS.
    */
   private async sendEmailViaEmailJS(
     toEmail: string,
@@ -136,7 +146,12 @@ export class EmailService {
   }
 
   /**
-   * Envía un email de bienvenida
+   * Envía un correo de bienvenida a un nuevo usuario.
+   * @param userEmail - Dirección de correo del usuario.
+   * @param organizationName - Nombre de la organización.
+   * @param userRole - Rol del usuario en la organización.
+   * 
+   * Este método utiliza una plantilla de bienvenida para enviar un correo al usuario.
    */
   async sendWelcomeEmail(
     userEmail: string,
@@ -179,7 +194,11 @@ export class EmailService {
   }
 
   /**
-   * Envía recordatorio de invitación
+   * Envía un recordatorio de invitación por correo electrónico.
+   * @param invite - Información del destinatario de la invitación.
+   * @param config - Configuración del correo, incluyendo el mensaje personalizado y la fecha de expiración.
+   * 
+   * Este método envía un recordatorio al usuario indicando cuántos días quedan antes de que expire la invitación.
    */
   async sendInvitationReminder(
     invite: OrganizationInvite,
@@ -216,16 +235,17 @@ export class EmailService {
       this.isSendingSignal.set(false);
     }
   }
-
   /**
-   * Limpia el error
+   * Limpia el último error registrado.
+   * Este método se utiliza para reiniciar el estado de error.
    */
   clearError(): void {
     this.lastErrorSignal.set(null);
   }
 
   /**
-   * Resetea el contador
+   * Resetea el contador de correos enviados.
+   * Este método se utiliza para reiniciar el contador a cero.
    */
   resetEmailCount(): void {
     this.sentEmailsCountSignal.set(0);
